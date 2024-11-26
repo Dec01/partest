@@ -23,4 +23,3 @@ class TestHealthCheck:
         )
         assert response is not None
         assert isinstance(response, dict)
-
