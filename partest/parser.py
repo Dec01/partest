@@ -110,16 +110,28 @@ class OpenAPIParser:
                                 content['schema'] = resolved_schema
                             responses[code] = Response(code, response)
 
+                # Safely extract the description
+                description = self.safe_get_description(details)
+
                 result.append(Path(
                     path=path,
                     method=method.upper(),
-                    description=details.get('description', ''),
+                    description=description,
                     parameters=parameters,
                     request_body=request_body,
                     responses=responses
                 ))
 
         return result
+
+    def safe_get_description(self, details):
+        """Safely retrieve the description from details."""
+        if isinstance(details, dict):
+            return details.get('description', '')
+        elif isinstance(details, list) and details:
+            # If the first element is a dictionary, try to get description from it
+            return details[0].get('description', '') if isinstance(details[0], dict) else ''
+        return ''
 
     def resolve_param(self, param):
         if '$ref' in param:
