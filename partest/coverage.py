@@ -3,11 +3,12 @@ from functools import wraps
 from typing import Callable
 from uuid import UUID
 
-from partest import call_count, call_type
+from confpartest import swagger_files
+from partest.api_call_storage import call_count, call_type
 from partest.swagger_settings import SwaggerSettings
 
 swagger_settings = SwaggerSettings()
-swagger_settings.add_swagger('local', swagger_settings.local_files[0])
+swagger_settings.add_swagger(swagger_files)
 paths_info = swagger_settings.collect_paths_info()
 
 def track_api_calls(func: Callable) -> Callable:

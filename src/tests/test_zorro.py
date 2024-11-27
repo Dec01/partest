@@ -1,14 +1,11 @@
 import allure
 import pytest
 
+from confpartest import test_types_coverage
 from partest.allure_graph import create_chart
 from partest.api_call_storage import call_count, call_type
-from partest.test_types import TypesTestCases
-from src.models.user_paths import PathsServices
 
-types = TypesTestCases
-service = PathsServices.services_paths.get('article')
-
+types = test_types_coverage
 
 @allure.epic('Сводка')
 @allure.feature('Оценка покрытия')
@@ -33,23 +30,23 @@ class TestCoverAge:
                 total_calls_excluding_generation += count
 
             # Проверка на наличие обязательных типов тестов
-            type_default = 'default'
-            type_405 = '405'
             coverage_status = "Недостаточное покрытие ❌"
+            matched_types = set(types).intersection(types)  # Находим совпадения
+            count_matched = len(matched_types)
 
             # Логика для определения статуса покрытия и расчета процента
-            if count >= 2:
+            if count_matched == len(types):  # Все типы присутствуют
                 coverage_status = "Покрытие выполнено ✅"
                 total_coverage_percentage += 100
-            elif type_default in types and type_405 in types:
-                coverage_status = "Покрытие выполнено ✅"
-                total_coverage_percentage += 100
-            elif count < 2:
-                if type_default in types or type_405 in types:
-                    coverage_status = "Покрытие выполнено на 50% 🔔"
-                    total_coverage_percentage += 50
-                else:
-                    total_coverage_percentage += 0
+            elif count_matched == 2:  # Два типа присутствуют
+                coverage_status = "Покрытие выполнено на 66% 🔔"
+                total_coverage_percentage += 66
+            elif count_matched == 1:  # Один тип присутствует
+                coverage_status = "Покрытие выполнено на 33% ❌"
+                total_coverage_percentage += 33
+            else:  # Нет типов
+                coverage_status = "Недостаточное покрытие ❌"
+                total_coverage_percentage += 0
 
             report_line = (
                 f"\n{description}\nЭндпоинт: {endpoint}\nМетод: {method} | "
@@ -63,14 +60,11 @@ class TestCoverAge:
         else:
             average_coverage_percentage = 0
 
-
         border = "*" * 50
         summary = f"{border}\nОбщий процент покрытия: {average_coverage_percentage:.2f}%\nОбщее количество вызовов (исключая 'generation_data'): {total_calls_excluding_generation}\n{border}\n"
 
         # Добавляем сводку в начало отчета
         report_lines.insert(0, summary)
-
-        # print(summary)
 
         create_chart(call_count)
 
@@ -80,4 +74,3 @@ class TestCoverAge:
         allure.attach("\n".join(report_lines), name='Отчет по вызовам API', attachment_type=allure.attachment_type.TEXT)
 
         assert True
-

@@ -1,14 +1,16 @@
 from partest.parser import OpenAPIParser
-from parsettings.settings import swagger_file
+from confpartest import swagger_files
 
 class SwaggerSettings:
     def __init__(self):
-        self.local_files = swagger_file
+        self.local_files = []  # Пустой список для локальных файлов
         self.swaggers = []
+        self.add_swagger(swagger_files)  # Добавляем сваггеры из swagger_file
 
-    def add_swagger(self, source_type, path):
-        """Добавляет сваггер в список swaggers."""
-        self.swaggers.append((source_type, path))
+    def add_swagger(self, swagger_dict):
+        """Добавляет сваггеры из словаря в список swaggers."""
+        for name, (source_type, path) in swagger_dict.items():
+            self.swaggers.append((source_type, path))
 
     def load_swagger(self):
         """Загружает сваггеры и возвращает их данные."""
@@ -32,18 +34,4 @@ class SwaggerSettings:
                 'parameters': item.parameters
             })
         return paths_info
-
-swagger_settings = SwaggerSettings()
-swagger_settings.add_swagger('local', swagger_settings.local_files[0])
-#swagger_settings.add_swagger('url', 'https://url.ru/swagger.yaml')
-
-# Пример использования
-if __name__ == '__main__':
-    paths_info = swagger_settings.collect_paths_info()
-    for path in paths_info:
-        print(f"{path['description']}: \n{path['path']}\n{path['method']}\n{path['parameters']}")
-        for param in path['parameters']:
-            schema_content = param.schema if param.schema else "Нет схемы"
-            print(
-                f"Parameter: {param.name}, Type: {param.type}, Required: {param.required}, Description: {param.description}, Schema: {schema_content}")
 
