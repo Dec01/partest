@@ -1,7 +1,7 @@
 import allure
 import pytest
 
-from partest.zorro import zorro
+from partest.zorro_report import zorro
 
 
 @allure.epic('Сводка')

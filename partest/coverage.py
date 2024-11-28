@@ -4,11 +4,10 @@ from typing import Callable
 from uuid import UUID
 
 from confpartest import swagger_files
-from partest.api_call_storage import call_count, call_type
-from partest.swagger_settings import SwaggerSettings
+from partest.call_storage import call_count, call_type
+from partest.parparser import SwaggerSettings
 
-swagger_settings = SwaggerSettings()
-swagger_settings.add_swagger(swagger_files)
+swagger_settings = SwaggerSettings(swagger_files)
 paths_info = swagger_settings.collect_paths_info()
 
 def track_api_calls(func: Callable) -> Callable:
@@ -39,7 +38,6 @@ def track_api_calls(func: Callable) -> Callable:
             add_url = kwargs.get(f'add_url{i}')
             if add_url:
                 new_param = re.sub(r'^.', '', add_url)
-
                 if is_valid_uuid(new_param):
                     endpoint += '/{uuid}'
                 else:

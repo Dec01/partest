@@ -1,6 +1,6 @@
 import time
 import pytest
-from partest import ApiClient, api_call_storage
+from partest import ApiClient, call_storage
 
 
 

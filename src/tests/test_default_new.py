@@ -6,14 +6,14 @@ from src.models.user_paths import PathsServices
 from partest.test_types import TypesTestCases
 
 types = TypesTestCases
-service = PathsServices.services_paths.get('article')
+service = PathsServices.services_paths.get('test')
 
-@allure.epic('Микросервис "Article"')
+@allure.epic('Микросервис "Test"')
 @allure.feature('Стандартная проверка')
 @allure.severity(allure.severity_level.CRITICAL)
 @pytest.mark.dev
 @pytest.mark.asyncio
-class TestArticleDefault:
+class TestTestDefault:
     _article_uuid_list = []
     _article_uuid = None
     _article_uuid_main = None
@@ -22,7 +22,7 @@ class TestArticleDefault:
     _article_source = None
     _article_source_main = None
 
-    async def test_get_article(self, api_client):
+    async def test_get(self, api_client):
         endpoint = service.get('service_endpoints_path').get('general_path').get('url')
         response = await api_client.make_request(
             'GET',
@@ -34,3 +34,7 @@ class TestArticleDefault:
         )
         assert response is not None
         assert isinstance(response, dict)
+
+        
+
+

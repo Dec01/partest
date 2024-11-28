@@ -1,8 +1,8 @@
 class PathsServices:
 
     services_paths = {
-        'article': {
-            'service_path_v1': ['/v1/article'],
+        'test': {
+            'service_path_v1': ['/v1/test'],
             'service_endpoints_path': {
                 'general_path': {
                     'url': '',

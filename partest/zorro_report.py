@@ -2,7 +2,7 @@ import allure
 
 from partest.test_types import TypesTestCases
 from partest.allure_graph import create_chart
-from partest.api_call_storage import call_count, call_type
+from partest.call_storage import call_count, call_type
 from confpartest import test_types_coverage
 
 

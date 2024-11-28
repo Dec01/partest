@@ -1,20 +1,7 @@
 from datetime import datetime, timedelta
 
-class DateGeneration:
-    @staticmethod
-    def start_date():
-        current_date = datetime.now()
-        start_date = current_date - timedelta(days=2)
-        return start_date
 
-    @staticmethod
-    def end_date():
-        current_date = datetime.now()
-        end_date = current_date + timedelta(days=2)
-        return end_date
-
-
-class dategen:
+class DateGen:
     def __init__(self):
         self._current_date = datetime.now()
         self._formats = {
