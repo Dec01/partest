@@ -7,6 +7,18 @@ from partest.utils import Logger, errordesc, StatusCode
 
 
 class ApiClient:
+    """
+    ApiClient serves not only as a client for making requests for endpoints, but also for processing these requests.
+
+    Attributes
+    ----------
+    :param domain:
+    :param verify:
+    :param follow_redirects:
+
+    """
+
+
     def __init__(self, domain, verify=False, follow_redirects=True):
         self.domain = domain
         self.verify = verify
@@ -68,7 +80,7 @@ class ApiClient:
 
     def _check_status_code(self, actual_code: int, expected_code: int, response: httpx.Response,
                            request_data: Optional[Dict[str, Any]], validate_model: Optional[Type[BaseModel]]):
-        """ Проверяем, соответствует ли фактический статус код ожидаемому статус коду. """
+        """ We check whether the actual status code corresponds to the expected status code. """
         if actual_code != expected_code:
             error_description = errordesc()
             error_description.codeExpected = expected_code
@@ -95,7 +107,7 @@ class ApiClient:
                 raise AssertionError(f"Response data validation failed: {e}")
 
     def _handle_http_error(self, err: httpx.HTTPStatusError, request_data: Optional[Dict[str, Any]]):
-        """ Обработка исключений. """
+        """ Exception handling. """
         error_description = errordesc()
         error_description.codeExpected = StatusCode.ok
         error_description.codeActual = err.response.status_code

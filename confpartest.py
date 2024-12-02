@@ -7,3 +7,5 @@ swagger_files = {
 }
 
 test_types_coverage = ['default', '405', 'param']
+
+#language = 'RU' # RU/EN

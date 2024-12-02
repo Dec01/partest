@@ -10,7 +10,7 @@ types = TypesTestCases
 required_types = test_types_coverage
 
 def zorro():
-    """Функция для отображения итогового количества вызовов API и типов тестов."""
+    """Function for displaying the total number of API calls and test types."""
     report_lines = []
     total_coverage_percentage = 0
     total_endpoints = 0
@@ -20,7 +20,6 @@ def zorro():
         types = set(call_type[(method, endpoint, description)])
         total_endpoints += 1
 
-        # Подсчет вызовов, исключая тип 'generation_data'
         if 'generation_data' not in types:
             total_calls_excluding_generation += count
 
@@ -29,7 +28,7 @@ def zorro():
         coverage_count = len(present_types)
         required_count = len(required_types)
 
-        # Логика для определения статуса покрытия и расчета процента
+        # Logic for determining the coverage status and calculating the percentage
         if coverage_count == required_count:
             coverage_percentage = 100
             coverage_status = "Покрытие выполнено ✅"
@@ -47,7 +46,7 @@ def zorro():
         )
         report_lines.append(report_line)
 
-    # Вычисление общего процента покрытия
+    # Calculation of the total coverage percentage
     if total_endpoints > 0:
         average_coverage_percentage = total_coverage_percentage / total_endpoints
     else:
@@ -55,10 +54,7 @@ def zorro():
 
     border = "*" * 50
     summary = f"{border}\nОбщий процент покрытия: {average_coverage_percentage:.2f}%\nОбщее количество вызовов (исключая 'generation_data'): {total_calls_excluding_generation}\n{border}\n"
-
-    # Добавляем сводку в начало отчета
     report_lines.insert(0, summary)
-
     create_chart(call_count)
 
     with open('api_call_counts.png', 'rb') as f:

@@ -93,10 +93,7 @@ class OpenAPIParser:
                 parameters = self.extract_parameters(details)
                 request_body = self.extract_request_body(details)
                 responses = self.extract_responses(details)
-
-                # Safely extract the description
                 description = self.safe_get_description(details)
-
                 result.append(Path(
                     path=path,
                     method=method.upper(),
@@ -184,9 +181,9 @@ class OpenAPIParser:
 class SwaggerSettings:
     """Class for managing Swagger settings and loading Swagger files."""
     def __init__(self, swagger_files):
-        self.local_files = []  # Empty list for local files
+        self.local_files = []
         self.swaggers = []
-        self.add_swagger(swagger_files)  # Add swagggers from swagger_files
+        self.add_swagger(swagger_files)
 
     def add_swagger(self, swagger_dict):
         """Adds swaggger definitions from a dictionary to the swaggers list."""

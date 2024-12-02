@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 
 def create_chart(call_count):
+    ''' Creating a graph that contains data on endpoint calls '''
     methods = []
     counts = []
 
