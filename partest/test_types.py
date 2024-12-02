@@ -5,3 +5,4 @@ class TypesTestCases:
     type_params = 'params'
     type_elem = 'elem'
     type_gen = 'generation_data'
+    type_health = 'health'

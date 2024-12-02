@@ -3,11 +3,11 @@ import allure
 from partest.test_types import TypesTestCases
 from partest.allure_graph import create_chart
 from partest.call_storage import call_count, call_type
-from confpartest import test_types_coverage
-
+from confpartest import test_types_coverage, test_types_exception
 
 types = TypesTestCases
 required_types = test_types_coverage
+exception_types = test_types_exception
 
 def zorro():
     """Function for displaying the total number of API calls and test types."""
@@ -20,7 +20,9 @@ def zorro():
         types = set(call_type[(method, endpoint, description)])
         total_endpoints += 1
 
-        if 'generation_data' not in types:
+        if 'generation_data' in types and len(types) == 1:
+            pass
+        else:
             total_calls_excluding_generation += count
 
         coverage_status = "Недостаточное покрытие ❌"
@@ -28,8 +30,10 @@ def zorro():
         coverage_count = len(present_types)
         required_count = len(required_types)
 
-        # Logic for determining the coverage status and calculating the percentage
-        if coverage_count == required_count:
+        if any(exception_type in types for exception_type in exception_types):
+            coverage_percentage = 100
+            coverage_status = "Покрытие выполнено на 100% ✅ (исключение)"
+        elif coverage_count == required_count:
             coverage_percentage = 100
             coverage_status = "Покрытие выполнено ✅"
         elif coverage_count > 0:
@@ -46,7 +50,6 @@ def zorro():
         )
         report_lines.append(report_line)
 
-    # Calculation of the total coverage percentage
     if total_endpoints > 0:
         average_coverage_percentage = total_coverage_percentage / total_endpoints
     else:
