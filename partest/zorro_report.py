@@ -19,17 +19,14 @@ def zorro():
     for (method, endpoint, description), count in call_count.items():
         types = set(call_type[(method, endpoint, description)])
         total_endpoints += 1
-
-        if 'generation_data' in types and len(types) == 1:
-            pass
-        else:
-            total_calls_excluding_generation += count
+        total_calls_excluding_generation += count
 
         coverage_status = "Недостаточное покрытие ❌"
         present_types = [test_type for test_type in required_types if test_type in types]
         coverage_count = len(present_types)
         required_count = len(required_types)
 
+        # Добавленная логика для проверки на exception_types
         if any(exception_type in types for exception_type in exception_types):
             coverage_percentage = 100
             coverage_status = "Покрытие выполнено на 100% ✅ (исключение)"
@@ -50,13 +47,14 @@ def zorro():
         )
         report_lines.append(report_line)
 
+    # Расчет общего процента покрытия
     if total_endpoints > 0:
         average_coverage_percentage = total_coverage_percentage / total_endpoints
     else:
         average_coverage_percentage = 0
 
     border = "*" * 50
-    summary = f"{border}\nОбщий процент покрытия: {average_coverage_percentage:.2f}%\nОбщее количество вызовов (исключая 'generation_data'): {total_calls_excluding_generation}\n{border}\n"
+    summary = f"{border}\nОбщий процент покрытия: {average_coverage_percentage:.2f}%\nОбщее количество вызовов: {total_calls_excluding_generation}\n{border}\n"
     report_lines.insert(0, summary)
     create_chart(call_count)
 

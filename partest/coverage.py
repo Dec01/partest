@@ -1,6 +1,6 @@
 import re
 from functools import wraps
-from typing import Callable
+from typing import Callable, Dict, Any
 from uuid import UUID
 
 from confpartest import swagger_files
@@ -9,6 +9,14 @@ from partest.parparser import SwaggerSettings
 
 swagger_settings = SwaggerSettings(swagger_files)
 paths_info = swagger_settings.collect_paths_info()
+
+def get_component(ref: str) -> Dict[str, Any]:
+
+    ref_parts = ref.split('/')
+    if len(ref_parts) > 3 and ref_parts[1] == 'components' and ref_parts[2] == 'parameters':
+        param_name = ref_parts[-1]
+        return swagger_settings.get_component(ref)  # Assumes this method retrieves the component
+    return {}
 
 def track_api_calls(func: Callable) -> Callable:
     """Decorator for tracking API calls."""
@@ -19,21 +27,27 @@ def track_api_calls(func: Callable) -> Callable:
         endpoint = args[2]
         test_type = kwargs.get('type', 'unknown')
 
-        # Собираем параметры пути из paths_info
+        # Collect path parameters from paths_info
         path_params = {}
         for path in paths_info:
             for param in path['parameters']:
-                if param.type == 'path':
-                    if param.name not in path_params:
-                        if param.schema is not None:
-                            if 'enum' in param.schema:
-                                path_params[param.name] = param.schema['enum']
-                            else:
-                                path_params[param.name] = []
+                # Check for path parameter directly in parameters
+                if param.get('in') == 'path':
+                    param_name = param.get('name')
+                    if param_name not in path_params:
+                        if param.get('schema') is not None:
+                            path_params[param_name] = param['schema'].get('enum', [])
                         else:
-                            path_params[param.name] = []
+                            path_params[param_name] = []
 
-        # Processing the add_url parameters
+                # Check for parameters that are references to other components
+                if '$ref' in param:
+                    ref_param = get_component(param['$ref'])
+                    if ref_param and ref_param.get('in') == 'path':
+                        ref_name = ref_param.get('name')
+                        path_params[ref_name] = ref_param.get('schema', {}).get('enum', [])
+
+        # Process the add_url parameters
         for i in range(1, 4):
             add_url = kwargs.get(f'add_url{i}')
             if add_url:

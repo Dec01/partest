@@ -1,3 +1,4 @@
+import allure
 import httpx
 from typing import Optional, Dict, Any, Type
 
@@ -52,8 +53,8 @@ class ApiClient:
                 self.logger.log_response(response)
 
                 if expected_status_code is not None:
-                    self._check_status_code(response.status_code, expected_status_code, response, data, validate_model)
-
+                    with allure.step("Валидация ответа"):
+                        self._check_status_code(response.status_code, expected_status_code, response, data, validate_model)
                 return response.json()
 
             except httpx.HTTPStatusError as err:
@@ -81,30 +82,31 @@ class ApiClient:
     def _check_status_code(self, actual_code: int, expected_code: int, response: httpx.Response,
                            request_data: Optional[Dict[str, Any]], validate_model: Optional[Type[BaseModel]]):
         """ We check whether the actual status code corresponds to the expected status code. """
-        if actual_code != expected_code:
-            error_description = errordesc()
-            error_description.codeExpected = expected_code
-            error_description.codeActual = actual_code
-            error_description.responseBody = response
-            error_description.requestBody = request_data
-            self.logger.error(errordesc.status(
-                codeExpected=expected_code,
-                codeActual=error_description.codeActual,
-                responseBody=error_description.responseBody
-            ))
-            raise AssertionError(f"Expected status code {expected_code}, but got {actual_code}")
-
-        if validate_model:
-            try:
-                data = response.json()
-                assert validate_model.response_default(data)
-            except ValidationError as e:
-                self.logger.error(errordesc.validate(
-                    validateModel=validate_model,
-                    validateData=data,
-                    error=str(e)
+        with allure.step(f"Проверка статус-кода ответа: ожидали {expected_code}, получили {actual_code}"):
+            if actual_code != expected_code:
+                error_description = errordesc()
+                error_description.codeExpected = expected_code
+                error_description.codeActual = actual_code
+                error_description.responseBody = response
+                error_description.requestBody = request_data
+                self.logger.error(errordesc.status(
+                    codeExpected=expected_code,
+                    codeActual=error_description.codeActual,
+                    responseBody=error_description.responseBody
                 ))
-                raise AssertionError(f"Response data validation failed: {e}")
+                raise AssertionError(f"Expected status code {expected_code}, but got {actual_code}")
+        with allure.step(f"Проверка тела ответа"):
+            if validate_model:
+                    try:
+                        data = response.json()
+                        assert validate_model.response_default(data)
+                    except ValidationError as e:
+                        self.logger.error(errordesc.validate(
+                            validateModel=validate_model,
+                            validateData=data,
+                            error=str(e)
+                        ))
+                        raise AssertionError(f"Response data validation failed: {e}")
 
     def _handle_http_error(self, err: httpx.HTTPStatusError, request_data: Optional[Dict[str, Any]]):
         """ Exception handling. """
