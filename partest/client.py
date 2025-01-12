@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any, Type
 
 from pydantic import BaseModel, ValidationError
 from partest import track_api_calls
-from partest.utils import Logger, errordesc, StatusCode
+from partest.utils import Logger, ErrorDesc, StatusCode
 
 
 class ApiClient:
@@ -179,12 +179,12 @@ class ApiClient:
         """
         with allure.step(f"Проверка статус-кода ответа: ожидали {expected_code}, получили {actual_code}"):
             if actual_code != expected_code:
-                error_description = errordesc()
+                error_description = ErrorDesc()
                 error_description.codeExpected = expected_code
                 error_description.codeActual = actual_code
                 error_description.responseBody = response
                 error_description.requestBody = request_data
-                self.logger.error(errordesc.status(
+                self.logger.error(ErrorDesc.status(
                     codeExpected=expected_code,
                     codeActual=error_description.codeActual,
                     responseBody=error_description.responseBody
@@ -196,7 +196,7 @@ class ApiClient:
                         data = response.json()
                         assert validate_model.response_default(data)
                     except ValidationError as e:
-                        self.logger.error(errordesc.validate(
+                        self.logger.error(ErrorDesc.validate(
                             validateModel=validate_model,
                             validateData=data,
                             error=str(e)
@@ -216,12 +216,12 @@ class ApiClient:
         -------
         :return: None
         """
-        error_description = errordesc()
+        error_description = ErrorDesc()
         error_description.codeExpected = StatusCode.ok
         error_description.codeActual = err.response.status_code
         error_description.responseBody = err.response
         error_description.requestBody = request_data
-        self.logger.error(errordesc.status(
+        self.logger.error(ErrorDesc.status(
             codeExpected=StatusCode.ok,
             codeActual=error_description.codeActual,
             responseBody=error_description.responseBody

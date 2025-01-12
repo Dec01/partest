@@ -30,11 +30,11 @@ def zorro():
     total_calls_excluding_generation = 0
 
     swagger_reports = {}
+    swagger_coverage = {}  # Словарь для хранения покрытия по каждому Swagger
 
     for (method, endpoint, description), count in call_count.items():
         is_deprecated = any(
-            path['path'] == endpoint and path['method'] == method and path['description'] == description and path.get(
-                'deprecated', False) for path in paths_info)
+            path.path == endpoint and path.method == method and path.description == description and path.deprecated for path in paths_info)
 
         if is_deprecated:
             continue
@@ -62,9 +62,16 @@ def zorro():
 
         total_coverage_percentage += coverage_percentage
 
-        swagger_title = "Swagger API"
+        swagger_title = next(
+            (path.source_type for path in paths_info if path.method == method and path.path == endpoint), "Unknown API")
+
         if swagger_title not in swagger_reports:
             swagger_reports[swagger_title] = []
+            swagger_coverage[swagger_title] = {'total': 0, 'count': 0}  # Инициализируем словарь для покрытия
+
+        # Обновляем покрытие для текущего Swagger
+        swagger_coverage[swagger_title]['total'] += coverage_percentage
+        swagger_coverage[swagger_title]['count'] += 1
 
         report_line = (
             f"\n{description}\nЭндпоинт: {endpoint}\nМетод: {method} | "
@@ -81,12 +88,19 @@ def zorro():
     summary = f"{border}\nОбщий процент покрытия: {average_coverage_percentage:.2f}%\nОбщее количество вызовов: {total_calls_excluding_generation}\n{border}\n"
     report_lines.insert(0, summary)
 
+    # Добавляем процент покрытия для каждого Swagger
+    for swagger_title, coverage in swagger_coverage.items():
+        if coverage['count'] > 0:
+            swagger_average_coverage = coverage['total'] / coverage['count']
+        else:
+            swagger_average_coverage = 0
+        report_lines.append(f"Процент покрытия для {swagger_title}: {swagger_average_coverage:.2f}%\n")
 
-    allure.attach("\n".join(report_lines), name='Общая оценка покрытия', attachment_type=allure.attachment_type.TEXT)
+    allure.attach("\n".join(report_lines), name='Процент покрытия', attachment_type=allure.attachment_type.TEXT)
 
     create_chart(call_count)
     with open('api_call_counts.png', 'rb') as f:
-        allure.attach(f.read(), name='Оценка покрытия', attachment_type=allure.attachment_type.PNG)
+        allure.attach(f.read(), name='График покрытия', attachment_type=allure.attachment_type.PNG)
 
     for swagger_title, lines in swagger_reports.items():
         allure.attach("\n".join(lines), name=swagger_title, attachment_type=allure.attachment_type.TEXT)
