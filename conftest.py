@@ -26,7 +26,6 @@ def slow_down_tests():
 
 @pytest.fixture(scope='session', autouse=True)
 def clear_call_data():
-    """Фикстура для очистки данных перед запуском тестов."""
     global call_count, call_type
     call_storage.call_count.clear()
     call_storage.call_type.clear()

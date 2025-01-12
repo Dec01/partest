@@ -125,7 +125,7 @@ class Path:
         responses (dict): The responses of the API.
         deprecated (bool): Whether the API is deprecated or not.
     """
-    def __init__(self, path, method, description, parameters, request_body, responses, deprecated=False):
+    def __init__(self, path, method, description, parameters, request_body, responses, deprecated=False, source_type=''):
         """Initializes the Path class.
 
         Args:
@@ -136,6 +136,7 @@ class Path:
             request_body (dict): The request body of the API.
             responses (dict): The responses of the API.
             deprecated (bool): Whether the API is deprecated or not.
+            source_type (str): Тип источника (local или url).
         """
         self.path = path
         self.method = method
@@ -144,6 +145,8 @@ class Path:
         self.request_body = request_body
         self.responses = responses
         self.deprecated = deprecated
+        self.source_type = source_type  # Добавляем атрибут source_type
+
 
     def __repr__(self):
         """Returns a string representation of the Path object.
@@ -151,7 +154,7 @@ class Path:
         Returns:
             str: A string representation of the Path object.
         """
-        return f"Path(path={self.path}, method={self.method}, description={self.description}, parameters={self.parameters}, request_body={self.request_body}, responses={self.responses}, deprecated={self.deprecated})"
+        return f"Path(path={self.path}, method={self.method}, description={self.description}, parameters={self.parameters}, request_body={self.request_body}, responses={self.responses}, deprecated={self.deprecated}, source_type={self.source_type})"
 
 
 class OpenAPIParser:
@@ -293,7 +296,8 @@ class OpenAPIParser:
                         parameters=parameters,
                         request_body=request_body,
                         responses=responses,
-                        deprecated=deprecated
+                        deprecated=deprecated,
+                        source_type=self.base_path  # Передаем тип источника
                     ))
                 else:
                     print(
@@ -419,6 +423,7 @@ class SwaggerSettings:
         self.local_files = []
         self.swaggers = []
         self.paths_info = []
+        self.swagger_titles = {}  # Словарь для хранения заголовков Swagger
         self.add_swagger(swagger_files)
 
     def add_swagger(self, swagger_dict):
@@ -439,26 +444,34 @@ class SwaggerSettings:
         all_extracted_data = []
         for source_type, path in self.swaggers:
             parser = OpenAPIParser.load_swagger_yaml(source_type, path)
+            swagger_title = parser.swagger_dict.get('info', {}).get('title', 'Unknown API')
+            self.swagger_titles[swagger_title] = (source_type, path)
             extracted_data = parser.extract_paths_info()
             all_extracted_data.extend(extracted_data)
         return all_extracted_data
 
     def collect_paths_info(self):
-        """Collects path information from all swagger definitions.
+        """Собирает информацию о путях из всех определений Swagger.
 
         Returns:
-            list: A list of path information.
+            list: Список информации о путях.
         """
         extracted_data = self.load_swagger()
         self.paths_info = []
 
         for item in extracted_data:
             if not item.deprecated:
-                self.paths_info.append({
-                    'description': item.description,
-                    'path': item.path,
-                    'method': item.method,
-                    'parameters': item.parameters
-                })
+                # Создаем объект Path и добавляем его в paths_info
+                path_obj = Path(
+                    path=item.path,
+                    method=item.method,
+                    description=item.description,
+                    parameters=item.parameters,
+                    request_body=item.request_body,
+                    responses=item.responses,
+                    deprecated=item.deprecated,
+                    source_type=item.source_type  # Передаем тип источника
+                )
+                self.paths_info.append(path_obj)  # Добавляем объект Path
 
         return self.paths_info
