@@ -1,4 +1,5 @@
 ## Partest
+Pypi: https://pypi.org/project/partest/
 
 This is a framework for API autotests with coverage assessment. Detailed instructions in the process of writing. It is better to check with the author how to use it. Tools are used:
 
