@@ -1,5 +1,5 @@
 from pydantic import Field, ValidationError, BaseModel, field_validator
-from src.models.processings.response import PydanticResponseError
+from partest.utils import PydanticResponseError
 
 
 class HealthValidateSchema(BaseModel):

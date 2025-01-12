@@ -36,7 +36,7 @@ def track_api_calls(func: Callable) -> Callable:
             # Collect path parameters and their enums from paths_info
             path_params = {}
             for path in paths_info:
-                for param in path['parameters']:
+                for param in path.parameters:  # Изменено с path['parameters'] на path.parameters
                     if param.type == 'path':
                         if param.name not in path_params:
                             if param.schema is not None and 'enum' in param.schema:
@@ -78,8 +78,8 @@ def track_api_calls(func: Callable) -> Callable:
         if method is not None and final_endpoint is not None:
             found_match = False
             for path in paths_info:
-                if path['method'] == method and path['path'] == final_endpoint:
-                    key = (method, final_endpoint, path['description'])
+                if path.method == method and path.path == final_endpoint:  # Изменено с path['method'] на path.method
+                    key = (method, final_endpoint, path.description)  # Изменено с path['description'] на path.description
                     call_count[key] = call_count.get(key, 0) + 1
                     call_type[key] = call_type.get(key, []) + [test_type]
                     found_match = True
@@ -87,7 +87,7 @@ def track_api_calls(func: Callable) -> Callable:
 
             # Add unmatched paths with 0 calls
             for path in paths_info:
-                key = (path['method'], path['path'], path['description'])
+                key = (path.method, path.path, path.description)  # Изменено с path['method'] на path.method
                 if key not in call_count:
                     call_count[key] = 0
                     call_type[key] = []

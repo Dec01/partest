@@ -1,7 +1,7 @@
 
 
 swagger_files = {
-    'test1': ['local', '/home/dec01/PycharmProjects/portfolio/partest/docs/app-openapi.yaml']
+    'test1': ['local', '../docs/openapi.yaml']
 }
 
 test_types_coverage = ['default', '405', 'param']
