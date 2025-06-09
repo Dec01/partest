@@ -3,12 +3,21 @@ from functools import wraps
 from typing import Callable
 from uuid import UUID
 
-from confpartest import swagger_files
-from partest.call_storage import call_count, call_type
-from partest.parparser import SwaggerSettings
+try:
+    from confpartest import swagger_files
+    from partest.parparser import SwaggerSettings
+    SWAGGER_AVAILABLE = True
+except ImportError:
+    swagger_files = None
+    SWAGGER_AVAILABLE = False
 
-swagger_settings = SwaggerSettings(swagger_files)
-paths_info = swagger_settings.collect_paths_info()
+# Инициализация swagger_settings только если swagger_files доступен
+paths_info = []
+if SWAGGER_AVAILABLE and swagger_files:
+    swagger_settings = SwaggerSettings(swagger_files)
+    paths_info = swagger_settings.collect_paths_info()
+
+from partest.call_storage import call_count, call_type
 
 def track_api_calls(func: Callable) -> Callable:
     """
@@ -20,9 +29,12 @@ def track_api_calls(func: Callable) -> Callable:
     Returns:
     Callable: The decorated function.
     """
-
     @wraps(func)
     async def wrapper(*args, **kwargs):
+        # Если Swagger недоступен, просто выполняем функцию без отслеживания
+        if not SWAGGER_AVAILABLE or not swagger_files:
+            return await func(*args, **kwargs)
+
         method = args[1]
         endpoint = args[2]
         test_type = kwargs.get('type', 'unknown')
@@ -36,7 +48,7 @@ def track_api_calls(func: Callable) -> Callable:
             # Collect path parameters and their enums from paths_info
             path_params = {}
             for path in paths_info:
-                for param in path.parameters:  # Изменено с path['parameters'] на path.parameters
+                for param in path.parameters:
                     if param.type == 'path':
                         if param.name not in path_params:
                             if param.schema is not None and 'enum' in param.schema:
@@ -78,8 +90,8 @@ def track_api_calls(func: Callable) -> Callable:
         if method is not None and final_endpoint is not None:
             found_match = False
             for path in paths_info:
-                if path.method == method and path.path == final_endpoint:  # Изменено с path['method'] на path.method
-                    key = (method, final_endpoint, path.description)  # Изменено с path['description'] на path.description
+                if path.method == method and path.path == final_endpoint:
+                    key = (method, final_endpoint, path.description)
                     call_count[key] = call_count.get(key, 0) + 1
                     call_type[key] = call_type.get(key, []) + [test_type]
                     found_match = True
@@ -87,7 +99,7 @@ def track_api_calls(func: Callable) -> Callable:
 
             # Add unmatched paths with 0 calls
             for path in paths_info:
-                key = (path.method, path.path, path.description)  # Изменено с path['method'] на path.method
+                key = (path.method, path.path, path.description)
                 if key not in call_count:
                     call_count[key] = 0
                     call_type[key] = []
