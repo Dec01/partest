@@ -8,7 +8,7 @@ def readme():
 
 setup(
   name='partest',
-  version='0.2.4',
+  version='0.2.5',
   author='dec01',
   author_email='parschin.ewg@yandex.ru',
   description='This is a module for the rapid implementation of test cases with coverage tracking. This module contains a call counter for specific endpoints and their methods. As well as the function of determining the types of tests that need to be counted.',
