@@ -49,6 +49,8 @@ def track_api_calls(func: Callable) -> Callable:
             path_params = {}
             for path in paths_info:
                 for param in path.parameters:
+                    if param is None:  # Skip None parameters
+                        continue
                     if param.type == 'path':
                         if param.name not in path_params:
                             if param.schema is not None and 'enum' in param.schema:
