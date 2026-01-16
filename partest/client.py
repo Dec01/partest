@@ -2,7 +2,7 @@ import allure
 import httpx
 from typing import Optional, Dict, Any, Type
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, RootModel
 from partest import track_api_calls
 from partest.utils import Logger, ErrorDesc, StatusCode
 
@@ -107,13 +107,15 @@ class ApiClient:
         async with httpx.AsyncClient(verify=self.verify, follow_redirects=self.follow_redirects) as client:
             try:
                 response = await self._perform_request(client, method, url, params, headers, data, data_type, files)
-
                 self.logger.log_response(response)
 
                 if expected_status_code is not None:
                     with allure.step("Валидация ответа"):
                         self._check_status_code(response.status_code, expected_status_code, response, data,
                                                 validate_model)
+
+                if not response.text:  # Если тело ответа пустое
+                    return ''
 
                 try:
                     return response.json()
@@ -190,11 +192,51 @@ class ApiClient:
                     responseBody=error_description.responseBody
                 ))
                 raise AssertionError(f"Expected status code {expected_code}, but got {actual_code}")
+
         with allure.step(f"Проверка тела ответа"):
             if validate_model:
+                if not response.text:  # Если тело ответа пустое
                     try:
-                        data = response.json()
-                        assert validate_model.response_default(data)
+                        if 200 <= actual_code < 300:
+                            validate_model.validate_success({})  # Пустой словарь для валидации
+                        else:
+                            validate_model.validate_error({})  # Пустой словарь для валидации ошибок
+                    except ValidationError as e:
+                        self.logger.error(ErrorDesc.validate(
+                            validateModel=validate_model,
+                            validateData={},
+                            error=str(e)
+                        ))
+                        raise AssertionError(f"Response data validation failed for empty response: {e}")
+                else:
+                    try:
+                        data = response.json()  # Пытаемся парсить как JSON
+                        if 200 <= actual_code < 300:
+                            validate_model.validate_success(data)
+                        else:
+                            validate_model.validate_error(data)
+                    except ValueError:
+                        # Если не JSON, проверяем, ожидает ли модель строку (например, RootModel[str])
+                        if hasattr(validate_model, 'ResponseSuccessBody') and issubclass(
+                                validate_model.ResponseSuccessBody,
+                                RootModel) and validate_model.ResponseSuccessBody.__annotations__.get('root') == str:
+                            try:
+                                if 200 <= actual_code < 300:
+                                    validate_model.validate_success(response.text)
+                                else:
+                                    validate_model.validate_error(response.text)
+                            except ValidationError as e:
+                                self.logger.error(ErrorDesc.validate(
+                                    validateModel=validate_model,
+                                    validateData=response.text,
+                                    error=str(e)
+                                ))
+                                raise AssertionError(f"Response data validation failed for string response: {e}")
+                        else:
+                            self.logger.error(
+                                f"Failed to parse JSON response and model does not expect a string: {response.text}")
+                            raise AssertionError(
+                                f"Failed to parse JSON response and model does not expect a string: {response.text}")
                     except ValidationError as e:
                         self.logger.error(ErrorDesc.validate(
                             validateModel=validate_model,
@@ -202,7 +244,6 @@ class ApiClient:
                             error=str(e)
                         ))
                         raise AssertionError(f"Response data validation failed: {e}")
-
     def _handle_http_error(self, err: httpx.HTTPStatusError, request_data: Optional[Dict[str, Any]]):
         """
         Handle HTTP error.

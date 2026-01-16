@@ -1,5 +1,4 @@
 import os
-
 import yaml
 import requests
 
@@ -318,7 +317,10 @@ class OpenAPIParser:
         if 'parameters' in details:
             for param in details['parameters']:
                 resolved_param = self.resolve_param(param)
-                parameters.append(resolved_param)
+                if resolved_param is not None:  # Skip None values
+                    parameters.append(resolved_param)
+                else:
+                    print(f"Warning: Skipping invalid parameter in {details.get('operationId', 'unknown operation')}")
         return parameters
 
     def extract_request_body(self, details):
@@ -368,26 +370,44 @@ class OpenAPIParser:
             param (dict): The parameter to resolve.
 
         Returns:
-            The resolved parameter.
+            The resolved parameter or None if resolution fails.
         """
-        if '$ref' in param:
-            ref_value = param['$ref']
-            resolved_param = self.resolve_ref(ref_value)
-            return Parameter(
-                name=resolved_param['name'],
-                param_type=resolved_param['in'],
-                required=resolved_param.get('required', False),
-                description=resolved_param.get('description', ''),
-                schema=resolved_param.get('schema')
-            )
-        else:
-            return Parameter(
-                name=param['name'],
-                param_type=param['in'],
-                required=param.get('required', False),
-                description=param.get('description', ''),
-                schema=param.get('schema')
-            )
+        try:
+            if '$ref' in param:
+                ref_value = param['$ref']
+                resolved_param = self.resolve_ref(ref_value)
+                if resolved_param is None:
+                    print(f"Warning: Failed to resolve reference '{ref_value}'. Skipping parameter.")
+                    return None
+                # Ensure resolved_param is a dictionary and has required keys
+                if not isinstance(resolved_param, dict):
+                    print(f"Warning: Resolved parameter for '{ref_value}' is not a dictionary. Skipping parameter.")
+                    return None
+                return Parameter(
+                    name=resolved_param['name'],
+                    param_type=resolved_param['in'],
+                    required=resolved_param.get('required', False),
+                    description=resolved_param.get('description', ''),
+                    schema=resolved_param.get('schema')
+                )
+            else:
+                # Validate that param is a dictionary and has required keys
+                if not isinstance(param, dict):
+                    print(f"Warning: Parameter is not a dictionary. Skipping parameter: {param}")
+                    return None
+                return Parameter(
+                    name=param['name'],
+                    param_type=param['in'],
+                    required=param.get('required', False),
+                    description=param.get('description', ''),
+                    schema=param.get('schema')
+                )
+        except KeyError as e:
+            print(f"Warning: Missing key {e} in parameter data. Skipping parameter: {param}")
+            return None
+        except Exception as e:
+            print(f"Warning: Error processing parameter: {e}. Skipping parameter: {param}")
+            return None
 
     def safe_get_description(self, details):
         """Safely retrieves the description from details.
@@ -461,12 +481,14 @@ class SwaggerSettings:
 
         for item in extracted_data:
             if not item.deprecated:
+                # Filter out None parameters
+                valid_parameters = [param for param in item.parameters if param is not None]
                 # Создаем объект Path и добавляем его в paths_info
                 path_obj = Path(
                     path=item.path,
                     method=item.method,
                     description=item.description,
-                    parameters=item.parameters,
+                    parameters=valid_parameters,  # Use filtered parameters
                     request_body=item.request_body,
                     responses=item.responses,
                     deprecated=item.deprecated,
