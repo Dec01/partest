@@ -89,7 +89,7 @@ allow_version_literals: true
 | **LIB-COV-META** | `meta.workers`, `merged`, `partialRun`, `callsTotal`, `unseenRatio` | ✅ |
 | **LIB-COV-TIMING** | `elapsed_ms` на вызове, агрегаты avg/p50/p95/max и разбивка по типам | ✅ |
 | **LIB-COV-HIST-2** | `keep=2` по умолчанию, обрезка старых снапшотов, `previous_snapshot` | ✅ |
-| **LIB-COV-HTML** | баннер частичного прогона, KPI `unseen` с кликом в фильтр, видимый сброс, generic-пресеты, KPI latency | ✅ частично: drawer, hash-URL, экспорт CSV и палитра Ctrl+K не сделаны |
+| **LIB-COV-HTML** | баннер, KPI `unseen` с кликом в фильтр, видимый сброс, generic-пресеты, колонка p95 с порогами, фильтры в URL, экспорт CSV/JSON/markdown, весь текст английский | ✅ кроме палитры Ctrl+K и отдельного drawer (есть раскрывающаяся строка) |
 | **LIB-SUBTYPE-OVERRIDE** | YAML/dict `(METHOD, template) → subtype`; применяется внутри `classify_endpoint`, поэтому виден декоратору | ✅ |
 | **LIB-COV-CMP kind-aware** | `not_run` отдельно от `regressed`, `comparable` + `warnings`, `compare --strict` | ✅ |
 

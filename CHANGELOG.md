@@ -135,6 +135,18 @@
   p95 appear once calls carry timings (LIB-COV-HTML, partly — drawer, hash-URL filters,
   CSV export and the command palette are still open).
 
+### Added — report vitrine
+
+- A **p95 ms** column in the matrix, coloured by the methodology thresholds (under 100
+  fine, under 300 worth a look, above that bad). Endpoints with no measurement sort to
+  the bottom whichever way the column is sorted: "unknown" is neither the fastest nor
+  the slowest thing in the list.
+- The active filter now lives in the URL, so a filtered view is a link you can send.
+  A link wins over whatever the browser remembered locally.
+- **Markdown** export of the current view, ready to paste into a ticket, carrying the
+  partial-run or unmerged-workers caveat when there is one — the table travels, so the
+  warning travels with it.
+
 ### Fixed — report template
 
 - The shipped template hardcoded a consumer's service names in its filter presets and
@@ -143,6 +155,8 @@
 - Opening the report from a sandboxed or `data:` context blanked the whole page: the
   first `localStorage` access threw and no rendering ran at all. Every access is guarded,
   so persistence degrades instead of taking the report with it.
+- The template mixed Russian and English in a page that ships to every user. It is now
+  English throughout.
 
 ### Added — access, hooks and cleanup
 

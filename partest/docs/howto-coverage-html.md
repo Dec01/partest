@@ -88,8 +88,18 @@ Counters are clickable: **Not called this run** filters the matrix down to exact
 nothing touched, which is the difference between "we have no tests here" and "this selection did
 not reach it". `Reset filters` clears everything, including the presets.
 
-Latency appears once calls carry timings: average and p95 in the header, per-endpoint detail in
-the JSON under `timing`.
+Latency appears once calls carry timings: average and p95 in the header, a **p95 ms** column in
+the matrix coloured by the usual thresholds (under 100 fine, under 300 worth a look, above that
+bad), and per-endpoint detail in the JSON under `timing`. Endpoints with no measurement sort to
+the bottom whichever way you sort that column — "unknown" is neither fast nor slow.
+
+The current filter lives in the URL, so a filtered view is a link you can send: click
+**Not called this run**, copy the address, and the person who opens it sees the same list. A link
+wins over whatever the browser remembered locally.
+
+**Markdown** exports the current view as a table ready to paste into a ticket, with the run caveat
+appended when the numbers came from a partial or unmerged run — the table travels, so the warning
+has to travel with it.
 
 Filters persist between visits where the browser allows it; opened from a restricted context the
 page still renders, it simply stops remembering.

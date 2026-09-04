@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7431
+      "chars": 7400
     },
     {
       "slug": "components/overview",
@@ -561,7 +561,7 @@
           "text": "Reading the page honestly"
         }
       ],
-      "chars": 3404
+      "chars": 4112
     },
     {
       "slug": "howto/enterprise",
@@ -1369,6 +1369,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-04 · update · витрина: задержки, ссылки на фильтр, markdown"
+        },
+        {
+          "level": 2,
           "text": "2026-09-04 · update · бэклог закрыт, обслуживание пакета"
         },
         {
@@ -1408,7 +1412,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 9697
+      "chars": 10829
     },
     {
       "slug": "proposals",
@@ -1557,7 +1561,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 7316
+      "chars": 7375
     },
     {
       "slug": "WIKI",

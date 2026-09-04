@@ -666,3 +666,58 @@ def test_wait_for_reports_what_it_last_saw():
 
     with pytest.raises(AssertionError, match=r"import did not happen within 0s.*last observation: \[\]"):
         wait_for(lambda: [], timeout=0, interval=0, description="import")
+
+
+# --- LIB-COV-HTML: latency, shareable filters, markdown -------------------
+
+
+def test_matrix_carries_a_latency_column():
+    from partest.reports.interactive_html import render_html
+
+    html = render_html(_html_payload(), title="t")
+
+    assert '["p95", "p95 ms"]' in html, "latency belongs next to coverage, not only in a KPI"
+    assert "function msClass" in html and "v >= 300" in html, "thresholds from the methodology"
+
+
+def test_unmeasured_endpoints_sort_last_in_both_directions():
+    """"No measurement" is neither fast nor slow; it must not head either ordering."""
+    from partest.reports.interactive_html import render_html
+
+    html = render_html(_html_payload(), title="t")
+
+    assert 'if (rules.some(r => r.key === "p95"))' in html
+    assert "return am ? 1 : -1;" in html
+
+
+def test_filters_are_shareable_through_the_url():
+    from partest.reports.interactive_html import render_html
+
+    html = render_html(_html_payload(), title="t")
+
+    assert "function writeHash" in html and "function readHash" in html
+    assert "history.replaceState" in html
+    # A link someone sent must beat whatever the browser remembered locally.
+    assert "readHash();" in html.split("function renderStats")[0]
+
+
+def test_markdown_export_includes_the_run_caveat():
+    """Pasting a table into a ticket must carry the reason it may be misleading."""
+    from partest.reports.interactive_html import render_html
+
+    html = render_html(_html_payload(), title="t")
+
+    assert "function downloadMarkdown" in html
+    assert "parallel workers without merging" in html
+    assert "Partial run: some endpoints were never called." in html
+
+
+def test_shipped_report_is_english_only():
+    """The template ships to every user; mixed-language UI is not acceptable there."""
+    import re
+
+    from partest.reports.interactive_html import render_html
+
+    html = render_html(_html_payload(), title="t")
+    stray = sorted({m.group(0) for m in re.finditer(r"[Ѐ-ӿ]+", html)})
+    assert not stray, f"Cyrillic left in the shipped template: {stray[:5]}"
