@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7038
+      "chars": 7171
     },
     {
       "slug": "components/overview",
@@ -555,9 +555,13 @@
         {
           "level": 2,
           "text": "Comparing two runs"
+        },
+        {
+          "level": 2,
+          "text": "Reading the page honestly"
         }
       ],
-      "chars": 2600
+      "chars": 3404
     },
     {
       "slug": "howto/enterprise",
@@ -1228,6 +1232,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-04 · update · витрина покрытия говорит о качестве прогона"
+        },
+        {
+          "level": 2,
           "text": "2026-09-04 · update · override подтипов и compare с учётом kind"
         },
         {
@@ -1251,7 +1259,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 6101
+      "chars": 6922
     },
     {
       "slug": "proposals",
@@ -1400,7 +1408,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 6915
+      "chars": 7005
     },
     {
       "slug": "WIKI",

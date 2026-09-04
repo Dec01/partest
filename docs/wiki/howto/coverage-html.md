@@ -83,3 +83,19 @@ merged, or one where a fifth of the endpoints went untouched, is flagged as not 
 stay quiet about a real loss hidden behind one.
 
 Related: [[concepts/coverage-honesty]]
+
+## Reading the page honestly
+
+The report opens with a red banner when the run behind it does not describe the whole suite —
+parallel workers that were never merged, or a large share of endpoints never called. Do not
+compare an average from such a run with anything.
+
+Counters are clickable: **Not called this run** filters the matrix down to exactly the endpoints
+nothing touched, which is the difference between "we have no tests here" and "this selection did
+not reach it". `Reset filters` clears everything, including the presets.
+
+Latency appears once calls carry timings: average and p95 in the header, per-endpoint detail in
+the JSON under `timing`.
+
+Filters persist between visits where the browser allows it; opened from a restricted context the
+page still renders, it simply stops remembering.
