@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7255
+      "chars": 7038
     },
     {
       "slug": "components/overview",
@@ -247,6 +247,10 @@
           "text": "Axis A — method subtype"
         },
         {
+          "level": 1,
+          "text": "or a YAML file:"
+        },
+        {
           "level": 2,
           "text": "Axis B — test-case type"
         },
@@ -267,7 +271,7 @@
           "text": "What \"100% covered\" means here"
         }
       ],
-      "chars": 3805
+      "chars": 4546
     },
     {
       "slug": "decisions/docs-architecture",
@@ -547,9 +551,13 @@
         {
           "level": 2,
           "text": "HTML"
+        },
+        {
+          "level": 2,
+          "text": "Comparing two runs"
         }
       ],
-      "chars": 1766
+      "chars": 2600
     },
     {
       "slug": "howto/enterprise",
@@ -1220,6 +1228,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-04 · update · override подтипов и compare с учётом kind"
+        },
+        {
+          "level": 2,
           "text": "2026-09-04 · update · реализовано P0-ядро волны 1.7"
         },
         {
@@ -1239,7 +1251,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 5366
+      "chars": 6101
     },
     {
       "slug": "proposals",
@@ -1388,7 +1400,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 6856
+      "chars": 6915
     },
     {
       "slug": "WIKI",

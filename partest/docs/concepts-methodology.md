@@ -20,6 +20,23 @@ DELETE) plus operational specializations (`get_by_parent`, `get_by_self`, `delet
 Assignment is done by `classify_endpoint` (`partest/methodology/classifier.py`). The classifier is
 a heuristic over method + path segments; it is the part most likely to be wrong on an unusual API.
 
+A wrong subtype does not fail anything — the endpoint just gets the required test-case set of some
+other kind of operation, and the coverage number is confidently wrong. When you spot one, say so
+explicitly in `confpartest.py`:
+
+```python
+subtype_overrides = {
+    "POST /orders/{id}/lines": "action",       # not a create under a parent
+    "GET /reports/summary": "get_static_object",
+}
+# or a YAML file:
+subtype_overrides = "src/api/resources/coverage/subtypes.yaml"
+```
+
+Routes match by shape, so `{id}` and `{orderId}` are the same route. An unknown subtype or a
+malformed key raises at load time rather than being ignored — an override that silently does
+nothing is indistinguishable from the misclassification it was written to fix.
+
 ## Axis B — test-case type
 
 What is being checked. Canonical names live in `TypesTestCases`

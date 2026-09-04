@@ -269,3 +269,140 @@ def test_parallel_run_sees_every_endpoint(tmp_path, parallel):
     if parallel:
         assert data["run"]["merged"] is True
         assert data["run"]["workers"] == 2
+
+
+# --- LIB-SUBTYPE-OVERRIDE -------------------------------------------------
+
+
+@pytest.fixture
+def no_overrides():
+    from partest.methodology.overrides import clear_subtype_overrides
+
+    clear_subtype_overrides()
+    yield
+    clear_subtype_overrides()
+
+
+def test_override_beats_the_heuristic(no_overrides):
+    from partest.methodology.classifier import classify_endpoint
+    from partest.methodology.overrides import set_subtype_overrides
+    from partest.methodology.subtypes import MethodSubtype
+
+    assert classify_endpoint("POST", "/orders/{id}/lines", "") is (
+        MethodSubtype.POST_CREATE_TO_OBJECT
+    )
+    set_subtype_overrides({"POST /orders/{id}/lines": "action"})
+    assert classify_endpoint("POST", "/orders/{id}/lines", "") is MethodSubtype.ACTION
+
+
+def test_override_matches_by_route_shape_not_parameter_name(no_overrides):
+    """A project should not have to spell the spec's parameter names exactly."""
+    from partest.methodology.classifier import classify_endpoint
+    from partest.methodology.overrides import set_subtype_overrides
+    from partest.methodology.subtypes import MethodSubtype
+
+    set_subtype_overrides({"GET /orders/{id}/lines": "get_static_object"})
+    assert classify_endpoint("GET", "/orders/{orderId}/lines", "") is (
+        MethodSubtype.GET_STATIC
+    )
+
+
+def test_override_reaches_the_coverage_decorator(no_overrides):
+    """The point of applying it inside the function rather than by rebinding.
+
+    ``coverage.py`` imports ``classify_endpoint`` by value at import time, before any
+    project configuration is read, so patching the module attribute would not be seen.
+    """
+    from partest.coverage import classify_endpoint as coverage_view
+    from partest.methodology.overrides import set_subtype_overrides
+    from partest.methodology.subtypes import MethodSubtype
+
+    set_subtype_overrides({"GET /items": "get_by_self"})
+    assert coverage_view("GET", "/items", "") is MethodSubtype.GET_BY_SELF
+
+
+def test_bad_override_is_rejected_loudly(no_overrides):
+    """A silently dropped override looks exactly like the bug it was meant to fix."""
+    from partest.methodology.overrides import set_subtype_overrides
+
+    with pytest.raises(ValueError, match="unknown subtype"):
+        set_subtype_overrides({"GET /a": "not_a_subtype"})
+    with pytest.raises(ValueError, match="must look like"):
+        set_subtype_overrides({"GET-a": "action"})
+
+
+def test_overrides_load_from_yaml(tmp_path, no_overrides):
+    from partest.methodology.classifier import classify_endpoint
+    from partest.methodology.overrides import load_subtype_overrides
+    from partest.methodology.subtypes import MethodSubtype
+
+    path = tmp_path / "subtypes.yaml"
+    path.write_text('"POST /jobs/{id}/lines": action\n', encoding="utf-8")
+    load_subtype_overrides(path)
+
+    assert classify_endpoint("POST", "/jobs/{id}/lines", "") is MethodSubtype.ACTION
+
+
+def test_missing_override_file_is_an_error(tmp_path, no_overrides):
+    from partest.methodology.overrides import load_subtype_overrides
+
+    with pytest.raises(FileNotFoundError):
+        load_subtype_overrides(tmp_path / "nope.yaml")
+
+
+# --- LIB-COV-CMP: kind-aware ----------------------------------------------
+
+
+def _payload(endpoints, meta=None, avg=0.0):
+    return {"meta": meta or {}, "summary": {"avg": avg}, "endpoints": endpoints}
+
+
+def test_endpoint_not_called_this_run_is_not_a_regression():
+    from partest.reports.compare import compare_payloads
+
+    old = _payload([{"method": "GET", "path": "/a", "coverage": 100.0, "kind": "full", "missing": []}])
+    new = _payload(
+        [{"method": "GET", "path": "/a", "coverage": 0.0, "kind": "unseen", "missing": ["RequestDefault"]}]
+    )
+
+    diff = compare_payloads(old, new)
+
+    assert diff["regressed"] == []
+    assert [e["endpoint"] for e in diff["not_run"]] == ["GET /a"]
+    assert diff["missing_new"] == [], "a missing list from a run that never fired is noise"
+
+
+def test_a_real_loss_is_still_a_regression():
+    from partest.reports.compare import compare_payloads
+
+    old = _payload([{"method": "GET", "path": "/b", "coverage": 100.0, "kind": "full", "missing": []}])
+    new = _payload(
+        [{"method": "GET", "path": "/b", "coverage": 50.0, "kind": "partial", "missing": ["RequestNotFound"]}]
+    )
+
+    diff = compare_payloads(old, new)
+
+    assert [e["endpoint"] for e in diff["regressed"]] == ["GET /b"]
+    assert diff["missing_new"] == ["GET /b :: RequestNotFound"]
+
+
+def test_unmerged_parallel_run_is_flagged_as_not_comparable():
+    from partest.reports.compare import compare_payloads
+
+    old = _payload([], avg=90.0)
+    new = _payload([], meta={"workers": 3, "merged": False}, avg=25.0)
+
+    diff = compare_payloads(old, new)
+
+    assert diff["comparable"] is False
+    assert any("without merging" in w for w in diff["warnings"])
+
+
+def test_two_clean_runs_are_comparable():
+    from partest.reports.compare import compare_payloads
+
+    meta = {"workers": 2, "merged": True, "partialRun": False}
+    diff = compare_payloads(_payload([], meta=meta), _payload([], meta=meta))
+
+    assert diff["comparable"] is True
+    assert diff["warnings"] == []

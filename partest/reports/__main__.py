@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from partest.reports.badge import badge_from_payload
@@ -40,6 +41,12 @@ def _cmd_compare(args: argparse.Namespace) -> int:
         print(f"wrote {args.out}")
     else:
         print(text)
+    # Warnings go to stderr so piping the JSON stays clean, but a human comparing a
+    # partial or unmerged run still sees why the delta may mean nothing.
+    for warning in diff.get("warnings") or []:
+        print(f"warning: {warning}", file=sys.stderr)
+    if args.strict and not diff.get("comparable", True):
+        return 2
     return 0
 
 
@@ -76,6 +83,11 @@ def main(argv: list[str] | None = None) -> int:
     p_cmp.add_argument("--a", required=True)
     p_cmp.add_argument("--b", required=True)
     p_cmp.add_argument("--out", default="")
+    p_cmp.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit 2 when the two runs are not comparable (partial or unmerged)",
+    )
     p_cmp.set_defaults(func=_cmd_compare)
 
     p_badge = sub.add_parser("badge", help="SVG badge from coverage.json")

@@ -34,6 +34,16 @@ if SWAGGER_AVAILABLE and swagger_files:
     swagger_settings = SwaggerSettings(swagger_files)
     paths_info = swagger_settings.collect_paths_info()
 
+# Explicit subtype overrides from the project, if it declared any. A bad entry raises
+# here rather than being ignored: an override that silently does nothing looks exactly
+# like the misclassification it was written to fix.
+try:
+    from partest.methodology.overrides import load_from_confpartest
+
+    load_from_confpartest()
+except ImportError:
+    pass
+
 
 def _ensure_unmatched_keys() -> None:
     for path in paths_info:
