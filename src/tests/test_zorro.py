@@ -4,13 +4,13 @@ import pytest
 from partest.zorro_report import zorro
 
 
-@allure.epic('Сводка')
-@allure.feature('Оценка покрытия')
+@allure.epic("Coverage")
+@allure.feature("Final report")
 @allure.severity(allure.severity_level.CRITICAL)
-@pytest.mark.dev
 @pytest.mark.asyncio
-class TestCoverAge:
+class TestCoverage:
 
     async def test_display_final_call_counts(self):
-        zorro()
-        assert True
+        report = zorro()
+        assert report is not None
+        assert report.average_pct >= 0

@@ -1,133 +1,54 @@
-## Partest
-Pypi: https://pypi.org/project/partest/
+# partest
 
-This is a framework for API autotests with coverage assessment. Detailed instructions in the process of writing. It is better to check with the author how to use it. Tools are used:
+Python harness for **methodology-driven API (+ optional UI) autotests** with OpenAPI coverage.
 
-* pytest
-* httpx
-* allure
+**PyPI:** https://pypi.org/project/partest/  
+**Version:** 1.5.0
 
-Files are required for specific work:
+## Features
 
-**conftest.py** - it must have a fixture's inside:
+- Async `ApiClient` (JSON, form, files, raw `content`, multi-status, GraphQL)
+- OpenAPI coverage + methodology matrix + HTML/Allure `zorro`
+- Tracking client, TokenManager, reporting checks, payloads/validation
+- Security: `SecHttp`, JWT craft, `RiskProfile`; `http.Config` / `HeadersBind`
+- UI extra: `partest[ui]` — BasePage, PageMonitor, visual compare, capture_baselines
+- Scaffold: `partest-gen` monorepo API+UI (G1–G6)
+- Multi-project safety: soft-disable pytest plugin, confpartest helpers
 
-```commandline
-def pytest_addoption(parser):
-    parser.addoption("--domain", action="store", default="http://url.ru")
+## Install
 
-@pytest.fixture(scope="session")
-def domain(request):
-    return request.config.getoption("--domain")
-    
-@pytest.fixture(scope="session")
-def api_client(domain):
-    return ApiClient(domain=domain)
-
-@pytest.fixture(scope='session', autouse=True)
-def clear_call_data():
-    global call_count, call_type
-    api_call_storage.call_count.clear()
-    api_call_storage.call_type.clear()
-    yield
+```bash
+pip install partest
+pip install partest[ui]
 ```
 
-**confpartest.py** - It must have variables inside:
+## Scaffold
 
-```
-swagger_files = {
-    'test1': ['local', '../docs/openapi.yaml']
-}
-
-test_types_coverage = ['default', '405', 'param']
-test_types_exception = ['health']
-
-    """ swagger_files
-    
-        The **swagger_files** directory can have many items. The item key is the name of the swagger. Next, let's analyze the value
-        in which the list with certain data is stored:
-            0: 'local' or 'url'
-            1: 'path'
-            
-        Example:
-        
-        swagger_files = {
-            'test1': ['url', 'https://petstore.swagger.io/v2/swagger.json'],
-            'test2': ['local', '../docs/openapi.yaml']
-        }
-
-    """
-    """ test_types_coverage
-    
-        The **test_types_coverage** a list of test types, the amount of which is 100% coverage. List of available types:
-
-        'default': The default type of test case.
-        '405': The type of test case for 405 error.
-        'params': The type of test case for parameters.
-        'elem': The type of test case for elements.
-        'generation_data': The type of test case for generation data.
-        'health': The type of test case for health.
-        'env': The type of test case for environment.
-        
-    """
-        """ test_types_exception
-    
-        The **test_types_exception** contains a list of test types that are an exception. Applying this type of test to 
-        an endpoint automatically counts as 100% coverage.
-        
-    """
+```bash
+partest-gen from-openapi ./my-suite --file openapi.yaml --depth p1 --force --with-ui
+partest-gen init-ui ./my-suite --force
 ```
 
-The project must have a test that displays information about the coverage in allure. The name of it **test_zorro.py**:
+## Docs
 
-```commandline
-import allure
-import pytest
+| Doc | For |
+|-----|-----|
+| [docs/QUICKSTART.md](docs/QUICKSTART.md) | Greenfield &lt; 30 min |
+| [docs/MIGRATION.md](docs/MIGRATION.md) | 0.3 / 1.x / aqa switch |
+| [docs/REPORTING.md](docs/REPORTING.md) | check_* / Allure cookbook |
+| [docs/COVERAGE_REPORT.md](docs/COVERAGE_REPORT.md) | Interactive HTML / CLI extras |
+| [docs/LIBRARY_ROADMAP.md](docs/LIBRARY_ROADMAP.md) | Library waves through 1.5.0 |
+| [docs/RELEASE_1.5.0.md](docs/RELEASE_1.5.0.md) | Publish + aqa W4 bump checklist |
+| [docs/SECURITY.md](docs/SECURITY.md) | SecHttp / JWT / IncorrectBody |
+| [docs/UI_QUICKSTART.md](docs/UI_QUICKSTART.md) | partest[ui] isolation |
+| [docs/RECIPES.md](docs/RECIPES.md) | Keycloak, tracking, monorepo |
+| [docs/ENTERPRISE.md](docs/ENTERPRISE.md) | Retry, xdist merge, redaction |
+| [docs/README.md](docs/README.md) | Users: config, harness, generator |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Maintainers / agents |
+| [docs/PROJECT_GEN_ROADMAP.md](docs/PROJECT_GEN_ROADMAP.md) | Generator design |
+| [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) | Status board (1.5.0 on PyPI; public GitHub out of scope) |
+| [AGENTS.md](AGENTS.md) | Agent rules |
 
-from partest.zorro_report import zorro
+## License
 
-@pytest.mark.asyncio
-class TestCoverAge:
-
-    async def test_display_final_call_counts(self):
-        zorro()
-        assert True
-
-```
-
-What does the test look like:
-
-```commandline
-    async def test_get(self, api_client):
-        endpoint = 'https://ya.ru'
-        response = await api_client.make_request(
-            'GET',
-            endpoint,
-            params='limit=1',
-            expected_status_code=200,
-            validate_model=Models.ValidateGet,
-            type=types.type_default
-        )
-        assert response is not None
-        assert isinstance(response, dict)
-```
-
-All available data that the client can accept:
-```
-        Parameters
-        ----------
-        :param method: HTTP method to use.
-        :param endpoint: The endpoint to make the request to.
-        :param add_url1: Additional URL part 1.
-        :param add_url2: Additional URL part 2.
-        :param add_url3: Additional URL part 3.
-        :param after_url: Additional URL part after the endpoint.
-        :param defining_url: Defining URL.
-        :param params: Query parameters.
-        :param headers: Request headers.
-        :param data: Request data.
-        :param data_type: Request data type.
-        :param files: Request files.
-        :param expected_status_code: Expected status code.
-        :param validate_model: Model to validate the response.
-        :param type: Request type.
-```
+MIT (see package classifiers)

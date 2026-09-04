@@ -2,8 +2,6 @@ import configparser
 import json
 import logging
 
-from faker.providers.bank.en_PH import logger
-
 
 class Logger:
     """
