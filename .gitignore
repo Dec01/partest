@@ -1,114 +1,83 @@
-### Python template .gitignore
+# Byte-compiled / cache
 __pycache__/
 *.py[cod]
 *$py.class
-
 *.so
-
-
 .Python
-.pytest_cache
-env/
-reports/
+.pytest_cache/
+.cache
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints
+
+# Packaging / build artifacts
 build/
 develop-eggs/
 dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-allure-reports
-allure-results
-
 *.manifest
 *.spec
 
-pip-log.txt
-pip-delete-this-directory.txt
-
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*,cover
-.hypothesis/
-
-*.mo
-*.pot
-
-*.log
-local_settings.py
-
-instance/
-.webassets-cache
-
-.scrapy
-
-docs/_build/
-
-target/
-
-.ipynb_checkpoints
-.python-version
-celerybeat-schedule
-.env
+# Virtual environments (root-only; do NOT use bare lib/bin/scripts — those
+# patterns match package paths and break a public library checkout)
+.venv/
 venv/
 ENV/
+env/
+pyvenv.cfg
+pip-selfcheck.json
+
+# Test / coverage outputs (generated; keep package source partest/reports/)
+/reports/
+/htmlcov/
+/coverage_report.html
+.coverage
+.coverage.*
+coverage.xml
+nosetests.xml
+*,cover
+.tox/
+.nox/
+.benchmarks/
+
+# Allure (generated)
+/allure-reports/
+/allure-results/
+
+# Local secrets & runtime logs (never ship)
+.env
+.env.*
+!.env.example
+*.log
+/logs/
+local_settings.py
+
+# Editors / IDE
+.idea/
+*.iws
+.idea_modules/
 .spyderproject
 .ropeproject
-[Bb]in
-[Ii]nclude
-[Ll]ib
-[Ll]ib64
-[Ll]ocal
-[Ss]cripts
-pyvenv.cfg
-.venv
-pip-selfcheck.json
-Pipfile
-Pipfile.lock
+.vscode/
+*.swp
+*~
 
-# Навсяк (малоли что добавлять буду), чтоб незабыть.
-.idea/
-.idea/**/workspace.xml
-.idea/**/tasks.xml
-.idea/**/usage.statistics.xml
-.idea/**/dictionaries
-.idea/**/shelf
-.idea/**/aws.xml
-.idea/**/contentModel.xml
-.idea/**/dataSources/
-.idea/**/dataSources.ids
-.idea/**/dataSources.local.xml
-.idea/**/sqlDataSources.xml
-.idea/**/dynamic.xml
-.idea/**/uiDesigner.xml
-.idea/**/dbnavigator.xml
-.idea/**/gradle.xml
-.idea/**/libraries
-cmake-build-*/
-.idea/**/mongoSettings.xml
-*.iws
-out/
-.idea_modules/
-atlassian-ide-plugin.xml
-.idea/replstate.xml
-.idea/sonarlint/
-com_crashlytics_export_strings.xml
-crashlytics.properties
-crashlytics-build.properties
-fabric.properties
-.idea/httpRequests
-.idea/caches/build_file_checksums.ser
-__pycache__
-/partest/project_gen/*
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Docs build
+docs/_build/
+
+# Optional local tooling (uncomment if you must keep private notes out of git)
+# .python-version

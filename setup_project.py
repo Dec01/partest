@@ -182,6 +182,6 @@ def create_project_structure(swagger_files, project_root="projects-gen"):
 if __name__ == "__main__":
     # Example usage: specify your Swagger files here
     swagger_files = {
-        "api": ("local", "C:\\src\\projects\\partest\\app-openapi.yaml")  # Replace with actual path
+        "api": ("local", "docs/openapi.yaml")  # relative path to your OpenAPI file
     }
     create_project_structure(swagger_files)
