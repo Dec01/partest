@@ -20,7 +20,7 @@ allow_version_literals: true
 | **Дистрибуция** | только PyPI. Публичный GitHub не планируется — см. [[decisions/pypi-only]] |
 | **Consumer proof** | aqa: `partest==1.5.0` / `partest[ui]==1.5.0`, волна W4 закрыта |
 | **Источник бэклога** | снапшот `docs/raw/aqa/2026-09-04/` |
-| **Сверка бэклога с кодом** | [[backlog-audit]] — ни один кодовый пункт 1.6/1.7 не реализован |
+| **Сверка бэклога с кодом** | [[backlog-audit]] — волна 1.6 реализована, 1.7 открыта |
 
 ---
 
@@ -60,17 +60,25 @@ allow_version_literals: true
 
 ## 3. Что дальше
 
-### 1.6 — точность покрытия и доступы
+### 1.6 — точность покрытия и доступы · **реализовано, не выпущено**
 
-| ID | Задача | Спека в снапшоте |
+Код в ветке, тесты в `tests/test_wave_1_6.py`. Версия не бампалась — бамп делается
+на релизе, см. [[howto/release]].
+
+| ID | Задача | Где |
 |---|---|---|
-| **LIB-REC-ACCESS** | 4 клетки RequestPermissions: allow / no-access / inactive / unauth — не сводить к одной 401 | `raw/aqa/2026-09-04/ACCESS_CHECKLIST_FOR_PARTEST.md` |
-| **LIB-TRACK-VALIDATE** | трекать POST 2xx+id **до** `validate_model` — иначе 201 + `extra=forbid` оставляет мусор | `raw/aqa/2026-09-04/CLEANUP_TRACKING.md` |
-| **LIB-PATH-RESOLVE** | конкретный URL → шаблон swagger: вложенные `/{parent}/{id}` не должны попадать в unmatched | `raw/aqa/2026-09-04/LIBRARY_UPDATE_COVERAGE.md` §2.11 |
-| **LIB-CLASSIFY-TOKEN** | `me`/`self`/`my` по границе слова; `media` не «крадёт» `media-types` | там же §2.12 |
-| **LIB-CLASSIFY-ACTION** | ACTION раньше POST TO OBJECT, если последний сегмент — глагол | там же |
+| **LIB-CLASSIFY-TOKEN** | `me`/`self`/`my` по границе слова и по сегментам; `media` не крадёт `media-types` | `partest/methodology/classifier.py` |
+| **LIB-CLASSIFY-ACTION** | глагол в последнем сегменте → ACTION раньше POST TO OBJECT | там же |
+| **LIB-PATH-RESOLVE** | конкретный URL → шаблон OpenAPI: сегментное сопоставление, самый длинный литеральный префикс | `partest/path_match.py`, `partest/coverage.py` |
+| **LIB-TRACK-VALIDATE** | id регистрируется при 2xx **до** `validate_model` через хук ответа | `partest/client.py`, `partest/tracking.py` |
+| **LIB-REC-CLEANUP** | `CreatedRegistry.snapshot()` / `since()` / `cleanup_since()` | `partest/tracking.py` |
+| **LIB-BODY-MARK** | `_cleanup_fields` + `get_json_required_marked()` | `partest/payloads.py` |
+| **LIB-REC-ACCESS** | 4 клетки доступа: хелперы + cookbook | `partest/access.py`, [[howto/permissions]] |
+| **LIB-PERM-QUAD** | подписи клеток без нового обязательного `request_*` | `partest/test_types.py` |
 
-Доки 1.6 обязаны сказать: **не гонять `zorro` под xdist**, пока нет merge (см. ниже).
+Попутно найден и починен баг 1.5.0: обёртка Allure-шага превращала любое исключение
+внутри блока в `RuntimeError: generator didn't stop after throw()`. Диагностика
+несовпадения статуса и провала схемы до отчёта не доходила. Теперь `partest/allure_step.py`.
 
 ### 1.7 — честность покрытия
 

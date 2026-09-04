@@ -44,6 +44,7 @@ ships_in_wheel: false
 | [[howto/migration]] | переход между версиями, отказ от локального харнесса | да |
 | [[howto/reporting]] | `ah.check_*`, шаги, вложения, Allure как мягкая зависимость | да |
 | [[howto/coverage-html]] | интерактивный отчёт, `coverage.json`, CLI compare/badge/stubs | да |
+| [[howto/permissions]] | четыре клетки доступа: allow / no_access / inactive / unauth | да |
 | [[howto/security]] | `SecHttp`, JWT-подделки, `RiskProfile`, IncorrectBody | да |
 | [[howto/ui]] | `partest[ui]`: BasePage, PageMonitor, визуальные эталоны, изоляция | да |
 | [[howto/recipes]] | адаптеры на стороне проекта: OIDC-роли, коллекции, очистка | да |

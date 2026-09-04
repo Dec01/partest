@@ -83,4 +83,8 @@ existing tests to "let inference handle it".
 The required P1 set for the endpoint's subtype is present, with correct `type=`, and each case
 asserts to the depth axis C requires. A file existing, or a call being made, is not coverage.
 
-Related: [[concepts/coverage-honesty]] · [[howto/reporting]] · [[howto/coverage-html]]
+`request_permissions` deserves special mention: it is one type covering four security layers
+(allowed, foreign object, disabled account, no session). One 401 is not the type covered —
+see [[howto/permissions]].
+
+Related: [[concepts/coverage-honesty]] · [[howto/permissions]] · [[howto/reporting]] · [[howto/coverage-html]]

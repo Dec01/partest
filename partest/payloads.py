@@ -94,6 +94,10 @@ class BaseRequestBody:
 
     _json_main: Dict[str, Any] = {}
     _required: List[str] = []
+    # Extra fields to include in ``get_json_required_marked``. Name the text fields
+    # that carry the test-data marker, so a required-only create can still be found
+    # by a delete-by-marker cleanup. The cleanup SQL itself stays in the project.
+    _cleanup_fields: List[str] = []
 
     def __init__(self):
         main = _resolve_mapping(self, "_json_main")
@@ -131,6 +135,41 @@ class BaseRequestBody:
             for key, value in main.items()
             if key in required
         }
+
+    @classmethod
+    def get_json_required_marked(cls) -> Dict[str, Any]:
+        """Required fields plus ``_cleanup_fields``, so the row carries the marker.
+
+        ``get_json_required`` sends the minimum the API accepts. If none of those
+        fields holds ``TEST_MARKER``, the created row is invisible to a cleanup that
+        deletes by marker, and it stays on the stand forever. Opt-in: declare which
+        fields to add.
+
+            class RequestBody(BaseRequestBody):
+                _required = ["buyUnit"]
+                _cleanup_fields = ["name"]      # name comes from marked_name(...)
+        """
+        raw = cls.__dict__.get("_json_main", getattr(cls, "_json_main", {}))
+        if isinstance(raw, property):
+            inst = object.__new__(cls)
+            main = _resolve_mapping(inst, "_json_main")
+        elif callable(raw) and not isinstance(raw, type):
+            main = dict(raw())
+        else:
+            main = dict(raw or {})
+
+        keep = list(getattr(cls, "_required", []) or []) + list(
+            getattr(cls, "_cleanup_fields", []) or []
+        )
+        return {
+            key: value() if callable(value) else value
+            for key, value in main.items()
+            if key in keep
+        }
+
+    @classmethod
+    def get_cleanup_fields(cls) -> List[str]:
+        return list(getattr(cls, "_cleanup_fields", []) or [])
 
     @classmethod
     def get_json_miss_required(cls, req: str) -> Dict[str, Any]:

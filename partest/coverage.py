@@ -10,6 +10,7 @@ from uuid import UUID
 from partest.call_storage import call_count, call_type, endpoint_subtype, record_call
 from partest.methodology.classifier import classify_endpoint
 from partest.methodology.inference import infer_test_type
+from partest.path_match import build_concrete_url, resolve_endpoint_template
 from partest.test_types import canonicalize_type
 
 try:
@@ -47,11 +48,26 @@ def _ensure_unmatched_keys() -> None:
                 endpoint_subtype[sk] = "unknown"
 
 
-def _resolve_endpoint(endpoint: str, kwargs: dict) -> str:
+def _resolve_endpoint(endpoint: str, kwargs: dict, method: Optional[str] = None) -> str:
+    """Coverage key for a call: OpenAPI template if one matches, else legacy guess."""
     defining_url = kwargs.get("defining_url", None)
     if defining_url:
         return defining_url
 
+    # Preferred: rebuild the URL the client sent and match it against the templates
+    # of this method. Handles nested paths that the legacy heuristic below cannot.
+    if method and paths_info:
+        concrete = build_concrete_url(
+            endpoint or "",
+            [kwargs.get(f"add_url{i}") for i in range(1, 6)],
+            kwargs.get("after_url", "") or "",
+        )
+        template = resolve_endpoint_template(str(method), concrete, paths_info)
+        if template:
+            return template
+
+    # Legacy fallback: append path-parameter names guessed from the whole spec.
+    # Kept so suites that relied on it before 1.6 do not lose their coverage keys.
     path_params = {}
     for path in paths_info:
         for param in path.parameters or []:
@@ -119,7 +135,7 @@ def track_api_calls(func: Callable) -> Callable:
         )
         test_type = canonicalize_type(inference.test_type)
 
-        final_endpoint = _resolve_endpoint(endpoint or "", kwargs)
+        final_endpoint = _resolve_endpoint(endpoint or "", kwargs, method)
 
         if method is not None and final_endpoint is not None:
             found_match = False

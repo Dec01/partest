@@ -75,6 +75,56 @@ name = marked_name("Client")  # contains TEST_MARKER
 
 SQL delete-by-marker scripts **stay in consumer** (schema-specific).
 
+### Required-only payloads still need the marker
+
+`get_json_required()` sends the minimum the API accepts. If none of the required fields
+happens to be the one carrying the marker, the created row is invisible to a
+delete-by-marker cleanup and stays on the stand forever. Declare which fields to add:
+
+```python
+class RequestBody(BaseRequestBody):
+    _json_main = {"buyUnit": "PCS", "name": marked_name("Item")}
+    _required = ["buyUnit"]
+    _cleanup_fields = ["name"]        # carries TEST_MARKER
+
+RequestBody.get_json_required()          # {"buyUnit": "PCS"}
+RequestBody.get_json_required_marked()   # {"buyUnit": "PCS", "name": "<TEST_MARKER> Item 1234"}
+```
+
+Opt-in: `_cleanup_fields` defaults to empty and `get_json_required` is unchanged.
+
+## Cleanup that survives a failed validation
+
+A create returns 201 with an id, then `validate_model` rejects the body because the
+service added a field and the validator is `extra=forbid`. The test fails, correctly —
+but the row exists, and until 1.6 nothing had registered it, so the session cleanup
+never deleted it. Every new response field left a trail of orphans.
+
+`TrackingApiClient` now registers the id as soon as the status is 2xx, before schema
+validation runs. No configuration needed:
+
+```python
+api = TrackingApiClient(domain, registry)
+# 201 + unexpected field → the test still fails, the id is still in the registry
+```
+
+Pass `track_before_validate=False` for the old ordering. If you carry a local overlay
+that popped `validate_model` before calling `super()`, drop it.
+
+### Draining per test instead of per session
+
+```python
+@pytest.fixture(autouse=True)
+async def cleanup_created(registry, domain, token):
+    mark = registry.snapshot()
+    yield
+    await registry.cleanup_since(mark, domain, token)
+```
+
+`snapshot()` records the current size, `cleanup_since(mark, ...)` deletes only what this
+test created and forgets it, so the session pass does not retry it. `since(mark)` returns
+the tail as a separate registry if you want to inspect it first.
+
 ## Resolve OpenAPI
 
 ```python

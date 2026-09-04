@@ -2,21 +2,12 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 from typing import Any, Optional, Sequence
 
+from partest.allure_step import allure_step as _step
 from partest.ui.page_monitor import PageMonitor, get_monitor
 
 
-@contextmanager
-def _step(title: str):
-    try:
-        import allure
-
-        with allure.step(title):
-            yield
-    except Exception:
-        yield
 
 
 def ensure_monitor(

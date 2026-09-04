@@ -112,6 +112,31 @@ class CreatedRegistry:
     def clear(self) -> None:
         self._items.clear()
 
+    def snapshot(self) -> int:
+        """Current size, to be paired with :meth:`since` or :meth:`cleanup_since`.
+
+        Lets a function-scoped fixture drain only what its own test created, without
+        each project re-implementing the same autouse bookkeeping.
+        """
+        return len(self._items)
+
+    def since(self, mark: int) -> "CreatedRegistry":
+        """New registry holding everything tracked after ``mark``."""
+        drained = CreatedRegistry()
+        drained._items = list(self._items[mark:])
+        return drained
+
+    async def cleanup_since(self, mark: int, domain: str, token: str, **kwargs) -> None:
+        """Clean up only resources tracked after ``mark``, then forget them.
+
+        The tail is removed from this registry whether cleanup succeeded or not — a
+        failed delete is reported by :meth:`cleanup` itself, and keeping the entry
+        would make the session pass try it again for every later test.
+        """
+        tail = self.since(mark)
+        del self._items[mark:]
+        await tail.cleanup(domain, token, **kwargs)
+
     async def cleanup(
         self,
         domain: str,
@@ -173,6 +198,7 @@ class TrackingApiClient:
         instrument: bool = True,
         verify: bool = False,
         follow_redirects: bool = True,
+        track_before_validate: bool = True,
     ):
         self._client = client or ApiClient(
             domain=domain, verify=verify, follow_redirects=follow_redirects
@@ -181,6 +207,32 @@ class TrackingApiClient:
         self.domain = domain
         self._id_extractors: List[IdExtractor] = list(id_extractors or [default_id_extractor])
         self._instrument = instrument
+        self._track_before_validate = bool(track_before_validate)
+        if self._track_before_validate and hasattr(self._client, "add_response_hook"):
+            self._client.add_response_hook(self._on_response)
+        else:
+            self._track_before_validate = False
+
+    def _track_from(self, body: Any, method: Any, endpoint: Any) -> bool:
+        for extractor in self._id_extractors:
+            tracked = extractor(body, str(method), str(endpoint))
+            if tracked:
+                ep, rid = tracked
+                self._registry.track(ep, rid)
+                return True
+        return False
+
+    def _on_response(self, method: str, endpoint: str, body: Any, response: Any) -> None:
+        """Register a created id as soon as the status is 2xx.
+
+        Runs before ``validate_model``, so a 201 whose body fails schema validation
+        still leaves the resource in the registry and the session cleanup can delete
+        it. The test still fails — only the leftover is prevented.
+        """
+        status = getattr(response, "status_code", 0)
+        if not (200 <= int(status or 0) < 300):
+            return
+        self._track_from(body, method, endpoint)
 
     @property
     def registry(self) -> CreatedRegistry:
@@ -207,12 +259,10 @@ class TrackingApiClient:
         else:
             result = await call(method, endpoint, *args, **kwargs)
 
-        for extractor in self._id_extractors:
-            tracked = extractor(result, str(method), str(endpoint))
-            if tracked:
-                ep, rid = tracked
-                self._registry.track(ep, rid)
-                break
+        # With the hook installed the id is already registered; extracting again here
+        # would double-track it. This path stays for clients without hook support.
+        if not self._track_before_validate:
+            self._track_from(result, method, endpoint)
         return result
 
     def __getattr__(self, name):

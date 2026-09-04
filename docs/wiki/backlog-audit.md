@@ -15,16 +15,16 @@ allow_version_literals: true
 
 ## Вывод
 
+Проверка проводилась дважды: первый проход (аудит) — до реализации, второй — после
+волны 1.6. Ниже актуальное состояние.
+
 | | |
 |---|---|
-| **Документационные требования бэклога** | применены — снапшот принят, план разнесён по [[status]] |
-| **Кодовые требования бэклога (1.6 и 1.7)** | **не применены** — ни один пункт |
-| **Можно ли переезжать aqa на новую версию** | **нет смысла**: кодовых изменений нет, `1.5.0` остаётся функционально актуальным |
-| **Что реально изменилось** | документация, упаковка колеса, `python -m partest.docs`, линтер доков |
-
-Если выпустить версию сейчас — это патч-релиз про документацию и упаковку.
-Переезд aqa он не разблокирует: overlay `resource_tracker.py`, ручная нарезка
-Permissions и запрет `-n` на прогоне покрытия остаются нужны.
+| **Документационные требования бэклога** | применены |
+| **Волна 1.6** | **реализована**, тесты в `tests/test_wave_1_6.py`; не выпущена |
+| **Волна 1.7** | открыта: xdist-merge, `kind`, timing, витрина HTML, override подтипов |
+| **Можно ли переезжать aqa** | да, после публикации: снимается overlay `resource_tracker.py`, чинятся ключи покрытия и классификация |
+| **Чего переезд не даст** | честного покрытия под `-n` — это 1.7. Запрет гонять `zorro` под xdist остаётся в силе |
 
 ---
 
@@ -37,26 +37,37 @@ Permissions и запрет `-n` на прогоне покрытия остаю
 | дисциплина `type=`, инференс не заменяет явный тип (§2.2) | [[decisions/explicit-type]], [[concepts/methodology]] |
 | объём = OpenAPI op × P1 клетки подтипа, не 12 TC на path (§2.4) | [[concepts/methodology]] |
 | «после реализации в partest — короткая шапка и ссылка на `partest.docs`» | снапшот в `docs/raw/`, план в [[status]] |
-| ACCESS / CLEANUP / UPLOAD / PATH → в `partest.docs` | **не сделано**: cookbook-страниц нет, см. §3 |
+| ACCESS → cookbook в `partest.docs` | [[howto/permissions]] |
+| CLEANUP (track-before-validate, marked payload) → `partest.docs` | [[howto/recipes]] |
+| UPLOAD / PATH / INTEGRATION / E2E cookbooks | **не сделано**, см. §2 «Cookbook-долг» |
 
 Дополнительно, вне бэклога: из колеса убраны внутренние документы (трекер миграции
 консьюмера, доска статусов, релизный чек-лист), которые уезжали к пользователям PyPI.
 
 ## 2. Кодовые пункты — проверка построчно
 
-### 1.6
+### 1.6 — закрыто
 
-| ID | Требование | Статус | Доказательство |
+| ID | Требование | Статус | Где |
 |---|---|---|---|
-| **LIB-TRACK-VALIDATE** | регистрировать create-id при 2xx **до** `validate_model` | ❌ нет | [tracking.py:196](partest/tracking.py:196) — экстракторы вызываются после `await call(...)`; исключение из валидации до них не доходит |
-| **LIB-CLASSIFY-TOKEN** | `me`/`self`/`my` по границе слова | ❌ нет, баг воспроизводится | [classifier.py:21](partest/methodology/classifier.py:21) — `(me\|self\|current\|my\|mine\|…)` без `\b`. Проверено: `/media-types` → self-hint `True`, `/mentions` → `True` |
-| | `media` не «крадёт» `media-*` | ❌ нет | [classifier.py:24](partest/methodology/classifier.py:24) — `_UPLOAD_HINTS` тоже ловит `/media-types` |
-| **LIB-CLASSIFY-ACTION** | ACTION раньше POST TO OBJECT для глагола в конце | ⚠️ частично | [classifier.py:179](partest/methodology/classifier.py:179) и `:184` — проверки есть, но под условиями `not create_like` / `not ends_with_param`; кейс `POST /items/{id}/publish` требует теста |
-| **LIB-PATH-RESOLVE** | конкретный URL → шаблон OpenAPI, вложенные `/{parent}/{id}` | ❌ нет | [coverage.py:50-89](partest/coverage.py:50) — эвристика по `add_url1..3` поверх **глобального** словаря path-параметров всех путей, а не сопоставление с шаблоном конкретной операции |
-| **LIB-REC-ACCESS** | cookbook 4 клеток: allow / no_access / inactive / unauth | ❌ нет | страницы нет; `request_permissions` в [[concepts/methodology]] описан как одна клетка |
-| **LIB-BODY-MARK** | `_cleanup_fields` + `get_json_required_marked()` | ❌ нет | [payloads.py:117](partest/payloads.py:117) — есть `get_json_required` / `get_json_miss_required`, полей очистки нет |
-| **LIB-PERM-QUAD** | labels для четырёх клеток | ❌ нет | `TYPE_LABELS` в `test_types.py` без разбивки permissions |
-| — | `CreatedRegistry.snapshot()` / `cleanup_since(n)` | ❌ нет | [tracking.py:94](partest/tracking.py:94) — только `track`, `count`, `items`, `clear`, `cleanup` |
+| **LIB-TRACK-VALIDATE** | регистрировать create-id при 2xx до `validate_model` | ✅ | хук ответа в `client.py`, `TrackingApiClient._on_response` |
+| **LIB-CLASSIFY-TOKEN** | `me`/`self`/`my` по границе слова; `media` не крадёт `media-*` | ✅ | сегментное сопоставление в `classifier.py` |
+| **LIB-CLASSIFY-ACTION** | ACTION раньше POST TO OBJECT для глагола в конце | ✅ | `_is_action_call`, проверка поднята выше |
+| **LIB-PATH-RESOLVE** | конкретный URL → шаблон OpenAPI, вложенные пути | ✅ | `partest/path_match.py`, подключён в `_resolve_endpoint` |
+| **LIB-REC-ACCESS** | cookbook 4 клеток | ✅ | `partest/access.py` + [[howto/permissions]] |
+| **LIB-BODY-MARK** | `_cleanup_fields` + `get_json_required_marked()` | ✅ | `payloads.py` |
+| **LIB-PERM-QUAD** | подписи четырёх клеток | ✅ | `PERMISSION_CELLS`, `permission_cell_label` |
+| — | `CreatedRegistry.snapshot()` / `cleanup_since(n)` | ✅ | `tracking.py` |
+
+Acceptance-кейсы из спеки закреплены тестами: `/media-types` и `/mentions` больше не
+BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резолвится в
+`/orders/customer/{customerId}`, 201 с лишним полем оставляет id в реестре.
+
+**Найдено попутно и починено:** обёртка Allure-шага (`_step`) в 1.5.0 ловила исключение
+тела блока и делала второй `yield`, из-за чего `contextlib` поднимал
+`RuntimeError: generator didn't stop after throw()` вместо `AssertionError`. Любое
+несовпадение статуса и любой провал схемы теряли диагностику. Теперь
+`partest/allure_step.py`, регрессия закреплена тестом.
 
 ### 1.7
 
@@ -76,33 +87,25 @@ Permissions и запрет `-n` на прогоне покрытия остаю
 `LIB-REC-INTEGRATION` (201 ≠ persist) · `LIB-REC-E2E` · `LIB-REC-TYPE` · `LIB-REC-CLEANUP` ·
 `LIB-REC-UI-TICKET` — ни одной страницы нет. Спеки лежат в `docs/raw/aqa/2026-09-04/`.
 
-## 3. Что нужно сделать до релиза, который стоит переезда
+## 3. Что осталось до честного покрытия (волна 1.7)
 
-Порядок бэклога сохранён; оценка — по объёму правок в коде этого репозитория.
+Волна 1.6 закрыта, см. §2. Открыто:
 
-**1.6 — точность и доступы**
+1. **`LIB-XDIST`** (P0 по бэклогу) — шардовый дамп `call_storage` плюс сведение на
+   контроллере в `pytest_sessionfinish`. Примитивы `dump_storage` / `merge_storage_files`
+   уже есть, нет автоматики и хука. Самый крупный пункт.
+2. **`LIB-COV-KIND`** (P0) — `unseen / empty / partial / full / exception` в анализаторе
+   и в JSON, плюс `meta.merged` и `meta.workers`.
+3. **`LIB-COV-TIMING`** — `elapsed_ms` на вызове, агрегация avg/p50/p95 по type × subtype.
+4. **`LIB-COV-HIST-2`** — проверить `keep=2` по умолчанию и timing в снапшоте.
+5. **`LIB-COV-HTML`** — целевой UX витрины: drawer, сброс фильтров, скролл матрицы.
+6. **`LIB-SUBTYPE-OVERRIDE`** — YAML-map `(METHOD, template) → subtype` с подменой
+   `partest.coverage.classify_endpoint`. Важно: подменять надо там, куда смотрит
+   декоратор, а не только модуль `classifier`.
+7. **Cookbook-долг**: UPLOAD, PATH, INTEGRATION, E2E, TYPE, UI-TICKET.
 
-1. `LIB-CLASSIFY-TOKEN` — границы слова в `_SELF_HINTS` и `_UPLOAD_HINTS` + тесты на
-   `media-types`, `departments`, `mentions`. Малый объём, чистый баг-фикс.
-2. `LIB-CLASSIFY-ACTION` — порядок проверок + тест `POST /items/{id}/publish` = ACTION.
-3. `LIB-TRACK-VALIDATE` — разделить вызов и валидацию в `TrackingApiClient`: получить
-   ответ, зарегистрировать id при 2xx, затем применить `validate_model`. Плюс
-   `snapshot()` / `cleanup_since(n)` в `CreatedRegistry`. Средний объём, есть готовый
-   overlay-образец в консьюмере.
-4. `LIB-PATH-RESOLVE` — настоящий матчер: сегментное сопоставление конкретного URL с
-   шаблонами операций вместо глобального словаря параметров. Самый крупный пункт 1.6.
-5. `LIB-BODY-MARK` — `_cleanup_fields` + `get_json_required_marked()`. Малый объём.
-6. `LIB-REC-ACCESS` — страница cookbook с таблицей 4 клеток и антипаттерном
-   «есть 401 → Permissions закрыт». Docs.
-
-**1.7 — честность покрытия**
-
-`LIB-XDIST` (шардовый дамп + `pytest_sessionfinish` на контроллере), `LIB-COV-KIND`,
-`meta.merged/workers`, timing, целевой HTML, `LIB-SUBTYPE-OVERRIDE`.
-
-Замечание из спеки, которое стоит вынести отдельно: `LIB-XDIST` и `LIB-COV-KIND`
-помечены **P0**, но стоят в 1.7. Пока они не сделаны, единственная защита — запрет
-`-n` на прогоне покрытия, уже записанный в доках и скилле.
+Пока 1.7 не выпущена, единственная защита от вранья покрытия под `-n` — запрет гонять
+`zorro` параллельно, записанный в [[concepts/coverage-honesty]] и в скилле.
 
 ## 4. Что меняется для консьюмера уже сейчас
 

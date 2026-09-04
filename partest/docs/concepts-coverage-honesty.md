@@ -31,12 +31,20 @@ percentages.
 
 ## 3. Unmatched paths
 
-Coverage matches a concrete request URL against the OpenAPI path template. Nested templates such
-as `/parents/{parentId}/items/{id}` can fail to match and land in "unmatched", which reads as
-missing coverage while the test is fine.
+Coverage keys a call by the OpenAPI path template, so the concrete URL a suite sends has to be
+mapped back to the template that produced it. Until the resolver landed, this was a guess: the
+first unused path parameter found anywhere in the whole specification was appended, which turned
+`/orders/customer/5` into `/orders/customer/{id}` while the specification said
+`{customerId}`. The strings did not match, the operation recorded zero calls, and the endpoint
+read as uncovered with green tests behind it.
 
-Workarounds today: pass `defining_url` equal to the OpenAPI template, or use `add_url*` so the
-tracker rewrites concrete values back to `{param}`. A proper resolver is planned.
+Now the concrete URL is matched per operation: same segment count, literal segments must be
+equal, and among the candidates the template with the longest literal prefix wins — so
+`/orders/customer/{customerId}` beats `/orders/{id}`, and a static `/orders/user` beats
+`/orders/{id}`.
+
+`defining_url` still wins over everything when you pass it, and it is still worth passing when a
+path is genuinely ambiguous. Nothing else changed for suites that already used it.
 
 ## What to trust
 
