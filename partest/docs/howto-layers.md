@@ -58,6 +58,85 @@ An integration test needs `I0` and `I1` plus at least one of `I2`–`I5`, or an 
 hold saying which surface is unavailable and why. A hold is a recorded step with a
 reason; it does not cancel the response-contract assertions that precede it.
 
+## Observing a side effect
+
+`partest.sideeffects` gives the surfaces a shape. Everything in it is read-only:
+stores are only ever read, brokers are polled without committing an offset, and the
+database probe rejects anything that is not a single SELECT — including
+`WITH x AS (DELETE ... RETURNING *) SELECT * FROM x`, which PostgreSQL would otherwise
+run happily. Cleanup belongs to the API and the tracking registry.
+
+Start with what needs no credentials at all — the API already told you where it put the
+thing:
+
+```python
+from partest.sideeffects import assert_locator, assert_status_enum, wait_for
+
+body = await api_client.make_request(
+    "POST", "/imports", files=case.files_kwarg,
+    expected_status_code=201, type=types.request_user_journey,
+)
+key = assert_locator(body, field="storageKey", prefix="imports/")
+assert_status_enum(body, field="state", allowed=["ACCEPTED", "PROCESSING"])
+```
+
+Then the surface itself, when you can reach it:
+
+```python
+from partest.sideeffects import observe_or_hold
+
+observation = observe_or_hold(
+    store_probe,                     # None until the project has credentials
+    "object-store",
+    "no read credentials for the bucket on this stand",
+    lambda probe: wait_for(
+        lambda: probe.observe(key).found,
+        timeout=60, interval=2, description="object appears in the store",
+    ),
+)
+```
+
+When `store_probe` is `None` the surface is **held**: the assertions above keep their
+value, and the gap is recorded and reported. That is the difference from skipping the
+test, which silently throws away the HTTP contract too.
+
+### A fake cannot stand in for the real thing
+
+`InMemoryObjectStore` and `InMemoryBus` exist so you can build the test before the
+credentials arrive. They mark everything they report as simulated, and
+`Observation.require()` refuses a simulated observation:
+
+```python
+store.observe(key).require("uploaded file")
+# AssertionError: ... was only observed on a simulated object-store.
+# A fake proves the test wiring, never the system — point the probe at the real
+# surface or hold it.
+```
+
+Develop against the fake, swap in a real probe, and the report says which one ran. A
+green test backed by a fake is exactly the false coverage the rest of this methodology
+is built to prevent.
+
+### Implementing a real probe
+
+```python
+from partest.sideeffects import ObjectStoreProbe
+
+class S3Probe(ObjectStoreProbe):
+    simulated = False
+
+    def __init__(self, client, bucket):
+        self._client, self._bucket = client, bucket
+
+    def head(self, key):
+        try:
+            return self._client.head_object(Bucket=self._bucket, Key=key)
+        except self._client.exceptions.ClientError:
+            return None
+```
+
+The client, the bucket, the connection string and the schema stay in the project.
+
 ## Steps between the HTTP calls
 
 | Step | Type to record |

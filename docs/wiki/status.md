@@ -127,7 +127,7 @@ i18n шаблонов reporting · `LIB-PERM-QUAD` labels · `LIB-REC-CLEANUP` h
 | `LIB-REC-ACCESS` | ✅ [[howto/permissions]] |
 | `LIB-REC-CLEANUP` | ✅ [[howto/recipes]] |
 | `LIB-REC-UI-TICKET` | ⬜ матрица пункта тикета для UI |
-| `LIB-REC-SIDEEFFECT` | HOLD — нужен доступ к object store и шине |
+| `LIB-REC-SIDEEFFECT` | ✅ `partest.sideeffects` — контракт наблюдения, read-only пробы, фейки для разработки, HOLD вместо skip |
 
 ## 4. На стороне consumer (не в этом репозитории)
 

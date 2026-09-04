@@ -534,3 +534,135 @@ def test_filenames_never_contain_a_null_byte():
     from partest.files import mutation_cases
 
     assert all("\x00" not in c.filename for c in mutation_cases())
+
+
+# --- LIB-REC-SIDEEFFECT: observing beyond the response --------------------
+
+
+@pytest.fixture(autouse=True)
+def clean_holds():
+    from partest.sideeffects import reset_held
+
+    reset_held()
+    yield
+    reset_held()
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "DELETE FROM items",
+        "update items set a = 1",
+        "SELECT 1; DROP TABLE items",
+        "WITH gone AS (DELETE FROM items RETURNING *) SELECT * FROM gone",
+        "TRUNCATE items",
+        "CALL do_something()",
+    ],
+)
+def test_only_reads_reach_the_database(query):
+    """A write smuggled past this guard is data loss, not a failing test."""
+    from partest.sideeffects import assert_read_only_sql
+
+    with pytest.raises(ValueError):
+        assert_read_only_sql(query)
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["SELECT 1", "  select id from items where id = ?  ", "WITH x AS (SELECT 1) SELECT * FROM x"],
+)
+def test_plain_reads_are_allowed(query):
+    from partest.sideeffects import assert_read_only_sql
+
+    assert assert_read_only_sql(query)
+
+
+def test_a_fake_cannot_be_used_as_proof():
+    """The whole point: a simulated surface must not read as a verified side effect."""
+    from partest.sideeffects import InMemoryObjectStore
+
+    store = InMemoryObjectStore()
+    store.put("imports/2026/report.xlsx", size=938)
+
+    observation = store.observe("imports/2026/report.xlsx")
+    assert observation.found is True
+    assert observation.simulated is True
+
+    with pytest.raises(AssertionError, match="simulated"):
+        observation.require("uploaded file")
+
+
+def test_a_real_probe_passes_require():
+    from partest.sideeffects import InMemoryObjectStore
+
+    class RealEnough(InMemoryObjectStore):
+        simulated = False
+
+    store = RealEnough(simulated=False)
+    store.put("k", size=1)
+    assert store.observe("k").require().found is True
+
+
+def test_missing_effect_fails_even_on_a_real_probe():
+    from partest.sideeffects import InMemoryObjectStore
+
+    store = InMemoryObjectStore(simulated=False)
+    with pytest.raises(AssertionError, match="not observed"):
+        store.observe("absent").require("file")
+
+
+def test_unreachable_surface_is_held_not_skipped():
+    """Holding keeps the HTTP assertions; skipping would have thrown them away too."""
+    from partest.sideeffects import held_surfaces, observe_or_hold
+
+    result = observe_or_hold(None, "bus", "no consumer credentials on this stand", lambda p: None)
+
+    assert result is None
+    assert [str(h) for h in held_surfaces()] == ["bus: no consumer credentials on this stand"]
+
+
+def test_bus_poll_does_not_consume():
+    """A test that commits offsets steals messages from the application."""
+    from partest.sideeffects import InMemoryBus
+
+    bus = InMemoryBus()
+    bus.publish({"type": "import.done", "id": 7})
+
+    first = bus.poll(lambda m: m["id"] == 7)
+    second = bus.poll(lambda m: m["id"] == 7)
+
+    assert first == second, "polling twice must see the same message"
+    assert len(bus.messages) == 1
+
+
+def test_locator_contract_is_checked_without_any_credentials():
+    from partest.sideeffects import assert_locator, assert_status_enum
+
+    body = {"key": "imports/2026/report.xlsx", "state": "ACCEPTED"}
+
+    assert assert_locator(body, field="key", prefix="imports/") == "imports/2026/report.xlsx"
+    assert assert_status_enum(body, field="state", allowed=["ACCEPTED", "REJECTED"]) == "ACCEPTED"
+
+    with pytest.raises(AssertionError, match="does not start with"):
+        assert_locator(body, field="key", prefix="uploads/")
+    with pytest.raises(AssertionError, match="not in"):
+        assert_status_enum(body, field="state", allowed=["REJECTED"])
+    with pytest.raises(AssertionError, match="no locator field"):
+        assert_locator({}, field="key")
+
+
+def test_wait_for_returns_the_first_truthy_observation():
+    from partest.sideeffects import wait_for
+
+    seen = iter([None, None, {"state": "DONE"}])
+    result = wait_for(lambda: next(seen), timeout=5, interval=0, description="import")
+
+    assert result == {"state": "DONE"}
+
+
+def test_wait_for_reports_what_it_last_saw():
+    """A timeout that only says "timed out" sends you back to reproduce it by hand."""
+    from partest.sideeffects import wait_for
+
+    with pytest.raises(AssertionError, match=r"import did not happen within 0s.*last observation: \[\]"):
+        wait_for(lambda: [], timeout=0, interval=0, description="import")

@@ -96,15 +96,18 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 `LIB-REC-INTEGRATION` / `LIB-REC-E2E` ([[howto/layers]]), `LIB-REC-TYPE` и
 `LIB-REC-CLEANUP` ([[howto/recipes]]), `LIB-REC-ACCESS` ([[howto/permissions]]).
 
-Осталось: `LIB-REC-UI-TICKET` (матрица пункта тикета для UI) и `LIB-REC-SIDEEFFECT`
-(HOLD — нужен доступ к object store и шине).
+`LIB-REC-SIDEEFFECT` тоже закрыт: HOLD был блокером **консьюмера** (нет кредов к
+стенду), а библиотечная часть — контракт наблюдения, read-only пробы и фейки для
+разработки — от кредов не зависит. `partest/sideeffects.py` + раздел в [[howto/layers]].
+
+Осталось: `LIB-REC-UI-TICKET` (матрица пункта тикета для UI).
 
 ## 3. Что осталось
 
 1. **`LIB-COV-HTML`**, остаток: drawer по эндпоинту, состояние фильтров в hash URL,
    экспорт CSV/markdown, палитра Ctrl+K, ms-оверлей на клетке матрицы. Данные для всего
    этого в JSON уже есть — это чистая работа по шаблону.
-2. **Cookbook-долг**, остаток: `LIB-REC-UI-TICKET`; `LIB-REC-SIDEEFFECT` на HOLD.
+2. **Cookbook-долг**, остаток: `LIB-REC-UI-TICKET`.
 3. Из [[proposals]], если возьмётесь: `py.typed`, предупреждения об устаревании алиасов,
    единая команда проверок перед релизом.
 

@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7245
+      "chars": 7400
     },
     {
       "slug": "components/overview",
@@ -634,6 +634,7 @@
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
+        "partest/sideeffects.py",
         "partest/test_types.py",
         "partest/methodology/matrix.py"
       ],
@@ -656,6 +657,30 @@
         },
         {
           "level": 2,
+          "text": "Observing a side effect"
+        },
+        {
+          "level": 3,
+          "text": "A fake cannot stand in for the real thing"
+        },
+        {
+          "level": 1,
+          "text": "AssertionError: ... was only observed on a simulated object-store."
+        },
+        {
+          "level": 1,
+          "text": "A fake proves the test wiring, never the system — point the probe at the real"
+        },
+        {
+          "level": 1,
+          "text": "surface or hold it."
+        },
+        {
+          "level": 3,
+          "text": "Implementing a real probe"
+        },
+        {
+          "level": 2,
           "text": "Steps between the HTTP calls"
         },
         {
@@ -663,7 +688,7 @@
           "text": "End to end"
         }
       ],
-      "chars": 4211
+      "chars": 6993
     },
     {
       "slug": "howto/migration",
@@ -1328,6 +1353,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-04 · update · наблюдение side-effect без кредов"
+        },
+        {
+          "level": 2,
           "text": "2026-09-04 · update · закрыт cookbook-долг"
         },
         {
@@ -1359,7 +1388,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 7815
+      "chars": 8873
     },
     {
       "slug": "proposals",
@@ -1508,7 +1537,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 7237
+      "chars": 7298
     },
     {
       "slug": "WIKI",
@@ -2942,6 +2971,9 @@
     ],
     "partest/security/sec_http.py": [
       "howto/security"
+    ],
+    "partest/sideeffects.py": [
+      "howto/layers"
     ],
     "partest/test_types.py": [
       "concepts/methodology",
