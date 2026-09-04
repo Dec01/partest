@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Allure step wrapper swallowed the real failure.** The guarded `_step` helper caught
+  the exception raised by its own block and yielded a second time, so `contextlib`
+  turned every failure inside a step into
+  `RuntimeError: generator didn't stop after throw()`. Status-mismatch and schema
+  diagnostics never reached the report. Present since the step helper was introduced;
+  now `partest.allure_step.allure_step`, with a regression test.
+- **Coverage keys for nested paths.** A concrete URL was mapped to a template by
+  appending the first unused path parameter found anywhere in the specification, so
+  `/orders/customer/5` became `/orders/customer/{id}` while the spec said
+  `{customerId}` — the operation recorded zero calls and read as uncovered with green
+  tests behind it. New `partest.path_match` matches per operation: equal segment count,
+  literal segments must match, longest literal prefix wins. `defining_url` still
+  overrides everything; the old heuristic remains as a fallback (LIB-PATH-RESOLVE).
+- **Classifier matched substrings.** `/media-types`, `/departments` and `/mentions` all
+  contain "me" and were classified as GET BY SELF, which changed their required P1 set.
+  Self, upload and action detection now work on path segments and identifier tokens
+  (LIB-CLASSIFY-TOKEN).
+- **`POST /items/{id}/publish` was a create.** A verb in the last segment is now checked
+  before "child under parent", so RequestNewObject no longer enters the P1 set of an
+  operation that creates nothing (LIB-CLASSIFY-ACTION).
+- **Created resources were lost when validation failed.** A 201 whose body failed
+  `validate_model` (a new response field against `extra=forbid`) left the row on the
+  stand: the id was extracted only after the call returned. `ApiClient` now emits a
+  response hook after the status check and before schema validation, and
+  `TrackingApiClient` registers the id there. The test still fails; the leftover does
+  not happen. Opt out with `track_before_validate=False` (LIB-TRACK-VALIDATE).
+
+### Added
+
+- `partest.access`: `access_cases`, `AccessCase`, `anonymous_headers`,
+  `invalid_bearer_headers`, `UserActivity` protocol — the four permission cells
+  (allow / no_access / inactive / unauth) instead of a single 401. Cookbook:
+  `python -m partest.docs show howto-permissions` (LIB-REC-ACCESS).
+- `PERMISSION_CELLS`, `PERMISSION_CELL_EXPECTATIONS`, `permission_cell_label` — cell
+  labels without adding a new required `request_*` type (LIB-PERM-QUAD).
+- `ApiClient.add_response_hook(hook)` — `hook(method, endpoint, body, response)` runs
+  after the status check, before schema validation. Hook exceptions are logged, never
+  raised, so they cannot mask the real assertion.
+- `CreatedRegistry.snapshot()` / `since(mark)` / `cleanup_since(mark, ...)` — drain what
+  one test created without every project writing the same autouse fixture.
+- `BaseRequestBody._cleanup_fields` and `get_json_required_marked()` — keep the marker
+  in a required-only create so delete-by-marker cleanup can still find the row
+  (LIB-BODY-MARK).
+- `partest.path_match` — `build_concrete_url`, `match_template`,
+  `resolve_endpoint_template`. Pure functions, testable without a stand.
+
 ### Changed — documentation
 
 - Documentation reorganized into four layers: `AGENTS.md` (boundaries, ≤60 lines),
@@ -19,7 +67,7 @@
 - `setup.py` reads `__version__` from `partest/__init__.py` instead of duplicating the number,
   and `long_description` comes from the self-contained `docs/PYPI.md`.
 
-### Added
+### Added — documentation tooling
 
 - `python -m partest.docs list | show <page> | path` — read the bundled documentation.
 - `tools/docs_lint.py`, `tools/docs_index.py`, `tools/docs_build_wheel.py` and

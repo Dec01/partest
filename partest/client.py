@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from typing import Any, Dict, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import httpx
 from pydantic import BaseModel, RootModel, ValidationError
 
+from partest.allure_step import allure_step as _step
 from partest.coverage import track_api_calls
 from partest.http_retry import RetryPolicy
 from partest.redact import redact_headers
@@ -15,19 +15,10 @@ from partest.utils import ErrorDesc, Logger, StatusCode
 
 BodyType = Optional[Union[Dict[str, Any], list, str, bytes, int, float, bool]]
 ExpectedStatus = Optional[Union[int, Sequence[int]]]
+# hook(method, endpoint, parsed_body, response) — see ApiClient.add_response_hook
+ResponseHook = Callable[[str, str, Any, httpx.Response], None]
 
 
-@contextmanager
-def _step(title: str):
-    try:
-        import allure
-
-        with allure.step(title):
-            yield
-    except ImportError:
-        yield
-    except Exception:
-        yield
 
 
 def _attach_text(name: str, text: str) -> None:
@@ -180,6 +171,27 @@ class ApiClient:
             retry_on_network=retry_on_network,
             backoff_base=float(retry_backoff),
         )
+        self._response_hooks: List[ResponseHook] = []
+
+    def add_response_hook(self, hook: "ResponseHook") -> None:
+        """Register a callback fired after the status check, before schema validation.
+
+        Signature: ``hook(method, endpoint, body, response)`` where ``body`` is the
+        parsed JSON (or raw text, or ``None``). Used by
+        :class:`partest.tracking.TrackingApiClient` so that a created resource reaches
+        the cleanup registry even if ``validate_model`` then rejects the response.
+
+        Hooks must not raise: an exception here would mask the real assertion. Anything
+        they raise is swallowed and logged.
+        """
+        self._response_hooks.append(hook)
+
+    def _emit_response(self, method, endpoint, body, response) -> None:
+        for hook in self._response_hooks:
+            try:
+                hook(str(method), str(endpoint), body, response)
+            except Exception as exc:  # never let a hook hide the real failure
+                self.logger.error(f"response hook failed: {exc}")
 
     async def aclose(self) -> None:
         """Close owned shared httpx client (no-op if external/ephemeral)."""
@@ -322,24 +334,34 @@ class ApiClient:
 
             if expected_status_code is not None:
                 with _step("Validate response"):
+                    # Status first, without the model: hooks must see a 2xx create
+                    # before schema validation gets a chance to raise.
                     self._check_status_code(
                         response.status_code,
                         expected_status_code,
                         response,
                         log_body,
-                        validate_model,
+                        None,
                         method=method,
                         url=url,
                         headers=headers,
                     )
 
-            if not response.text:
-                return ""
+            body: Any = ""
+            if response.text:
+                try:
+                    body = response.json()
+                except ValueError:
+                    body = response.text
 
-            try:
-                return response.json()
-            except ValueError:
-                return response.text
+            self._emit_response(method, endpoint, body, response)
+
+            if expected_status_code is not None and validate_model is not None:
+                self._validate_response_body(
+                    response.status_code, response, validate_model
+                )
+
+            return body
 
         except httpx.HTTPStatusError as err:
             self.logger.error(
@@ -565,6 +587,20 @@ class ApiClient:
                 _attach_text("status_mismatch", msg)
                 raise AssertionError(msg)
 
+        self._validate_response_body(actual_code, response, validate_model)
+
+    def _validate_response_body(
+        self,
+        actual_code: int,
+        response: httpx.Response,
+        validate_model: Optional[Type[BaseModel]],
+    ):
+        """Schema validation, split out so callers can run it after their own hooks.
+
+        ``make_request`` checks the status, lets response hooks run (a create id must
+        reach the cleanup registry even when the schema then fails), and only then
+        validates the body.
+        """
         with _step("Response body validation"):
             if not validate_model:
                 return

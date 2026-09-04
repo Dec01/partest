@@ -195,3 +195,37 @@ def canonicalize_type(raw: Optional[str]) -> str:
             return canon
 
     return key
+
+
+# --- Permission cells (LIB-PERM-QUAD) -------------------------------------
+# RequestPermissions is one test-case type covering four distinct security layers.
+# Collapsing them into "there is a 401" is the gap this names: an unauthenticated
+# request, a disabled account and an object outside the caller's scope fail in
+# different components and hide different bugs.
+#
+# These are labels, not new types: a call still passes
+# ``type=TypesTestCases.request_permissions`` and marks the cell separately
+# (Allure story, tag, or test id).
+PERMISSION_CELLS: Dict[str, str] = {
+    "allow": "Permissions/Allow",
+    "no_access": "Permissions/NoAccess",
+    "inactive": "Permissions/Inactive",
+    "unauth": "Permissions/Unauthenticated",
+}
+
+PERMISSION_CELL_EXPECTATIONS: Dict[str, str] = {
+    "allow": "2xx per the consumer contract",
+    "no_access": "403 (404 when the project hides existence)",
+    "inactive": "403 — token still valid, account disabled in the application",
+    "unauth": "401 — no session at all",
+}
+
+
+def permission_cell_label(cell: str) -> str:
+    """Human label for a permission cell; raises on an unknown cell name."""
+    key = (cell or "").strip().lower().replace("-", "_")
+    if key not in PERMISSION_CELLS:
+        raise ValueError(
+            f"unknown permission cell {cell!r}; expected one of {sorted(PERMISSION_CELLS)}"
+        )
+    return PERMISSION_CELLS[key]

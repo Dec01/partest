@@ -17,16 +17,56 @@ _FILTER_BODY_HINTS = re.compile(
     r"\b(filter|filters|sort|search|query|pageable|pagination)\b",
     re.I,
 )
-_SELF_HINTS = re.compile(
-    r"(me|self|current|my|mine|/user$|/users/me|/profile)",
+# Self-scope, upload and action detection work on **path segments and identifier
+# tokens**, not on a substring of the whole text. Substring matching used to make
+# "/media-types" and "/departments" look like GET BY SELF (both contain "me"), which
+# silently changed the required P1 set for those endpoints.
+_SELF_SEGMENTS = frozenset(
+    {
+        "me",
+        "self",
+        "my",
+        "mine",
+        "current",
+        "profile",
+        "currentuser",
+        "current-user",
+        "my-profile",
+        "myprofile",
+    }
+)
+_SELF_DESCRIPTION = re.compile(
+    r"\b(current user|currently authenticated|authenticated user|"
+    r"own profile|my profile)\b",
     re.I,
 )
-_UPLOAD_HINTS = re.compile(r"(upload|file|files|multipart|attachment|media)", re.I)
-_ACTION_HINTS = re.compile(
-    r"(approve|reject|calculate|publish|unpublish|activate|deactivate|"
-    r"cancel|restore|clone|copy|execute|run|trigger|invite|confirm)",
-    re.I,
+
+_UPLOAD_SEGMENTS = frozenset(
+    {"upload", "uploads", "file", "files", "multipart", "attachment", "attachments", "media"}
 )
+_UPLOAD_DESCRIPTION = re.compile(r"\b(upload|multipart|attachment)\b", re.I)
+
+_ACTION_WORDS = frozenset(
+    {
+        "approve",
+        "reject",
+        "calculate",
+        "publish",
+        "unpublish",
+        "activate",
+        "deactivate",
+        "cancel",
+        "restore",
+        "clone",
+        "copy",
+        "execute",
+        "run",
+        "trigger",
+        "invite",
+        "confirm",
+    }
+)
+_ACTION_HINTS = re.compile("(" + "|".join(sorted(_ACTION_WORDS)) + ")", re.I)
 _PARENT_PATH = re.compile(
     r"/\{[^}/]+\}/\{[^}/]+\}|"  # two path params in a row (rare)
     r"/\{[^}/]+\}/[^/{]+|"  # /{parentId}/children
@@ -46,6 +86,75 @@ _STATIC_HINTS = re.compile(
 
 def _path_param_names(path: str) -> List[str]:
     return re.findall(r"\{([^}]+)\}", path or "")
+
+
+def _path_segments(path: str) -> List[str]:
+    return [s for s in (path or "").split("/") if s]
+
+
+def _literal_segments(path: str) -> List[str]:
+    """Path segments that are not ``{placeholders}``, lower-cased."""
+    return [
+        s.lower()
+        for s in _path_segments(path)
+        if not (s.startswith("{") and s.endswith("}"))
+    ]
+
+
+def _identifier_tokens(text: str) -> List[str]:
+    """Split ``getCurrentUser`` / ``get_current_user`` into lower-case tokens."""
+    spaced = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text or "")
+    return [t.lower() for t in re.findall(r"[A-Za-z0-9]+", spaced)]
+
+
+def _is_self_scope(path: str, description: str = "", operation_id: str = "") -> bool:
+    """True when the operation addresses the caller's own object ("me" / "self")."""
+    segments = _literal_segments(path)
+    if any(s in _SELF_SEGMENTS for s in segments):
+        return True
+    # historical rule: a path ending in "/user" with no path parameter
+    if segments and segments[-1] == "user" and "{" not in (path or ""):
+        return True
+
+    tokens = _identifier_tokens(operation_id)
+    if {"me", "self", "mine", "my"} & set(tokens):
+        return True
+    for first, second in zip(tokens, tokens[1:]):
+        if first == "current" and second in {"user", "profile", "account"}:
+            return True
+
+    return bool(_SELF_DESCRIPTION.search(description or ""))
+
+
+def _is_upload_scope(path: str, description: str = "", operation_id: str = "") -> bool:
+    """True when the operation uploads a file.
+
+    Segment-exact on the path so that ``/media-types`` is not mistaken for ``/media``.
+    """
+    if any(s in _UPLOAD_SEGMENTS for s in _literal_segments(path)):
+        return True
+    if set(_identifier_tokens(operation_id)) & {
+        "upload",
+        "attachment",
+        "attachments",
+        "multipart",
+    }:
+        return True
+    return bool(_UPLOAD_DESCRIPTION.search(description or ""))
+
+
+def _is_action_call(path: str, operation_id: str = "") -> bool:
+    """True when the last path segment (or operationId) is an action verb.
+
+    Structural signal: ``POST /items/{id}/publish`` is an ACTION, not a create under
+    a parent. Checked before POST CREATE OBJECT TO OBJECT so that the required P1 set
+    does not gain RequestNewObject for an operation that creates nothing.
+    """
+    segments = _literal_segments(path)
+    if segments and segments[-1] in _ACTION_WORDS:
+        return True
+    tokens = _identifier_tokens(operation_id)
+    return bool(tokens) and tokens[-1] in _ACTION_WORDS
 
 
 def _has_request_body(path_obj: Any) -> bool:
@@ -125,7 +234,7 @@ def classify_endpoint(
         return MethodSubtype.UNKNOWN
 
     if m == "GET":
-        if _SELF_HINTS.search(text):
+        if _is_self_scope(p, description, operation_id):
             return MethodSubtype.GET_BY_SELF
         if _EXTERNAL_ID.search(" ".join(params)) or (
             ends_with_param and _EXTERNAL_ID.search(params[-1] if params else "")
@@ -166,9 +275,13 @@ def classify_endpoint(
         return MethodSubtype.GET_DYNAMIC
 
     if m == "POST":
-        if is_multipart or _UPLOAD_HINTS.search(text):
+        if is_multipart or _is_upload_scope(p, description, operation_id):
             return MethodSubtype.POST_UPLOAD
         create_like = re.search(r"\b(create|add|new|register|insert)\b", text, re.I)
+        # A verb as the last segment wins over "child under parent": /items/{id}/publish
+        # creates nothing, so RequestNewObject must not enter its P1 set.
+        if _is_action_call(p, operation_id):
+            return MethodSubtype.ACTION
         # filter/sort body on list — only when wording suggests filter, not create
         if _FILTER_BODY_HINTS.search(text) and not create_like and not ends_with_param:
             return MethodSubtype.POST_FILTER_LIST
@@ -181,11 +294,15 @@ def classify_endpoint(
         return MethodSubtype.POST_CREATE
 
     if m == "PUT":
+        if _is_action_call(p, operation_id):
+            return MethodSubtype.ACTION
         if _ACTION_HINTS.search(text) and not ends_with_param:
             return MethodSubtype.ACTION
         return MethodSubtype.PUT_OBJECT
 
     if m == "PATCH":
+        if _is_action_call(p, operation_id):
+            return MethodSubtype.ACTION
         # /resource/{id}/field style → elem
         if re.search(r"/\{[^}]+\}/[A-Za-z0-9_-]+/?$", p):
             return MethodSubtype.PATCH_ELEM
@@ -203,6 +320,9 @@ def classify_path_object(path_obj: Any) -> MethodSubtype:
     method = getattr(path_obj, "method", "") or ""
     path = getattr(path_obj, "path", "") or ""
     description = getattr(path_obj, "description", "") or ""
+    operation_id = (
+        getattr(path_obj, "operation_id", "") or getattr(path_obj, "operationId", "") or ""
+    )
     has_body = _has_request_body(path_obj)
     multi = _is_multipart(path_obj)
     qlist = _query_suggests_list(path_obj)
@@ -213,6 +333,7 @@ def classify_path_object(path_obj: Any) -> MethodSubtype:
         has_body=has_body,
         is_multipart=multi,
         query_list_hints=qlist,
+        operation_id=str(operation_id),
     )
 
 

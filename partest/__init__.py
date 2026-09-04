@@ -1,5 +1,12 @@
 """partest — methodology-driven API autotest harness with OpenAPI coverage."""
 
+from partest.access import (
+    AccessCase,
+    UserActivity,
+    access_cases,
+    anonymous_headers,
+    invalid_bearer_headers,
+)
 from partest.auth import TokenManager, decode_jwt_payload, jwt_claim
 from partest.call_storage import (
     call_count,
@@ -38,9 +45,12 @@ from partest.methods import MethodsList
 from partest.payloads import BaseRequestBody
 from partest.test_types import (
     CORE_TEST_TYPES,
+    PERMISSION_CELLS,
+    PERMISSION_CELL_EXPECTATIONS,
     TYPE_LABELS,
     TypesTestCases,
     canonicalize_type,
+    permission_cell_label,
 )
 from partest.tracking import (
     CreatedRegistry,
@@ -112,6 +122,14 @@ __all__ = [
     "load_storage_file",
     "merge_storage_files",
     "TypesTestCases",
+    "PERMISSION_CELLS",
+    "AccessCase",
+    "UserActivity",
+    "access_cases",
+    "anonymous_headers",
+    "invalid_bearer_headers",
+    "PERMISSION_CELL_EXPECTATIONS",
+    "permission_cell_label",
     "CORE_TEST_TYPES",
     "TYPE_LABELS",
     "canonicalize_type",

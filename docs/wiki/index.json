@@ -38,7 +38,7 @@
         },
         {
           "level": 3,
-          "text": "1.6"
+          "text": "1.6 — закрыто"
         },
         {
           "level": 3,
@@ -50,7 +50,7 @@
         },
         {
           "level": 2,
-          "text": "3. Что нужно сделать до релиза, который стоит переезда"
+          "text": "3. Что осталось до честного покрытия (волна 1.7)"
         },
         {
           "level": 2,
@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 8139
+      "chars": 7577
     },
     {
       "slug": "components/overview",
@@ -219,7 +219,7 @@
           "text": "What to trust"
         }
       ],
-      "chars": 2102
+      "chars": 2664
     },
     {
       "slug": "concepts/methodology",
@@ -267,7 +267,7 @@
           "text": "What \"100% covered\" means here"
         }
       ],
-      "chars": 3569
+      "chars": 3805
     },
     {
       "slug": "decisions/docs-architecture",
@@ -723,6 +723,50 @@
       "chars": 7420
     },
     {
+      "slug": "howto/permissions",
+      "path": "docs/wiki/howto/permissions.md",
+      "title": "Permissions — four cells, not one 401",
+      "status": "current",
+      "verified": "2026-09-04",
+      "audience": "user",
+      "ships_in_wheel": true,
+      "sources": [
+        "partest/access.py",
+        "partest/test_types.py"
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Permissions — four cells, not one 401"
+        },
+        {
+          "level": 2,
+          "text": "The antipattern"
+        },
+        {
+          "level": 1,
+          "text": "Permissions \"covered\""
+        },
+        {
+          "level": 2,
+          "text": "The four cells"
+        },
+        {
+          "level": 2,
+          "text": "Building the cases"
+        },
+        {
+          "level": 2,
+          "text": "The `inactive` cell"
+        },
+        {
+          "level": 2,
+          "text": "Coverage"
+        }
+      ],
+      "chars": 4347
+    },
+    {
       "slug": "howto/quickstart",
       "path": "docs/wiki/howto/quickstart.md",
       "title": "Quickstart — first green API test",
@@ -837,6 +881,22 @@
           "text": "Marker + DB cleanup contract"
         },
         {
+          "level": 3,
+          "text": "Required-only payloads still need the marker"
+        },
+        {
+          "level": 2,
+          "text": "Cleanup that survives a failed validation"
+        },
+        {
+          "level": 1,
+          "text": "201 + unexpected field → the test still fails, the id is still in the registry"
+        },
+        {
+          "level": 3,
+          "text": "Draining per test instead of per session"
+        },
+        {
           "level": 2,
           "text": "Resolve OpenAPI"
         },
@@ -873,7 +933,7 @@
           "text": "custom consumer validator"
         }
       ],
-      "chars": 4025
+      "chars": 6044
     },
     {
       "slug": "howto/release",
@@ -1154,7 +1214,7 @@
           "text": "Вне wiki"
         }
       ],
-      "chars": 2923
+      "chars": 3017
     },
     {
       "slug": "log",
@@ -1172,6 +1232,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-04 · update · реализована волна 1.6"
+        },
+        {
+          "level": 2,
           "text": "2026-09-04 · lint · сверка бэклога с кодом"
         },
         {
@@ -1183,7 +1247,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 3358
+      "chars": 4327
     },
     {
       "slug": "proposals",
@@ -1305,7 +1369,7 @@
         },
         {
           "level": 3,
-          "text": "1.6 — точность покрытия и доступы"
+          "text": "1.6 — точность покрытия и доступы · **реализовано, не выпущено**"
         },
         {
           "level": 3,
@@ -1332,7 +1396,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 5678
+      "chars": 6229
     },
     {
       "slug": "WIKI",
@@ -2617,6 +2681,9 @@
       "howto/release",
       "status"
     ],
+    "partest/access.py": [
+      "howto/permissions"
+    ],
     "partest/auth/__init__.py": [
       "components/overview"
     ],
@@ -2762,7 +2829,8 @@
     "partest/test_types.py": [
       "concepts/methodology",
       "decisions/explicit-type",
-      "howto/migration"
+      "howto/migration",
+      "howto/permissions"
     ],
     "partest/tracking.py": [
       "backlog-audit",
