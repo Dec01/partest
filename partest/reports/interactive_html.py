@@ -153,17 +153,18 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       <div class="sub" id="meta-line"></div>
     </div>
     <div class="toolbar">
-      <button type="button" id="btn-help" title="Как считается coverage">?</button>
-      <button type="button" id="btn-theme">Тема</button>
+      <button type="button" id="btn-help" title="How coverage is calculated">?</button>
+      <button type="button" id="btn-theme">Theme</button>
       <button type="button" id="btn-csv">CSV</button>
       <button type="button" id="btn-json">JSON</button>
+      <button type="button" id="btn-md">Markdown</button>
     </div>
   </div>
   <div class="help" id="help">
-    Coverage = доля выполненных P1 тест-кейсов методологии (subtype × Request* matrix) на эндпоинт.
-    Average — среднее по выбранным сервисам. Full = все P1 есть; Partial = часть; Empty = 0 P1.
-    Чекбоксы сервисов пересчитывают шапку, карточки и bars; matrix фильтруется отдельно.
-    Клавиши: <code>/</code> поиск, <code>Esc</code> сброс фильтров matrix.
+    Coverage = the share of required P1 test cases (subtype × Request* matrix) executed for an endpoint.
+    Average is taken over the selected services. Full = every P1 present; Partial = some; Empty = none.
+    The service checkboxes recalculate the header, cards and bars; the matrix filters separately.
+    Keys: <code>/</code> search, <code>Esc</code> clear the matrix filters.
   </div>
 </header>
 <main>
@@ -171,11 +172,11 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   <div class="grid" id="stats"></div>
 
   <section>
-    <h2>Сервисы (включить в оценку)</h2>
+    <h2>Services included in the score</h2>
     <div class="checks" id="service-checks"></div>
     <div class="toolbar">
-      <button type="button" class="primary" id="btn-recalc">Пересчитать</button>
-      <button type="button" id="btn-reset-svc">Сбросить</button>
+      <button type="button" class="primary" id="btn-recalc">Recalculate</button>
+      <button type="button" id="btn-reset-svc">Reset</button>
     </div>
   </section>
 
@@ -351,7 +352,27 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     });
   }
 
+  function msOf(e) {
+    const v = e.timing && e.timing.msP95;
+    return typeof v === "number" ? v : null;
+  }
+
+  function msLabel(e) {
+    const v = msOf(e);
+    return v === null ? "—" : String(Math.round(v));
+  }
+
+  // Thresholds from the methodology: under 100 ms fine, under 300 worth a look.
+  function msClass(e) {
+    const v = msOf(e);
+    if (v === null) return "muted";
+    if (v >= 300) return "bad";
+    if (v >= 100) return "warn";
+    return "ok";
+  }
+
   function cmp(a, b, key) {
+    if (key === "p95") return (msOf(a) ?? 0) - (msOf(b) ?? 0);
     const av = a[key], bv = b[key];
     if (typeof av === "number" && typeof bv === "number") return av - bv;
     return String(av ?? "").localeCompare(String(bv ?? ""), undefined, { numeric: true, sensitivity: "base" });
@@ -359,6 +380,12 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   function sortRows(list) {
     const rules = state.sort.length ? state.sort : [{ key: "coverage", dir: 1 }, { key: "path", dir: 1 }];
     return [...list].sort((a, b) => {
+      // Endpoints with no measurement sort last whichever way the column is sorted:
+      // "unknown" is not a fast endpoint, and it is not a slow one either.
+      if (rules.some(r => r.key === "p95")) {
+        const am = msOf(a) === null, bm = msOf(b) === null;
+        if (am !== bm) return am ? 1 : -1;
+      }
       for (const r of rules) {
         const d = cmp(a, b, r.key) * r.dir;
         if (d) return d;
@@ -367,7 +394,41 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     });
   }
 
+  // A filtered view is the thing people actually want to share ("look at these
+  // uncalled endpoints"). Keeping it in the hash makes the URL carry it; localStorage
+  // only remembers it for you.
+  function writeHash() {
+    const f = state.filters;
+    const parts = [];
+    Object.keys(f).forEach(key => {
+      const value = f[key];
+      if (Array.isArray(value)) { if (value.length) parts.push(`${key}=${encodeURIComponent(value.join(","))}`); }
+      else if (value !== "" && value != null) parts.push(`${key}=${encodeURIComponent(value)}`);
+    });
+    const next = parts.join("&");
+    try {
+      history.replaceState(null, "", next ? `#${next}` : location.pathname + location.search);
+    } catch (e) { /* file:// and sandboxes refuse history writes */ }
+  }
+
+  function readHash() {
+    const raw = (location.hash || "").replace(/^#/, "");
+    if (!raw) return false;
+    const parsed = { ...EMPTY_FILTERS };
+    let any = false;
+    raw.split("&").forEach(pair => {
+      const [key, rawValue = ""] = pair.split("=");
+      if (!(key in parsed)) return;
+      const value = decodeURIComponent(rawValue);
+      parsed[key] = Array.isArray(parsed[key]) ? value.split(",").filter(Boolean) : value;
+      any = true;
+    });
+    if (any) state.filters = parsed;
+    return any;
+  }
+
   function persist() {
+    writeHash();
     try {
       store.set(LS_SVC, JSON.stringify([...state.selected]));
       store.set(LS_FILT, JSON.stringify({ filters: state.filters, pageSize: state.pageSize }));
@@ -392,6 +453,8 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       if (saved?.filters) Object.assign(state.filters, saved.filters);
       if (saved?.pageSize) state.pageSize = saved.pageSize;
     } catch (_) {}
+    // A link someone sent you beats whatever your browser remembered.
+    readHash();
   }
 
   function renderStats() {
@@ -461,7 +524,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
         <div class="card-title">${esc(it.title)}</div>
         <div class="card-metric">${it.avg.toFixed(0)}%</div>
         <div class="muted">${it.count} endpoints · ${it.calls} calls</div>
-      </div>`).join("") || `<div class="muted">Нет данных</div>`;
+      </div>`).join("") || `<div class="muted">No data</div>`;
     root.querySelectorAll(".card").forEach(el => {
       el.addEventListener("click", () => onClick(el.getAttribute("data-key")));
     });
@@ -505,7 +568,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     const top = Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 12);
     document.getElementById("missing-top").innerHTML = top.map(([tc, n]) =>
       `<span class="chip miss ${state.filters.missing.includes(tc) ? "active" : ""}" data-tc="${esc(tc)}">${esc(tc)} · ${n}</span>`
-    ).join("") || `<span class="muted">Нет missing P1</span>`;
+    ).join("") || `<span class="muted">Nothing missing at P1</span>`;
     document.querySelectorAll("#missing-top .chip").forEach(el => {
       el.addEventListener("click", () => {
         const tc = el.getAttribute("data-tc");
@@ -545,7 +608,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   function renderBars(list) {
     const rows = sortRows(list).slice(0, 40);
     document.getElementById("bars-caption").textContent =
-      `Первые ${rows.length} из ${list.length} (сортировка как в matrix)`;
+      `First ${rows.length} of ${list.length} (sorted as in the matrix)`;
     document.getElementById("bars").innerHTML = rows.map(e => {
       const label = `${e.method} ${e.path}`;
       return `<div class="bar-row">
@@ -569,7 +632,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       <div class="field"><span>Status</span><select multiple id="f-st">${multiOptions(["full","partial","empty","exception"], f.statuses)}</select></div>
       <div class="field"><span>Coverage</span>
         <select id="f-cov">
-          <option value="">все</option>
+          <option value="">all</option>
           <option value="0" ${f.coverage==="0"?"selected":""}>0%</option>
           <option value="1-33" ${f.coverage==="1-33"?"selected":""}>1–33%</option>
           <option value="34-66" ${f.coverage==="34-66"?"selected":""}>34–66%</option>
@@ -634,7 +697,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   const COLS = [
     ["method", "Method"], ["path", "Path"], ["service", "Service"],
     ["subtype", "Subtype"], ["calls", "Calls"], ["coverage", "Cover"],
-    ["status", "Status"]
+    ["p95", "p95 ms"], ["status", "Status"]
   ];
 
   function renderHead() {
@@ -677,24 +740,25 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     if (state.page > pages) state.page = pages;
     const start = allMode ? 0 : (state.page - 1) * size;
     const slice = rows.slice(start, allMode ? total : start + size);
-    document.getElementById("matrix-count").textContent = `Показано ${slice.length} из ${total} (оценка: ${scoredEndpoints().length} / ${ALL.length})`;
+    document.getElementById("matrix-count").textContent = `Showing ${slice.length} of ${total} (scored: ${scoredEndpoints().length} / ${ALL.length})`;
     const body = document.getElementById("tbody");
     body.innerHTML = slice.map((e, i) => {
       const id = start + i;
       return `<tr class="${statusClass(e.status)}" data-i="${id}">
         <td><code>${esc(e.method)}</code></td>
-        <td class="path" title="клик — копировать"><code>${esc(e.path)}</code></td>
+        <td class="path" title="click to copy"><code>${esc(e.path)}</code></td>
         <td>${esc(e.serviceLabel || e.service)}</td>
         <td>${esc(e.subtype)}</td>
         <td class="num">${e.calls}</td>
         <td class="num cover">${(e.coverage || 0).toFixed(0)}%</td>
+        <td class="num ${msClass(e)}">${msLabel(e)}</td>
         <td><span class="badge ${statusClass(e.status)}">${esc(e.status)}</span></td>
         <td>${chips(e.executed)}</td>
         <td>${chips(e.missing)}</td>
         <td class="muted">${esc(e.description)}</td>
       </tr>
-      <tr class="details" data-d="${id}"><td colspan="10">
-        Executed: ${chips(e.executed)} · Missing P1: ${chips(e.missing)} · ${esc(e.description || "нет описания")}
+      <tr class="details" data-d="${id}"><td colspan="11">
+        Executed: ${chips(e.executed)} · Missing P1: ${chips(e.missing)} · ${esc(e.description || "no description")}
       </td></tr>`;
     }).join("");
     body.querySelectorAll("tr[data-i]").forEach(tr => {
@@ -710,17 +774,17 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     });
     const sizes = [25, 50, 100, "all"];
     document.getElementById("pager").innerHTML = `
-      <span>Страница ${state.page} / ${pages}</span>
+      <span>Page ${state.page} / ${pages}</span>
       <button type="button" id="pg-prev" ${state.page<=1?"disabled":""}>←</button>
       <button type="button" id="pg-next" ${state.page>=pages?"disabled":""}>→</button>
       <label>Jump <input type="number" id="pg-jump" min="1" max="${pages}" value="${state.page}" style="width:4.2rem"/></label>
-      <label>Rows <select id="pg-size">${sizes.map(s => `<option value="${s}" ${String(s)===String(state.pageSize)?"selected":""}>${s==="all"?"все":s}</option>`).join("")}</select></label>`;
+      <label>Rows <select id="pg-size">${sizes.map(s => `<option value="${s}" ${String(s)===String(state.pageSize)?"selected":""}>${s==="all"?"all":s}</option>`).join("")}</select></label>`;
     document.getElementById("pg-prev").onclick = () => { state.page--; renderMatrix(); };
     document.getElementById("pg-next").onclick = () => { state.page++; renderMatrix(); };
     document.getElementById("pg-jump").onchange = ev => { state.page = Math.max(1, Math.min(pages, Number(ev.target.value)||1)); renderMatrix(); };
     document.getElementById("pg-size").onchange = ev => {
       const v = ev.target.value;
-      if (v === "all" && total > 200 && !confirm("Показать все " + total + " строк?")) {
+      if (v === "all" && total > 200 && !confirm("Show all " + total + " rows?")) {
         ev.target.value = String(state.pageSize);
         return;
       }
@@ -795,6 +859,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       document.getElementById("help").classList.toggle("open");
     });
     document.getElementById("btn-csv").addEventListener("click", () => downloadCsv(sortRows(matrixEndpoints())));
+    document.getElementById("btn-md").addEventListener("click", () => downloadMarkdown(sortRows(matrixEndpoints())));
     document.getElementById("btn-json").addEventListener("click", () => {
       const blob = new Blob([JSON.stringify({ ...DATA, endpoints: matrixEndpoints(), filtered: true }, null, 2)], { type: "application/json" });
       const a = document.createElement("a");
@@ -813,6 +878,30 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
         renderAll();
       }
     });
+  }
+
+  function downloadMarkdown(rows) {
+    // For pasting the current view straight into a ticket.
+    const header = "| Method | Path | Subtype | Calls | Cover | p95 ms | Kind | Missing P1 |";
+    const sep = "|---|---|---|---|---|---|---|---|";
+    const body = rows.map(e => [
+      e.method, "`" + e.path + "`", e.subtype, e.calls,
+      `${(e.coverage || 0).toFixed(0)}%`, msLabel(e), e.kind || "unseen",
+      (e.missing || []).join(", ") || "—"
+    ].join(" | ")).map(line => `| ${line} |`).join("\n");
+    const meta = DATA.meta || {};
+    const caveat = (meta.workers > 1 && meta.merged === false)
+      ? "\n\n> Collected on " + meta.workers + " parallel workers without merging — these numbers are one worker's slice."
+      : (meta.partialRun ? "\n\n> Partial run: some endpoints were never called." : "");
+    downloadBlob(`${header}\n${sep}\n${body}${caveat}\n`, "coverage.md", "text/markdown");
+  }
+
+  function downloadBlob(text, filename, mime) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: `${mime};charset=utf-8` }));
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
 
   function downloadCsv(rows) {
