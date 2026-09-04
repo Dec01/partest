@@ -64,3 +64,29 @@ def test_every_skill_declares_name_and_description():
         head = skill.read_text(encoding="utf-8").split("---", 2)
         assert len(head) >= 3, f"{skill.name}: missing frontmatter"
         assert "name:" in head[1] and "description:" in head[1], f"{skill}: incomplete frontmatter"
+
+
+def test_package_advertises_its_types():
+    """py.typed is a promise to consumers' type checkers; it must ship."""
+    assert (REPO_ROOT / "partest" / "py.typed").is_file()
+    setup = (REPO_ROOT / "setup.py").read_text(encoding="utf-8")
+    assert "py.typed" in setup, "py.typed must be listed in package_data"
+
+
+def test_legacy_aliases_warn_before_they_are_removed():
+    """A deprecation that never warns never expires."""
+    import warnings
+
+    from partest.data_marker import aqa_name, marked_name
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        value = aqa_name("Item")
+
+    assert value, "the alias must still work while it is deprecated"
+    assert any(issubclass(w.category, DeprecationWarning) for w in caught)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        marked_name("Item")
+    assert not caught, "the supported name must stay quiet"

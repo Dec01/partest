@@ -44,6 +44,23 @@
   `TrackingApiClient` registers the id there. The test still fails; the leftover does
   not happen. Opt out with `track_before_validate=False` (LIB-TRACK-VALIDATE).
 
+### Added — packaging and maintenance
+
+- `partest/py.typed`: the package now ships its annotations, so a consuming project's
+  type checker sees them. Coverage is partial and says so — `TrackingApiClient`
+  delegates unknown attributes to the wrapped client and types as `Any` there.
+- The `aqa_*` helpers in `partest.data_marker` emit a `DeprecationWarning` and will be
+  removed in the next major version. They carry a consumer project's name into a public
+  API, which the library's own rules forbid; a deprecation that never warns never
+  expires. The supported names (`marked_name`, `marked_code`, …) stay silent.
+- `tools/check_all.py` runs tests, the documentation lint, the index check and the wheel
+  drift check in one command; `--package` adds the build and `twine check`. There is no
+  public CI here, so a single command is the only thing standing between a stale
+  `partest/docs` and PyPI.
+- UI cookbook gains "Covering a ticket item": Happy / Negative / Boundary / Side-effect /
+  Close, and why asserting a value beats asserting that an element is visible
+  (LIB-REC-UI-TICKET).
+
 ### Added — observing side effects
 
 - `partest.sideeffects`: probe contracts for an object store, a broker and a database,
@@ -83,22 +100,6 @@
 
 ### Added — coverage honesty
 
-- The interactive report opens with a banner when the run behind it does not describe the
-  suite: parallel workers that were never merged, or a large share of endpoints never
-  called. A **Not called this run** counter sits beside Full/Partial/Empty and filters the
-  matrix when clicked, and `Reset filters` is now a visible control. Latency average and
-  p95 appear once calls carry timings (LIB-COV-HTML, partly — drawer, hash-URL filters,
-  CSV export and the command palette are still open).
-
-### Fixed — report template
-
-- The shipped template hardcoded a consumer's service names in its filter presets and
-  named that project in the footer. Presets are now generic (not called / partial /
-  called-with-no-cells / write queue / writes only).
-- Opening the report from a sandboxed or `data:` context blanked the whole page: the
-  first `localStorage` access threw and no rendering ran at all. Every access is guarded,
-  so persistence degrades instead of taking the report with it.
-
 - Explicit subtype overrides: `subtype_overrides` in `confpartest.py` (a mapping or a
   path to YAML) pins the subtype for endpoints the classifier reads wrong. Routes match
   by shape, so `{id}` and `{orderId}` are the same route, and a malformed key or unknown
@@ -127,7 +128,23 @@
 - `partest.call_storage`: `write_shard`, `merge_shards`, `read_shards`, `clear_shards`,
   `worker_id`, `run_info`, `update_last_meta`.
 
-### Added
+- The interactive report opens with a banner when the run behind it does not describe the
+  suite: parallel workers that were never merged, or a large share of endpoints never
+  called. A **Not called this run** counter sits beside Full/Partial/Empty and filters the
+  matrix when clicked, and `Reset filters` is now a visible control. Latency average and
+  p95 appear once calls carry timings (LIB-COV-HTML, partly — drawer, hash-URL filters,
+  CSV export and the command palette are still open).
+
+### Fixed — report template
+
+- The shipped template hardcoded a consumer's service names in its filter presets and
+  named that project in the footer. Presets are now generic (not called / partial /
+  called-with-no-cells / write queue / writes only).
+- Opening the report from a sandboxed or `data:` context blanked the whole page: the
+  first `localStorage` access threw and no rendering ran at all. Every access is guarded,
+  so persistence degrades instead of taking the report with it.
+
+### Added — access, hooks and cleanup
 
 - `partest.access`: `access_cases`, `AccessCase`, `anonymous_headers`,
   `invalid_bearer_headers`, `UserActivity` protocol — the four permission cells

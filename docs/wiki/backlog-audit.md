@@ -100,14 +100,16 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 стенду), а библиотечная часть — контракт наблюдения, read-only пробы и фейки для
 разработки — от кредов не зависит. `partest/sideeffects.py` + раздел в [[howto/layers]].
 
-Осталось: `LIB-REC-UI-TICKET` (матрица пункта тикета для UI).
+`LIB-REC-UI-TICKET` закрыт разделом «Covering a ticket item» в [[howto/ui]].
+
+**Cookbook-долг закрыт полностью.**
 
 ## 3. Что осталось
 
 1. **`LIB-COV-HTML`**, остаток: drawer по эндпоинту, состояние фильтров в hash URL,
    экспорт CSV/markdown, палитра Ctrl+K, ms-оверлей на клетке матрицы. Данные для всего
    этого в JSON уже есть — это чистая работа по шаблону.
-2. **Cookbook-долг**, остаток: `LIB-REC-UI-TICKET`.
+2. ~~Cookbook-долг~~ — закрыт.
 3. Из [[proposals]], если возьмётесь: `py.typed`, предупреждения об устаревании алиасов,
    единая команда проверок перед релизом.
 

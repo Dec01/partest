@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7400
+      "chars": 7431
     },
     {
       "slug": "components/overview",
@@ -510,7 +510,7 @@
           "text": "Where things are decided"
         }
       ],
-      "chars": 3166
+      "chars": 3320
     },
     {
       "slug": "howto/coverage-html",
@@ -1052,7 +1052,7 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 3126
+      "chars": 3120
     },
     {
       "slug": "howto/reporting",
@@ -1223,6 +1223,22 @@
         },
         {
           "level": 2,
+          "text": "Covering a ticket item"
+        },
+        {
+          "level": 3,
+          "text": "Assert a state, not a pixel and not a presence"
+        },
+        {
+          "level": 1,
+          "text": "not enough: the element exists"
+        },
+        {
+          "level": 1,
+          "text": "what the item actually claims"
+        },
+        {
+          "level": 2,
           "text": "Visual baselines"
         },
         {
@@ -1242,7 +1258,7 @@
           "text": "Plugin"
         }
       ],
-      "chars": 3590
+      "chars": 5538
     },
     {
       "slug": "howto/upload",
@@ -1353,6 +1369,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-04 · update · бэклог закрыт, обслуживание пакета"
+        },
+        {
+          "level": 2,
           "text": "2026-09-04 · update · наблюдение side-effect без кредов"
         },
         {
@@ -1388,7 +1408,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 8873
+      "chars": 9697
     },
     {
       "slug": "proposals",
@@ -1418,15 +1438,15 @@
         },
         {
           "level": 3,
-          "text": "A1. `py.typed` и аннотации как контракт"
+          "text": "A1. `py.typed` и аннотации как контракт · ✅ сделано"
         },
         {
           "level": 3,
-          "text": "A2. Предупреждения об устаревании"
+          "text": "A2. Предупреждения об устаревании · ✅ сделано для `aqa_*`"
         },
         {
           "level": 3,
-          "text": "A3. Один прогон всех проверок"
+          "text": "A3. Один прогон всех проверок · ✅ `tools/check_all.py`"
         },
         {
           "level": 3,
@@ -1477,7 +1497,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 5578
+      "chars": 5866
     },
     {
       "slug": "status",
@@ -1537,7 +1557,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 7298
+      "chars": 7316
     },
     {
       "slug": "WIKI",

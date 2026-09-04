@@ -79,6 +79,48 @@ mon.reset()  # clear before intentional 404 probe
 
 Aliases: `network_issues` == `network_errors`; legacy attr `_aqa_monitor` set.
 
+## Covering a ticket item
+
+A UI ticket item is not covered by replaying it once. Five columns, and the answer to
+each is a separate test or an explicit "not applicable":
+
+| Column | The question |
+|---|---|
+| **Happy** | the item works as written, for the role it was written for |
+| **Negative** | invalid input, a rejected action, a server error — the screen says so and stays usable |
+| **Boundary** | empty list, one element, many; the longest allowed value; the earliest and latest date |
+| **Side-effect** | what the action changed is visible where it should be, and nowhere it should not |
+| **Close** | after the action the screen returns to a sane state: dialog closes, list refreshes, nothing stays spinning |
+
+Skipping **Close** is the most common gap and the most user-visible: an action that
+succeeds but leaves a modal open or a stale list reads as broken regardless of what the
+API did.
+
+These columns are **not** API test-case types. Do not record them as `request_*` and do
+not expect them in `coverage.json` — that file is about HTTP operations. Track them on
+the ticket, next to the acceptance criteria.
+
+### Assert a state, not a pixel and not a presence
+
+```python
+# not enough: the element exists
+page.expect_visible("[data-testid=order-status]")
+
+# what the item actually claims
+page.expect_text("[data-testid=order-status]", "Cancelled")
+```
+
+"An element is visible" passes on a screen that renders a stale value. Assert the value,
+the count, the enabled state — whatever the ticket item promises.
+
+For the **Side-effect** column, prefer asking the API rather than looking at another
+screen: a UI action followed by an API read of the same id is the cheapest honest proof
+that something really changed. That combination is what makes a test end to end —
+see [[howto/layers]].
+
+Selectors, page objects, scenes and reference images stay in the project. The library
+supplies the harness; what your screens look like is yours.
+
 ## Visual baselines
 
 ```bash
