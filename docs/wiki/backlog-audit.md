@@ -22,9 +22,9 @@ allow_version_literals: true
 |---|---|
 | **Документационные требования бэклога** | применены |
 | **Волна 1.6** | **реализована**, тесты в `tests/test_wave_1_6.py`; не выпущена |
-| **Волна 1.7** | открыта: xdist-merge, `kind`, timing, витрина HTML, override подтипов |
+| **Волна 1.7** | P0-ядро **реализовано** (xdist-merge, `kind`, meta, timing, history keep=2); открыты витрина HTML, override подтипов, kind-aware compare |
 | **Можно ли переезжать aqa** | да, после публикации: снимается overlay `resource_tracker.py`, чинятся ключи покрытия и классификация |
-| **Чего переезд не даст** | честного покрытия под `-n` — это 1.7. Запрет гонять `zorro` под xdist остаётся в силе |
+| **Чего переезд не даст** | отчёта из теста под `-n`: слияние живёт на контроллере, `test_zorro` — на воркере. Нужен либо serial, либо `PARTEST_COVERAGE_JSON` |
 
 ---
 
@@ -69,17 +69,26 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 несовпадение статуса и любой провал схемы теряли диагностику. Теперь
 `partest/allure_step.py`, регрессия закреплена тестом.
 
-### 1.7
+### 1.7 — P0-ядро закрыто
 
-| ID | Требование | Статус | Доказательство |
+| ID | Требование | Статус | Где |
 |---|---|---|---|
-| **LIB-XDIST** (P0) | merge `call_storage` между воркерами | ⚠️ примитивы есть, автоматики нет | [call_storage.py:58](partest/call_storage.py:58) `dump_storage`, `:102` `merge_storage_files` — вызывать надо руками; в [pytest_plugin.py](partest/pytest_plugin.py) только `pytest_itemcollected` и `pytest_runtest_makereport`, хука `sessionfinish` / controller нет |
-| **LIB-COV-KIND** (P0) | `unseen / empty / partial / full / exception` | ❌ нет | [payload.py:26](partest/reports/payload.py:26) — `_status_of` возвращает `ep.status or "empty"`, таксономии `kind` нет |
-| **LIB-COV-META** | `meta.merged`, `meta.workers` в JSON | ❌ нет | [payload.py:274](partest/reports/payload.py:274) — `meta` = `generated / engine / title / defaultExcluded` |
-| **LIB-COV-TIMING** | `elapsed_ms` → avg/p50/p95 по type × subtype | ❌ нет | `call_meta` в `call_storage` существует как контейнер, замеров и агрегации нет |
-| **LIB-COV-HIST-2** | история прогонов, `keep=2`, Δ двух прогонов | ⚠️ частично | `partest/reports/history.py` есть; `keep=2` по умолчанию и timing в снапшоте — проверить отдельно |
-| **LIB-COV-HTML** | целевая витрина (drawer, сброс фильтров, скролл матрицы) | ⚠️ частично | `interactive_html.py` из 1.5.0; целевой UX бэклога шире |
-| **LIB-SUBTYPE-OVERRIDE** | YAML-map `(METHOD, path) → subtype` + rebind | ❌ нет | в `methodology/` и `conf.py` нет ни override, ни точки подмены |
+| **LIB-XDIST** | merge `call_storage` между воркерами | ✅ | шард на воркере + слияние на контроллере в `pytest_sessionfinish`; проверено реальным `-n 2` |
+| **LIB-COV-KIND** | `unseen / empty / partial / full / exception` | ✅ | `_kind_for` в `analyzer.py`, поле `kind` в JSON |
+| **LIB-COV-META** | `meta.merged`, `meta.workers` | ✅ | плюс `partialRun`, `callsTotal`, `unseenRatio` |
+| **LIB-COV-TIMING** | `elapsed_ms` → avg/p50/p95 по типам | ✅ | замер в `track_api_calls`, агрегат `timing_of` |
+| **LIB-COV-HIST-2** | история, `keep=2` | ✅ | `append_snapshot(keep=2)`, `prune_snapshots`, `previous_snapshot` |
+| **LIB-COV-HTML** | целевой UX витрины | ⬜ | `interactive_html.py` из 1.5.0 не переписан |
+| **LIB-SUBTYPE-OVERRIDE** | YAML-map + rebind | ⬜ | нет |
+| **LIB-COV-CMP kind-aware** | дельта прогона vs дельта suite | ⬜ | `compare_payloads` не знает про `kind` |
+
+Контракт слияния из спеки соблюдён: `calls` суммируются, `types` объединяются — поздний
+`request_default` не затирает ранний `request_elements`.
+
+Отклонение от спеки, осознанное: вместо дописывания jsonl на каждый вызов воркер пишет
+один шард на финише сессии. Контракт слияния тот же, но нет ни поблочных локов, ни
+рваных строк на Windows. Цена — воркер, убитый посреди прогона, не отдаёт ничего;
+это в любом случае сломанный прогон.
 
 ### Cookbook-долг (docs, не код)
 
@@ -87,25 +96,19 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 `LIB-REC-INTEGRATION` (201 ≠ persist) · `LIB-REC-E2E` · `LIB-REC-TYPE` · `LIB-REC-CLEANUP` ·
 `LIB-REC-UI-TICKET` — ни одной страницы нет. Спеки лежат в `docs/raw/aqa/2026-09-04/`.
 
-## 3. Что осталось до честного покрытия (волна 1.7)
+## 3. Что осталось
 
-Волна 1.6 закрыта, см. §2. Открыто:
-
-1. **`LIB-XDIST`** (P0 по бэклогу) — шардовый дамп `call_storage` плюс сведение на
-   контроллере в `pytest_sessionfinish`. Примитивы `dump_storage` / `merge_storage_files`
-   уже есть, нет автоматики и хука. Самый крупный пункт.
-2. **`LIB-COV-KIND`** (P0) — `unseen / empty / partial / full / exception` в анализаторе
-   и в JSON, плюс `meta.merged` и `meta.workers`.
-3. **`LIB-COV-TIMING`** — `elapsed_ms` на вызове, агрегация avg/p50/p95 по type × subtype.
-4. **`LIB-COV-HIST-2`** — проверить `keep=2` по умолчанию и timing в снапшоте.
-5. **`LIB-COV-HTML`** — целевой UX витрины: drawer, сброс фильтров, скролл матрицы.
-6. **`LIB-SUBTYPE-OVERRIDE`** — YAML-map `(METHOD, template) → subtype` с подменой
-   `partest.coverage.classify_endpoint`. Важно: подменять надо там, куда смотрит
-   декоратор, а не только модуль `classifier`.
-7. **Cookbook-долг**: UPLOAD, PATH, INTEGRATION, E2E, TYPE, UI-TICKET.
-
-Пока 1.7 не выпущена, единственная защита от вранья покрытия под `-n` — запрет гонять
-`zorro` параллельно, записанный в [[concepts/coverage-honesty]] и в скилле.
+1. **`LIB-COV-HTML`** — целевой UX витрины: drawer по эндпоинту, сброс фильтров, скролл
+   матрицы в контейнере, ms на клетке, пресеты «unseen» и «≥300 ms», баннер частичного
+   прогона. Данные для всего этого в JSON уже есть.
+2. **`LIB-SUBTYPE-OVERRIDE`** — YAML-map `(METHOD, template) → subtype`. Важно:
+   подменять надо `partest.coverage.classify_endpoint`, куда смотрит декоратор, а не
+   только модуль `classifier`.
+3. **`LIB-COV-CMP`** — сравнение с учётом `kind`, чтобы «эндпоинт не стреляли в этом
+   прогоне» не читалось как «покрытие упало».
+4. **Cookbook-долг**: upload, path/layers, integration, e2e, type-дисциплина, UI-ticket.
+5. Из [[proposals]], если возьмётесь: `py.typed`, предупреждения об устаревании алиасов,
+   единая команда проверок перед релизом.
 
 ## 4. Что меняется для консьюмера уже сейчас
 

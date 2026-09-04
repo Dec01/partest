@@ -4,6 +4,19 @@
 
 ### Fixed
 
+- **Coverage under pytest-xdist reported one worker's slice.** `call_storage` is per
+  process, so a parallel run counted only the calls made by whichever worker rendered
+  the report — a green suite measured 25.7% average with 58 endpoints marked as never
+  called. Workers now write a shard when their session ends and the controller merges
+  every shard before the run finishes; calls are summed and executed types unioned, so
+  a later `RequestDefault` cannot overwrite an earlier `RequestElements`. On by
+  default, `PARTEST_XDIST_MERGE=0` opts out, `PARTEST_CALL_STORAGE_DIR` moves the shard
+  directory (LIB-XDIST).
+
+  A report written *by a test* still cannot see the merge — that test runs on a worker.
+  Run the coverage pass serially, or set `PARTEST_COVERAGE_JSON` /
+  `PARTEST_COVERAGE_HTML` to have the controller write the artifact.
+
 - **Allure step wrapper swallowed the real failure.** The guarded `_step` helper caught
   the exception raised by its own block and yielded a second time, so `contextlib`
   turned every failure inside a step into
@@ -30,6 +43,24 @@
   response hook after the status check and before schema validation, and
   `TrackingApiClient` registers the id there. The test still fails; the leftover does
   not happen. Opt out with `track_before_validate=False` (LIB-TRACK-VALIDATE).
+
+### Added — coverage honesty
+
+- `kind` per endpoint: `unseen / empty / partial / full / exception`, separate from the
+  legacy `status`. "Nothing called this in this run" is not the same claim as "this has
+  no tests", and a filtered or unmerged run produces the first in bulk (LIB-COV-KIND).
+- `meta.workers`, `meta.merged`, `meta.partialRun`, `meta.callsTotal`,
+  `meta.unseenRatio` in `coverage.json`, so a reader can tell what a number describes.
+  `PARTEST_COVERAGE_REQUIRE_MERGE=1` fails the session instead of publishing a quiet
+  wrong number (LIB-COV-META).
+- Latency: every tracked call records `elapsed_ms`, including on the failure path.
+  `timing` blocks with `n / msAvg / msP50 / msP95 / msMax` and a per-type breakdown are
+  emitted per endpoint and for the run (LIB-COV-TIMING).
+- Coverage history is pruned to the last two runs by default; `prune_snapshots`,
+  `list_snapshots` and `previous_snapshot` are public. `keep=None` restores unbounded
+  growth (LIB-COV-HIST-2).
+- `partest.call_storage`: `write_shard`, `merge_shards`, `read_shards`, `clear_shards`,
+  `worker_id`, `run_info`, `update_last_meta`.
 
 ### Added
 

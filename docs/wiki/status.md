@@ -20,7 +20,7 @@ allow_version_literals: true
 | **Дистрибуция** | только PyPI. Публичный GitHub не планируется — см. [[decisions/pypi-only]] |
 | **Consumer proof** | aqa: `partest==1.5.0` / `partest[ui]==1.5.0`, волна W4 закрыта |
 | **Источник бэклога** | снапшот `docs/raw/aqa/2026-09-04/` |
-| **Сверка бэклога с кодом** | [[backlog-audit]] — волна 1.6 реализована, 1.7 открыта |
+| **Сверка бэклога с кодом** | [[backlog-audit]] — волны 1.6 и 1.7 (P0-часть) реализованы |
 
 ---
 
@@ -80,22 +80,30 @@ allow_version_literals: true
 внутри блока в `RuntimeError: generator didn't stop after throw()`. Диагностика
 несовпадения статуса и провала схемы до отчёта не доходила. Теперь `partest/allure_step.py`.
 
-### 1.7 — честность покрытия
+### 1.7 — честность покрытия · **ядро реализовано, не выпущено**
 
-| ID | Задача |
-|---|---|
-| **LIB-XDIST** | merge `call_storage` между воркерами (jsonl-шарды + controller hook) |
-| **LIB-COV-KIND** | `unseen` / `empty` / `partial` / `full` / `exception` — 0 вызовов ≠ «нет тестов» |
-| **LIB-COV-HTML** | интерактивный HTML: фильтры, heatmap, drawer, экспорт |
-| **LIB-COV-TIMING** | `elapsed_ms` → avg/p50/p95 по type × subtype |
-| **LIB-COV-HIST-2** | история прогонов, `keep=2` по умолчанию |
-| **LIB-SUBTYPE-OVERRIDE** | явный map `(METHOD, path) → subtype` поверх эвристики |
+| ID | Задача | Статус |
+|---|---|---|
+| **LIB-XDIST** | воркеры пишут шарды, контроллер сливает до конца сессии; суммы вызовов, объединение типов | ✅ |
+| **LIB-COV-KIND** | `unseen / empty / partial / full / exception` отдельно от legacy `status` | ✅ |
+| **LIB-COV-META** | `meta.workers`, `merged`, `partialRun`, `callsTotal`, `unseenRatio` | ✅ |
+| **LIB-COV-TIMING** | `elapsed_ms` на вызове, агрегаты avg/p50/p95/max и разбивка по типам | ✅ |
+| **LIB-COV-HIST-2** | `keep=2` по умолчанию, обрезка старых снапшотов, `previous_snapshot` | ✅ |
+| **LIB-COV-HTML** | целевой UX витрины: drawer, сброс фильтров, скролл матрицы, ms на клетке | ⬜ открыто |
+| **LIB-SUBTYPE-OVERRIDE** | YAML-map `(METHOD, template) → subtype` + подмена там, куда смотрит декоратор | ⬜ открыто |
+| **LIB-COV-CMP kind-aware** | дельта прогона против дельты suite | ⬜ открыто |
 
-**Известное противоречие:** в бэклоге aqa `LIB-XDIST` и `LIB-COV-KIND` помечены **P0**
-(«не откладывать»), но порядок релизов ставит их в 1.7. Причина P0 — замер aqa 2026-08-27:
-`pytest -n 3` дал average 25.7% и 58 unseen при живом suite, то есть цифра покрытия под xdist
-**врёт**. Решение владельца: либо поднять их в 1.6, либо до 1.7 держать в доках явный запрет
-гонять `zorro` под xdist. Сейчас выбран второй вариант.
+Слияние проверено настоящим прогоном `-n 2` в подпроцессе, не моком:
+`tests/test_wave_1_7.py::test_parallel_run_sees_every_endpoint`.
+
+**Противоречие приоритетов снято.** `LIB-XDIST` и `LIB-COV-KIND` были помечены P0, но
+стояли в 1.7 по порядку релизов; сделаны сразу после 1.6.
+
+**Остаточное ограничение, важное для консьюмера.** Отчёт, который пишет тест
+(`test_zorro`), слияния не видит: тест исполняется на воркере, слияние происходит на
+контроллере после него. Либо гонять покрытие последовательно, либо отдать запись
+артефакта контроллеру через `PARTEST_COVERAGE_JSON` / `PARTEST_COVERAGE_HTML`.
+Подробности — [[concepts/coverage-honesty]] и [[howto/enterprise]].
 
 ### Позже
 

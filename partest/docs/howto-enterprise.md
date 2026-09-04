@@ -55,25 +55,40 @@ await api.graphql("{ me { id } }", variables=None, endpoint="/graphql")
 
 ## Coverage under pytest-xdist
 
-Each xdist worker is a **separate process** → separate `call_storage`.
+Each xdist worker is a **separate process**, so each has its own `call_storage`. Left alone, the
+report describes whichever worker rendered it: a green suite under `-n 3` has been measured at
+25.7% average with 58 endpoints marked as never called.
+
+The bundled plugin handles this without configuration: workers write a shard at the end of their
+session, and the controller merges every shard before the run finishes.
+
+```bash
+pytest -n auto                       # merged automatically
+PARTEST_CALL_STORAGE_DIR=/tmp/shards pytest -n auto   # if the default dir is not writable
+PARTEST_XDIST_MERGE=0 pytest -n auto  # opt out
+```
+
+**A report written by a test still cannot see the merge.** That test runs on a worker; the merge
+happens on the controller afterwards. Either run the coverage pass serially, or have the
+controller write the artifact:
+
+```bash
+PARTEST_COVERAGE_JSON=coverage.json PARTEST_COVERAGE_HTML=coverage_report.html pytest -n auto
+```
+
+Check `meta.workers` and `meta.merged` in the JSON before trusting a number from a parallel run.
+For pipelines that publish coverage, `PARTEST_COVERAGE_REQUIRE_MERGE=1` turns an unmerged
+parallel run into a failed session instead of a quiet wrong number.
+
+Merge semantics: calls are summed per endpoint and executed types are unioned, so a later
+`RequestDefault` never overwrites an earlier `RequestElements`.
+
+Doing it by hand, if you need a different pipeline:
 
 ```python
-# conftest.py (worker)
-import os
-from pathlib import Path
-from partest.call_storage import dump_storage_file
-
-def pytest_sessionfinish(session, exitstatus):
-    worker = os.getenv("PYTEST_XDIST_WORKER")  # gw0, gw1, …
-    if worker:
-        dump_storage_file(Path("reports") / f"coverage_{worker}.json")
-
-# controller / local merge job
-from partest.call_storage import merge_storage_files, reset_storage
-from pathlib import Path
-reset_storage()
-merge_storage_files(Path("reports").glob("coverage_gw*.json"))
-# then zorro() / HTML analyzer on merged storage
+from partest.call_storage import merge_shards, read_shards, write_shard
+write_shard()            # on a worker
+merge_shards()           # on the controller, before analysis
 ```
 
 Within one process, `record_call` is **thread-locked**.

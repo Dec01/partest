@@ -42,7 +42,7 @@
         },
         {
           "level": 3,
-          "text": "1.7"
+          "text": "1.7 — P0-ядро закрыто"
         },
         {
           "level": 3,
@@ -50,7 +50,7 @@
         },
         {
           "level": 2,
-          "text": "3. Что осталось до честного покрытия (волна 1.7)"
+          "text": "3. Что осталось"
         },
         {
           "level": 2,
@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7577
+      "chars": 7255
     },
     {
       "slug": "components/overview",
@@ -219,7 +219,7 @@
           "text": "What to trust"
         }
       ],
-      "chars": 2664
+      "chars": 3756
     },
     {
       "slug": "concepts/methodology",
@@ -607,23 +607,11 @@
           "text": "Coverage under pytest-xdist"
         },
         {
-          "level": 1,
-          "text": "conftest.py (worker)"
-        },
-        {
-          "level": 1,
-          "text": "controller / local merge job"
-        },
-        {
-          "level": 1,
-          "text": "then zorro() / HTML analyzer on merged storage"
-        },
-        {
           "level": 2,
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 2273
+      "chars": 3237
     },
     {
       "slug": "howto/migration",
@@ -1232,6 +1220,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-04 · update · реализовано P0-ядро волны 1.7"
+        },
+        {
+          "level": 2,
           "text": "2026-09-04 · update · реализована волна 1.6"
         },
         {
@@ -1247,7 +1239,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 4327
+      "chars": 5366
     },
     {
       "slug": "proposals",
@@ -1373,7 +1365,7 @@
         },
         {
           "level": 3,
-          "text": "1.7 — честность покрытия"
+          "text": "1.7 — честность покрытия · **ядро реализовано, не выпущено**"
         },
         {
           "level": 3,
@@ -1396,7 +1388,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 6229
+      "chars": 6856
     },
     {
       "slug": "WIKI",

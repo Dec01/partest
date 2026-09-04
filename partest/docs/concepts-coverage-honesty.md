@@ -9,21 +9,44 @@ Three ways the number currently lies, and what to do about each.
 ## 1. Parallel runs under pytest-xdist
 
 `call_storage` is **per process** (`partest/call_storage.py`). Each xdist worker counts only its
-own calls, and `test_zorro` runs on one worker — so it reports that worker's slice as if it were
-the whole suite.
-
+own calls, so an unmerged parallel run reports one worker's slice as if it were the whole suite.
 Measured on a live suite: `pytest -n 3` produced average 25.7% and 58 endpoints marked unseen,
 while the same suite serial was green.
 
-**Until worker merging lands: do not run `zorro` under `-n`.** Run the
-coverage pass serially, or merge shards yourself with `dump_storage` / `merge_storage` from a
-`pytest_sessionfinish` hook — see [Enterprise notes — shared client, retries, redaction, xdist](howto-enterprise.md).
+The bundled pytest plugin now closes this: every worker writes its counters to a shard when its
+session ends, and the controller merges them before the run finishes. Nothing to configure.
+
+One thing does **not** follow from the merge. A report produced by a test — the usual
+`test_zorro` — runs on a worker, and merging happens on the controller afterwards, so that test
+can never see the merged data. Two honest options:
+
+* run the coverage pass serially, as before; or
+* let the controller write the artifact:
+
+```bash
+PARTEST_COVERAGE_JSON=coverage.json PARTEST_COVERAGE_HTML=coverage_report.html pytest -n auto
+```
+
+The report then carries `meta.workers` and `meta.merged`, so a reader can tell what the number
+describes. `PARTEST_COVERAGE_REQUIRE_MERGE=1` turns an unmerged parallel run into a failure, for
+pipelines where coverage is a published artifact.
 
 ## 2. "Unseen" vs "no tests"
 
 Zero recorded calls for an endpoint has two very different causes: no test exists, or tests exist
-but did not run in this selection (`-k`, marker filter, failed fixture). Today both render the
-same. A planned change splits them into `unseen / empty / partial / full / exception`.
+but did not run in this selection (`-k`, marker filter, failed fixture). Each endpoint now carries
+a `kind` alongside the legacy `status`:
+
+| `kind` | Means |
+|---|---|
+| `unseen` | nothing called this operation **in this run** — says nothing about whether tests exist |
+| `empty` | it was called, but no required cell was executed |
+| `partial` | some required cells present |
+| `full` | the required set for the subtype is covered |
+| `exception` | the endpoint is excluded from scoring |
+
+`meta.unseenRatio` and `meta.partialRun` summarise it: a run is flagged partial when a fifth of
+the endpoints went untouched, or when workers were not merged.
 
 Practical consequence: a low number after a filtered run is not a coverage regression. Compare
 only full runs; use `python -m partest.reports compare` on two payloads rather than eyeballing
