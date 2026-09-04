@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, List, Optional, Sequence
 
+from partest.methodology.overrides import lookup as lookup_override
 from partest.methodology.subtypes import MethodSubtype
 
 # Description/operationId tokens that usually mean "collection list / search"
@@ -232,6 +233,13 @@ def classify_endpoint(
 
     if not m:
         return MethodSubtype.UNKNOWN
+
+    # An explicit project override always wins. Checked here rather than by rebinding
+    # this function: coverage.py imports it by value at module import, before any
+    # project configuration is read.
+    override = lookup_override(m, p)
+    if override is not None:
+        return override
 
     if m == "GET":
         if _is_self_scope(p, description, operation_id):

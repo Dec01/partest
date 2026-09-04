@@ -46,6 +46,18 @@
 
 ### Added — coverage honesty
 
+- Explicit subtype overrides: `subtype_overrides` in `confpartest.py` (a mapping or a
+  path to YAML) pins the subtype for endpoints the classifier reads wrong. Routes match
+  by shape, so `{id}` and `{orderId}` are the same route, and a malformed key or unknown
+  subtype raises at load time instead of being ignored. Applied inside
+  `classify_endpoint` rather than by rebinding it, because `coverage.py` imports that
+  function by value before any project configuration is read (LIB-SUBTYPE-OVERRIDE).
+- `compare_payloads` understands `kind`: an endpoint that was covered before and simply
+  was not called this run is reported under `not_run`, never as a regression, and its
+  `missing` list is ignored. The result carries `comparable` and `warnings`; an unmerged
+  parallel run or a run with a fifth of the endpoints untouched is flagged.
+  `python -m partest.reports compare --strict` exits 2 in that case (LIB-COV-CMP).
+
 - `kind` per endpoint: `unseen / empty / partial / full / exception`, separate from the
   legacy `status`. "Nothing called this in this run" is not the same claim as "this has
   no tests", and a filtered or unmerged run produces the first in bulk (LIB-COV-KIND).

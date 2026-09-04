@@ -59,3 +59,21 @@ Longest prefix wins. Unknown path → first segment after the api prefix.
 
 Filters (service / method / subtype / status / missing P1 / search), heatmap,
 CSV/JSON export of the current view, light/dark. No product names in the library template.
+
+## Comparing two runs
+
+```bash
+python -m partest.reports compare --a previous.json --b coverage.json
+python -m partest.reports compare --a previous.json --b coverage.json --strict
+```
+
+Coverage falls for two different reasons, and only one of them is a regression. An endpoint that
+was covered before and simply was not called this time is reported under `not_run`, never under
+`regressed`, and its `missing` list is ignored — it is an artefact of not running.
+
+The result carries `comparable` and `warnings`. A run made with parallel workers that were not
+merged, or one where a fifth of the endpoints went untouched, is flagged as not comparable;
+`--strict` turns that into exit code 2 so a pipeline does not alarm on a partial run or, worse,
+stay quiet about a real loss hidden behind one.
+
+Related: [Coverage honesty — when the number lies](concepts-coverage-honesty.md)

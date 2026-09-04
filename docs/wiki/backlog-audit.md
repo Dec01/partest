@@ -79,8 +79,8 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 | **LIB-COV-TIMING** | `elapsed_ms` → avg/p50/p95 по типам | ✅ | замер в `track_api_calls`, агрегат `timing_of` |
 | **LIB-COV-HIST-2** | история, `keep=2` | ✅ | `append_snapshot(keep=2)`, `prune_snapshots`, `previous_snapshot` |
 | **LIB-COV-HTML** | целевой UX витрины | ⬜ | `interactive_html.py` из 1.5.0 не переписан |
-| **LIB-SUBTYPE-OVERRIDE** | YAML-map + rebind | ⬜ | нет |
-| **LIB-COV-CMP kind-aware** | дельта прогона vs дельта suite | ⬜ | `compare_payloads` не знает про `kind` |
+| **LIB-SUBTYPE-OVERRIDE** | YAML-map + rebind | ✅ | `partest/methodology/overrides.py`; проверка внутри `classify_endpoint`, а не подменой ссылки |
+| **LIB-COV-CMP kind-aware** | дельта прогона vs дельта suite | ✅ | `not_run`, `comparable`, `warnings`, флаг `--strict` в CLI |
 
 Контракт слияния из спеки соблюдён: `calls` суммируются, `types` объединяются — поздний
 `request_default` не затирает ранний `request_elements`.
@@ -101,13 +101,8 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 1. **`LIB-COV-HTML`** — целевой UX витрины: drawer по эндпоинту, сброс фильтров, скролл
    матрицы в контейнере, ms на клетке, пресеты «unseen» и «≥300 ms», баннер частичного
    прогона. Данные для всего этого в JSON уже есть.
-2. **`LIB-SUBTYPE-OVERRIDE`** — YAML-map `(METHOD, template) → subtype`. Важно:
-   подменять надо `partest.coverage.classify_endpoint`, куда смотрит декоратор, а не
-   только модуль `classifier`.
-3. **`LIB-COV-CMP`** — сравнение с учётом `kind`, чтобы «эндпоинт не стреляли в этом
-   прогоне» не читалось как «покрытие упало».
-4. **Cookbook-долг**: upload, path/layers, integration, e2e, type-дисциплина, UI-ticket.
-5. Из [[proposals]], если возьмётесь: `py.typed`, предупреждения об устаревании алиасов,
+2. **Cookbook-долг**: upload, path/layers, integration, e2e, type-дисциплина, UI-ticket.
+3. Из [[proposals]], если возьмётесь: `py.typed`, предупреждения об устаревании алиасов,
    единая команда проверок перед релизом.
 
 ## 4. Что меняется для консьюмера уже сейчас

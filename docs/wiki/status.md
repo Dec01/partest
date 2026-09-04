@@ -90,8 +90,8 @@ allow_version_literals: true
 | **LIB-COV-TIMING** | `elapsed_ms` на вызове, агрегаты avg/p50/p95/max и разбивка по типам | ✅ |
 | **LIB-COV-HIST-2** | `keep=2` по умолчанию, обрезка старых снапшотов, `previous_snapshot` | ✅ |
 | **LIB-COV-HTML** | целевой UX витрины: drawer, сброс фильтров, скролл матрицы, ms на клетке | ⬜ открыто |
-| **LIB-SUBTYPE-OVERRIDE** | YAML-map `(METHOD, template) → subtype` + подмена там, куда смотрит декоратор | ⬜ открыто |
-| **LIB-COV-CMP kind-aware** | дельта прогона против дельты suite | ⬜ открыто |
+| **LIB-SUBTYPE-OVERRIDE** | YAML/dict `(METHOD, template) → subtype`; применяется внутри `classify_endpoint`, поэтому виден декоратору | ✅ |
+| **LIB-COV-CMP kind-aware** | `not_run` отдельно от `regressed`, `comparable` + `warnings`, `compare --strict` | ✅ |
 
 Слияние проверено настоящим прогоном `-n 2` в подпроцессе, не моком:
 `tests/test_wave_1_7.py::test_parallel_run_sees_every_endpoint`.
