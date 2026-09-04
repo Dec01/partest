@@ -1,10 +1,20 @@
-"""Installable documentation (LIB-12).
+"""Documentation shipped inside the installed package.
 
-Access::
+partest is distributed through PyPI only, so the wheel carries its own docs. Files here are
+generated from the project wiki by ``tools/docs_build_wheel.py`` — do not edit them by hand.
 
-    from partest.docs import read_doc, list_docs
-    print(read_doc(\"QUICKSTART.md\")[:200])
+Access from Python::
+
+    from partest.docs import list_docs, read_doc
+    print(read_doc("howto-quickstart.md")[:200])
+
+Or from the command line::
+
+    python -m partest.docs list
+    python -m partest.docs show howto-quickstart
+    python -m partest.docs path
 """
+
 from __future__ import annotations
 
 from importlib import resources
@@ -17,6 +27,13 @@ def list_docs() -> List[str]:
 
 
 def read_doc(name: str) -> str:
-    """Read a shipped markdown doc by filename (e.g. ``QUICKSTART.md``)."""
+    """Read a shipped markdown doc by file name, with or without the ``.md`` suffix."""
+    if not name.endswith(".md"):
+        name = name + ".md"
     path = resources.files(__name__).joinpath(name)
     return path.read_text(encoding="utf-8")
+
+
+def docs_path() -> str:
+    """Filesystem location of the shipped docs, for opening them in an editor."""
+    return str(resources.files(__name__))

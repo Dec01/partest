@@ -203,22 +203,19 @@ def test_base_page_is_sync():
 
 
 def test_shipped_docs():
+    """The wheel carries user documentation and nothing internal."""
     from partest.docs import list_docs, read_doc
 
     names = list_docs()
-    assert "QUICKSTART.md" in names
-    assert "MIGRATION_1.3.0_ISSUES.md" in names
-    text = read_doc("UI_QUICKSTART.md")
-    assert "partest" in text.lower()
+    for expected in ("howto-quickstart.md", "howto-migration.md", "howto-ui.md",
+                     "concepts-methodology.md", "components-overview.md"):
+        assert expected in names, f"{expected} missing from the wheel"
 
-    plan = read_doc("IMPLEMENTATION_PLAN.md")
-    assert "1.5.0" in plan
-    assert "1.4.0" in plan
-    assert "PyPI" in plan
-    assert "out of scope" in plan.lower()
-    assert "GitHub" in plan
+    assert "partest" in read_doc("howto-ui.md").lower()
+    assert "PyPI" in read_doc("howto-migration.md")
 
-    migration = read_doc("MIGRATION.md")
-    assert "1.5.0" in migration
-    assert "1.4.0" in migration
-    assert "PyPI" in migration
+    # Internal pages must never ship: status, roadmaps, ADRs, consumer trackers.
+    for internal in ("status.md", "howto-release.md", "howto-contribute.md"):
+        assert internal not in names, f"{internal} must not ship in the wheel"
+    for name in names:
+        assert "example-org" not in read_doc(name), f"{name} leaks a private path"
