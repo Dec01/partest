@@ -163,3 +163,88 @@ def pytest_runtest_makereport(item, call):
         )
     except Exception:
         pass
+
+
+# --- Coverage under pytest-xdist ------------------------------------------
+
+
+def _xdist_merge_enabled() -> bool:
+    """Merging is on by default; opt out with ``PARTEST_XDIST_MERGE=0``."""
+    env = _env_flag("PARTEST_XDIST_MERGE")
+    return True if env is None else env
+
+
+def _is_xdist_worker(config) -> bool:
+    return hasattr(config, "workerinput")
+
+
+def pytest_sessionstart(session) -> None:
+    """Drop shards from a previous run so stale workers cannot inflate this one."""
+    if not _xdist_merge_enabled() or _is_xdist_worker(session.config):
+        return
+    try:
+        from partest.call_storage import clear_shards
+
+        clear_shards()
+    except Exception:
+        pass
+
+
+def pytest_sessionfinish(session, exitstatus) -> None:
+    """Workers write their counters; the controller merges them.
+
+    Without this, ``pytest -n`` reports whichever worker happened to run the report
+    test, and every endpoint exercised elsewhere reads as never called.
+    """
+    if not _xdist_merge_enabled():
+        return
+    try:
+        from partest.call_storage import merge_shards, run_info, write_shard
+    except Exception:
+        return
+
+    if _is_xdist_worker(session.config):
+        try:
+            write_shard()
+        except OSError:
+            pass
+        return
+
+    # Controller (or a plain serial run: then there are no shards and nothing changes).
+    try:
+        merge_shards()
+    except Exception:
+        return
+
+    if run_info.get("workers", 1) > 1 and not run_info.get("merged"):
+        if _env_flag("PARTEST_COVERAGE_REQUIRE_MERGE"):
+            raise session.Failed(
+                "partest: coverage was collected under xdist without a merge; "
+                "the numbers are one worker's slice, not the suite"
+            )
+
+    _write_controller_report()
+
+
+def _write_controller_report() -> None:
+    """Optionally render the coverage report here, where the merged data lives.
+
+    A report produced by a test cannot see the merge: that test runs on one worker,
+    and merging happens on the controller after every worker has finished. Set
+    ``PARTEST_COVERAGE_JSON`` (and optionally ``PARTEST_COVERAGE_HTML``) to have the
+    artifact written from the controller instead.
+    """
+    json_path = (os.getenv("PARTEST_COVERAGE_JSON") or "").strip()
+    html_path = (os.getenv("PARTEST_COVERAGE_HTML") or "").strip()
+    if not json_path and not html_path:
+        return
+    try:
+        from partest.reports import zorro_enhanced
+
+        zorro_enhanced(
+            html_path=html_path or "coverage_report.html",
+            json_path=json_path or "coverage.json",
+            attach_allure=False,
+        )
+    except Exception as exc:  # a broken report must not fail a green suite
+        print(f"partest: could not write the coverage report: {exc}")

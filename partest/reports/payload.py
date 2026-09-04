@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from typing import Any, Iterable, Optional, Sequence
 
+from partest.call_storage import run_info
 from partest.reports.analyzer import CoverageReport, EndpointCoverage
 from partest.reports.services import ServiceMap
 from partest.test_types import TYPE_LABELS
@@ -39,6 +40,54 @@ def _get(ep: Any, *names: str) -> Any:
     return None
 
 
+
+def _percentile(values: Sequence[float], pct: float) -> float:
+    """Nearest-rank percentile. Small samples are the norm here, so no interpolation."""
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    index = max(0, min(len(ordered) - 1, int(round(pct / 100.0 * len(ordered) + 0.5)) - 1))
+    return float(ordered[index])
+
+
+def timing_of(metas: Sequence[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    """Latency summary for one endpoint, or None when nothing was measured.
+
+    Same caveat as coverage: without merged workers this only describes the calls
+    one process made.
+    """
+    samples = [
+        float(m["elapsed_ms"])
+        for m in metas or []
+        if isinstance(m, dict) and isinstance(m.get("elapsed_ms"), (int, float))
+    ]
+    if not samples:
+        return None
+
+    by_type: dict[str, list[float]] = {}
+    for meta in metas:
+        value = meta.get("elapsed_ms")
+        if not isinstance(value, (int, float)):
+            continue
+        by_type.setdefault(_label_type(meta.get("type") or "unknown"), []).append(float(value))
+
+    return {
+        "n": len(samples),
+        "msAvg": round(sum(samples) / len(samples), 2),
+        "msP50": round(_percentile(samples, 50), 2),
+        "msP95": round(_percentile(samples, 95), 2),
+        "msMax": round(max(samples), 2),
+        "byType": {
+            name: {
+                "n": len(values),
+                "msAvg": round(sum(values) / len(values), 2),
+                "msP95": round(_percentile(values, 95), 2),
+            }
+            for name, values in sorted(by_type.items())
+        },
+    }
+
+
 def endpoint_to_dict(
     ep: EndpointCoverage,
     *,
@@ -49,6 +98,7 @@ def endpoint_to_dict(
     subtype_key = getattr(ep.subtype, "value", str(ep.subtype))
     executed = sorted(_label_type(t) for t in ep.executed_types)
     missing = [_label_type(t) for t in ep.missing_p1]
+    timing = timing_of(_get(ep, "depth_hints") or [])
     return {
         "method": ep.method,
         "path": ep.path,
@@ -59,9 +109,11 @@ def endpoint_to_dict(
         "calls": int(ep.calls or 0),
         "coverage": round(float(ep.coverage_pct or 0.0), 2),
         "status": _status_of(ep),
+        "kind": _get(ep, "kind") or "unseen",
         "executed": executed,
         "missing": missing,
         "description": ep.description or "",
+        **({"timing": timing} if timing else {}),
     }
 
 
@@ -270,13 +322,34 @@ def build_payload(
     smap = service_map or ServiceMap()
     endpoints = [endpoint_to_dict(ep, service_map=smap) for ep in report.endpoints]
     summary = summarize(endpoints)
+
+    workers = int(run_info.get("workers", 1) or 1)
+    merged = bool(run_info.get("merged", False))
+    calls_total = sum(int(e.get("calls") or 0) for e in endpoints)
+    unseen = sum(1 for e in endpoints if e.get("kind") == "unseen")
+    unseen_ratio = round(unseen / len(endpoints), 4) if endpoints else 0.0
+    # Either a lot of endpoints went untouched, or parallel workers were never
+    # merged — in both cases the average describes this run, not the suite.
+    partial_run = unseen_ratio >= 0.2 or (workers > 1 and not merged)
+
+    all_metas: list[dict[str, Any]] = []
+    for ep in report.endpoints:
+        all_metas.extend(getattr(ep, "depth_hints", None) or [])
+    run_timing = timing_of(all_metas)
+
     return {
         "meta": {
             "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
             "engine": engine,
             "title": title,
             "defaultExcluded": list(smap.default_excluded),
+            "workers": workers,
+            "merged": merged,
+            "partialRun": partial_run,
+            "callsTotal": calls_total,
+            "unseenRatio": unseen_ratio,
         },
+        **({"timing": run_timing} if run_timing else {}),
         "summary": {
             **summary,
             "avgAll": summary["avg"],

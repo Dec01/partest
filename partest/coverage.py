@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import re
 from functools import wraps
+from time import perf_counter
 from typing import Any, Callable, Optional
 from uuid import UUID
 
-from partest.call_storage import call_count, call_type, endpoint_subtype, record_call
+from partest.call_storage import (
+    call_count,
+    call_type,
+    endpoint_subtype,
+    record_call,
+    update_last_meta,
+)
 from partest.methodology.classifier import classify_endpoint
 from partest.methodology.inference import infer_test_type
 from partest.path_match import build_concrete_url, resolve_endpoint_template
@@ -136,6 +143,7 @@ def track_api_calls(func: Callable) -> Callable:
         test_type = canonicalize_type(inference.test_type)
 
         final_endpoint = _resolve_endpoint(endpoint or "", kwargs, method)
+        recorded_key = None
 
         if method is not None and final_endpoint is not None:
             found_match = False
@@ -152,6 +160,10 @@ def track_api_calls(func: Callable) -> Callable:
                         key,
                         test_type,
                         meta={
+                            # The type lives in the meta entry too, so timing can be
+                            # grouped by it without relying on two parallel lists
+                            # staying index-aligned.
+                            "type": test_type,
                             "inferred": inference.inferred,
                             "confidence": inference.confidence,
                             "reason": inference.reason,
@@ -163,6 +175,7 @@ def track_api_calls(func: Callable) -> Callable:
                         subtype=subtype.value,
                     )
                     found_match = True
+                    recorded_key = key
                     break
 
             _ensure_unmatched_keys()
@@ -171,7 +184,18 @@ def track_api_calls(func: Callable) -> Callable:
                 # Still ensure zero-call keys exist for report
                 pass
 
-        return await func(*args, **kwargs)
+        # The call is recorded before it runs, so a failing request still counts as
+        # an attempt. Timing can only be known afterwards, so it amends the entry —
+        # in the failure path too, where slowness is often the point.
+        started = perf_counter()
+        try:
+            return await func(*args, **kwargs)
+        finally:
+            if recorded_key is not None:
+                update_last_meta(
+                    recorded_key,
+                    {"elapsed_ms": round((perf_counter() - started) * 1000.0, 2)},
+                )
 
     return wrapper
 

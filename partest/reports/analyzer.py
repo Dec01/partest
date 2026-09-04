@@ -22,6 +22,25 @@ from partest.test_types import (
 )
 
 
+
+def _kind_for(*, count: int, present: Sequence[str], required: Sequence[str], is_exception: bool) -> str:
+    """Classify what this run actually observed for one endpoint.
+
+    ``unseen`` says nothing about whether tests exist — only that none of them hit
+    this operation in this run. A partial selection (``-k``, a marker filter, a failed
+    fixture) or an unmerged xdist run produces it in bulk.
+    """
+    if is_exception:
+        return "exception"
+    if count == 0:
+        return "unseen"
+    if not required:
+        return "full"
+    if not present:
+        return "empty"
+    return "full" if len(present) >= len(required) else "partial"
+
+
 @dataclass
 class EndpointCoverage:
     method: str
@@ -38,6 +57,11 @@ class EndpointCoverage:
     present_required: List[str]
     coverage_pct: float
     status: str  # full | partial | empty | exception | deprecated
+    # Run-level classification, kept separate from the legacy ``status``:
+    # unseen (no call in THIS run) is not the same claim as empty (called, no
+    # required cell executed). Conflating them is how a filtered or unmerged
+    # parallel run reads as "these endpoints have no tests".
+    kind: str = "unseen"
     is_exception: bool = False
     priority_cells: Dict[str, int] = field(default_factory=dict)
     depth_hints: List[Dict[str, Any]] = field(default_factory=list)
@@ -232,6 +256,8 @@ class CoverageAnalyzer:
             else:
                 status = "empty"
 
+        kind = _kind_for(count=count, present=present, required=(all_req or p1), is_exception=is_exc)
+
         metas = call_meta.get(key, [])
         return EndpointCoverage(
             method=method,
@@ -248,6 +274,7 @@ class CoverageAnalyzer:
             present_required=present,
             coverage_pct=pct,
             status=status,
+            kind=kind,
             is_exception=is_exc,
             priority_cells=cells,
             depth_hints=list(metas),
