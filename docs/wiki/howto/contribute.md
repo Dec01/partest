@@ -36,6 +36,9 @@ Entry point for maintainers and agents working **on** the library (working **wit
 ## Tests
 
 ```bash
+python tools/check_all.py           # everything below, in one command
+python tools/check_all.py --package # plus build the distribution and twine check
+
 python -m pytest tests/ -q          # units, golden generator e2e, docs lint
 
 # generator smoke, if you touched project_gen

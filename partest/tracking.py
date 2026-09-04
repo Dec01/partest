@@ -265,5 +265,11 @@ class TrackingApiClient:
             self._track_from(result, method, endpoint)
         return result
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
+        """Delegate anything this wrapper does not define to the wrapped client.
+
+        A deliberate hole in the type coverage the package advertises with ``py.typed``:
+        every unknown attribute types as ``Any``, so a typo here is caught at runtime
+        rather than by a checker. Prefer ``client`` for anything you need statically.
+        """
         return getattr(self._client, name)

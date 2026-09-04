@@ -30,9 +30,8 @@ Aliases live at least one full minor before removal.
 ## 2. Prepare
 
 ```bash
-python -m pytest tests/ -q
-python tools/docs_lint.py --strict
 python tools/docs_build_wheel.py            # regenerate partest/docs from the wiki
+python tools/check_all.py                   # tests, docs lint, index, wheel drift
 python -m partest.reports --help
 python -m partest.ui.capture_baselines --dry-run
 ```
@@ -49,9 +48,7 @@ python -m partest.ui.capture_baselines --dry-run
 
 ```bash
 python -m pip install -U build twine
-rm -rf dist build
-python -m build
-python -m twine check dist/*
+python tools/check_all.py --package
 python -m zipfile -l dist/partest-*.whl | grep "partest/docs"
 ```
 

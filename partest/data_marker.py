@@ -63,9 +63,30 @@ def prefix_marker(text: str) -> str:
     return f"{TEST_MARKER} {text}"
 
 
-# Optional aliases for consumers migrating from aqa_* names
-aqa_name = marked_name
-aqa_code = marked_code
-aqa_short = marked_short
-aqa_fill = fill_with_marker
-aqa_prefixed = prefix_marker
+# Aliases kept for suites migrating from the original ``aqa_*`` names. They carry a
+# consumer project's name into a public API, which the library's own rules forbid, so
+# they are on a removal path — but removing them is a breaking change and needs a major
+# version. A deprecation that never warns never expires, hence the warning.
+def _deprecated_alias(new, old_name: str):
+    import functools
+    import warnings
+
+    @functools.wraps(new)
+    def _wrapper(*args, **kwargs):
+        warnings.warn(
+            f"{old_name}() is deprecated; use {new.__name__}(). "
+            f"The aqa_* aliases will be removed in the next major version.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return new(*args, **kwargs)
+
+    _wrapper.__name__ = old_name
+    return _wrapper
+
+
+aqa_name = _deprecated_alias(marked_name, "aqa_name")
+aqa_code = _deprecated_alias(marked_code, "aqa_code")
+aqa_short = _deprecated_alias(marked_short, "aqa_short")
+aqa_fill = _deprecated_alias(fill_with_marker, "aqa_fill")
+aqa_prefixed = _deprecated_alias(prefix_marker, "aqa_prefixed")

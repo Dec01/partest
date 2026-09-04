@@ -35,7 +35,9 @@ setup(
     packages=find_packages(exclude=["src", "tests", "build", "dist"]),
     include_package_data=True,
     package_data={
-        "partest": ["docs/*.md"],
+        # py.typed: the package ships its annotations (PEP 561). Coverage is partial —
+        # TrackingApiClient delegates unknown attributes and types as Any there.
+        "partest": ["py.typed", "docs/*.md"],
         "partest.docs": ["*.md"],
     },
     install_requires=[
