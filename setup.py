@@ -1,14 +1,28 @@
+import pathlib
+import re
+
 from setuptools import find_packages, setup
+
+HERE = pathlib.Path(__file__).parent
+
+
+def version():
+    """Single source of truth: partest/__init__.py. Never duplicate the number here."""
+    text = (HERE / "partest" / "__init__.py").read_text(encoding="utf-8")
+    match = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', text, re.MULTILINE)
+    if not match:
+        raise RuntimeError("cannot find __version__ in partest/__init__.py")
+    return match.group(1)
 
 
 def readme():
-    with open("docs/README.md", "r", encoding="utf-8") as f:
-        return f.read()
+    """PyPI long_description. Self-contained: there is no public source mirror to link to."""
+    return (HERE / "docs" / "PYPI.md").read_text(encoding="utf-8")
 
 
 setup(
     name="partest",
-    version="1.5.0",
+    version=version(),
     author="dec01",
     author_email="parschin.ewg@yandex.ru",
     description=(

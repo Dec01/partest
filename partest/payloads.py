@@ -26,7 +26,8 @@ def _resolve_mapping(owner: Any, attr: str = "_json_main") -> Dict[str, Any]:
             # class-level access: try fget on a throwaway if needed
             raise TypeError(
                 f"{cls.__name__}.{attr} is a property; resolve on an instance "
-                f"or use a class-level dict of callables (see docs/MIGRATION.md)."
+                f"or use a class-level dict of callables "
+                f"(see `python -m partest.docs show howto-migration`)."
             )
         value = raw.fget(inst)
     elif callable(raw) and not isinstance(raw, type):

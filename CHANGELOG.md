@@ -2,12 +2,36 @@
 
 ## Unreleased
 
+### Changed — documentation
+
+- Documentation reorganized into four layers: `AGENTS.md` (boundaries, ≤60 lines),
+  `.claude/skills/` (procedures, loaded on demand), `docs/wiki/` (knowledge),
+  `docs/raw/` (immutable source snapshots). Rationale:
+  ``docs/wiki/decisions/docs-architecture.md``.
+- `docs/wiki/status.md` is now the only source of versions, waves and planned work; the
+  duplicated status tables in `AGENTS.md`, `IMPLEMENTATION_PLAN.md`, `LIBRARY_ROADMAP.md`,
+  `DEVELOPMENT.md` and `MIGRATION_1.3.0_ISSUES.md` were merged into it and archived.
+- `partest/docs/` is **generated** from wiki pages marked `ships_in_wheel: true`
+  (`tools/docs_build_wheel.py`) instead of being copied by hand. File names are now flat
+  (`howto-quickstart.md`, `concepts-methodology.md`, …).
+- Internal material no longer ships in the wheel: consumer migration tracker, status board and
+  release checklist were removed from the published package.
+- `setup.py` reads `__version__` from `partest/__init__.py` instead of duplicating the number,
+  and `long_description` comes from the self-contained `docs/PYPI.md`.
+
+### Added
+
+- `python -m partest.docs list | show <page> | path` — read the bundled documentation.
+- `tools/docs_lint.py`, `tools/docs_index.py`, `tools/docs_build_wheel.py` and
+  `tests/test_docs.py`: broken links, stale pages (page `verified` older than its `sources`),
+  version literals, private data in shipped pages, and wheel drift now fail the test suite.
+
 ## 1.5.0
 
 Bundles the previously unreleased 1.4.x / 1.5 / 1.6 / 1.7 waves from
-aqa ``docs/partest/LIBRARY_ROADMAP.md``. Backward compatible with 1.4.0.
+the consumer backlog snapshot. Backward compatible with 1.4.0.
 
-Release checklist: ``docs/RELEASE_1.5.0.md``.
+Release record: ``docs/archive/RELEASE_1.5.0.md``.
 
 ### Added — coverage extras (LIB-COV-*)
 
