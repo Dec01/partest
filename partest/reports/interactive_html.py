@@ -89,6 +89,12 @@ section h2 { margin: 0 0 .75rem; font-size: 1.05rem; }
 .filters .field { display: flex; flex-direction: column; gap: .2rem; min-width: 120px; }
 .filters .field span { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .filters select[multiple] { min-height: 72px; min-width: 150px; }
+.banner { display: block; margin: 0 0 1rem; padding: .7rem .9rem; border-radius: 10px;
+  border: 1px solid var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent);
+  font-size: .86rem; line-height: 1.45; }
+.banner b { display: block; margin-bottom: .15rem; }
+.stat.clickable { cursor: pointer; }
+.stat.clickable:hover { filter: brightness(1.1); }
 .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); max-height: 70vh; }
 table { width: 100%; border-collapse: collapse; font-size: .84rem; }
 th, td { padding: .5rem .55rem; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -161,6 +167,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   </div>
 </header>
 <main>
+  <div class="banner" id="run-banner" hidden></div>
   <div class="grid" id="stats"></div>
 
   <section>
@@ -227,7 +234,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
 
   <footer>
     Methodology: method subtype × test-case type × assert steps.
-    HTML — витрина JSON (<code>coverage.json</code>). Engine partest + aqa service map.
+    This page is a view over <code>coverage.json</code>; the service map is supplied by the project.
   </footer>
 </main>
 <script id="coverage-data" type="application/json">%%COVERAGE_DATA%%</script>
@@ -236,6 +243,14 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   const LS_SVC = "partest-cov-services";
   const LS_FILT = "partest-cov-filters";
   const LS_THEME = "partest-cov-theme";
+
+  // localStorage throws outright when the page is opened from a sandboxed or data:
+  // context. Persisting filters is a convenience; losing the whole report because of
+  // it is not acceptable, so every access is guarded.
+  const store = {
+    get(key) { try { return localStorage.getItem(key); } catch (e) { return null; } },
+    set(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* ignore */ } }
+  };
   const DATA = JSON.parse(document.getElementById("coverage-data").textContent);
   const ALL = DATA.endpoints || [];
   const SERVICE_META = {};
@@ -249,6 +264,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       methods: [],
       subtypes: [],
       statuses: [],
+      kinds: [],
       coverage: "",
       callsMin: "",
       callsMax: "",
@@ -280,13 +296,17 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     return list.reduce((s, e) => s + (e.coverage || 0), 0) / list.length;
   }
   function summarize(list) {
-    const s = { avg: avg(list), calls: 0, full: 0, partial: 0, empty: 0, exception: 0, endpoints: list.length };
+    const s = { avg: avg(list), calls: 0, full: 0, partial: 0, empty: 0, exception: 0,
+                unseen: 0, endpoints: list.length };
     list.forEach(e => {
       s.calls += e.calls || 0;
       if (e.status === "exception") s.exception++;
       else if (e.status === "full") s.full++;
       else if (e.status === "partial") s.partial++;
       else s.empty++;
+      // kind is about this run: nothing called it, which is not the same as
+      // "it has no tests". Counted separately so the two are never conflated.
+      if (e.kind === "unseen") s.unseen++;
     });
     return s;
   }
@@ -294,6 +314,11 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   function scoredEndpoints() {
     return ALL.filter(e => state.selected.has(e.service));
   }
+
+  const EMPTY_FILTERS = {
+    services: [], methods: [], subtypes: [], statuses: [], kinds: [],
+    coverage: "", callsMin: "", callsMax: "", missing: [], search: ""
+  };
 
   function matrixEndpoints() {
     const f = state.filters;
@@ -310,6 +335,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       if (f.methods.length && !f.methods.includes(e.method)) return false;
       if (f.subtypes.length && !f.subtypes.includes(e.subtype)) return false;
       if (f.statuses.length && !f.statuses.includes(e.status)) return false;
+      if (f.kinds.length && !f.kinds.includes(e.kind || "unseen")) return false;
       if (covRange) {
         const c = e.coverage || 0;
         if (c < covRange[0] || c > covRange[1]) return false;
@@ -343,26 +369,26 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
 
   function persist() {
     try {
-      localStorage.setItem(LS_SVC, JSON.stringify([...state.selected]));
-      localStorage.setItem(LS_FILT, JSON.stringify({ filters: state.filters, pageSize: state.pageSize }));
+      store.set(LS_SVC, JSON.stringify([...state.selected]));
+      store.set(LS_FILT, JSON.stringify({ filters: state.filters, pageSize: state.pageSize }));
     } catch (_) {}
   }
   function restore() {
-    const theme = localStorage.getItem(LS_THEME) || "dark";
+    const theme = store.get(LS_THEME) || "dark";
     document.documentElement.setAttribute("data-theme", theme);
     const allKeys = Object.keys(SERVICE_META);
     let selected = allKeys.slice();
     try {
-      const raw = JSON.parse(localStorage.getItem(LS_SVC) || "null");
+      const raw = JSON.parse(store.get(LS_SVC) || "null");
       if (Array.isArray(raw) && raw.length) selected = raw.filter(k => allKeys.includes(k));
     } catch (_) {}
     const excluded = new Set(DATA.meta?.defaultExcluded || []);
-    if (!localStorage.getItem(LS_SVC) && excluded.size) {
+    if (!store.get(LS_SVC) && excluded.size) {
       selected = allKeys.filter(k => !excluded.has(k));
     }
     state.selected = new Set(selected.length ? selected : allKeys);
     try {
-      const saved = JSON.parse(localStorage.getItem(LS_FILT) || "null");
+      const saved = JSON.parse(store.get(LS_FILT) || "null");
       if (saved?.filters) Object.assign(state.filters, saved.filters);
       if (saved?.pageSize) state.pageSize = saved.pageSize;
     } catch (_) {}
@@ -371,16 +397,54 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   function renderStats() {
     const all = summarize(ALL);
     const sel = summarize(scoredEndpoints());
+    const timing = DATA.timing;
     document.getElementById("stats").innerHTML = `
       <div class="stat"><div class="label">Average coverage</div><div class="value">${all.avg.toFixed(1)}%</div></div>
       <div class="stat"><div class="label">Coverage (selected)</div><div class="value">${sel.avg.toFixed(1)}%</div></div>
       <div class="stat"><div class="label">Total calls</div><div class="value">${sel.calls}</div></div>
-      <div class="stat ok"><div class="label">Full (P1)</div><div class="value">${sel.full}</div></div>
-      <div class="stat warn"><div class="label">Partial</div><div class="value">${sel.partial}</div></div>
-      <div class="stat bad"><div class="label">Empty</div><div class="value">${sel.empty}</div></div>
-      <div class="stat exc"><div class="label">Exception</div><div class="value">${sel.exception}</div></div>`;
+      <div class="stat ok clickable" data-kind="full"><div class="label">Full (P1)</div><div class="value">${sel.full}</div></div>
+      <div class="stat warn clickable" data-kind="partial"><div class="label">Partial</div><div class="value">${sel.partial}</div></div>
+      <div class="stat bad clickable" data-kind="empty"><div class="label">Empty</div><div class="value">${sel.empty}</div></div>
+      <div class="stat bad clickable" data-kind="unseen"><div class="label">Not called this run</div><div class="value">${sel.unseen}</div></div>
+      <div class="stat exc"><div class="label">Exception</div><div class="value">${sel.exception}</div></div>` +
+      (timing ? `
+      <div class="stat"><div class="label">Latency avg</div><div class="value">${timing.msAvg} ms</div></div>
+      <div class="stat"><div class="label">Latency p95</div><div class="value">${timing.msP95} ms</div></div>` : "");
+
+    document.querySelectorAll("#stats .stat.clickable").forEach(tile => {
+      tile.addEventListener("click", () => {
+        state.filters = { ...EMPTY_FILTERS, kinds: [tile.getAttribute("data-kind")] };
+        state.page = 1;
+        persist();
+        renderAll();
+      });
+    });
+
+    renderRunBanner(sel);
     document.getElementById("meta-line").textContent =
       `Generated ${DATA.meta?.generated || "—"} · ${DATA.meta?.engine || "partest"} · ${sel.endpoints} / ${all.endpoints} endpoints in score`;
+  }
+
+  function renderRunBanner(sel) {
+    // The number is only as honest as the run behind it. Say so at the top, where a
+    // reader cannot miss it, rather than leaving it in the JSON.
+    const meta = DATA.meta || {};
+    const el = document.getElementById("run-banner");
+    const reasons = [];
+    const workers = Number(meta.workers || 1);
+    if (workers > 1 && meta.merged === false) {
+      reasons.push(`Ran on ${workers} parallel workers whose results were never merged, so these
+        counts belong to one worker, not to the suite.`);
+    }
+    if (meta.partialRun && sel.unseen) {
+      const pct = meta.unseenRatio != null ? ` (${Math.round(meta.unseenRatio * 100)}%)` : "";
+      reasons.push(`${sel.unseen} endpoint(s)${pct} were never called in this run — a filtered
+        selection or a failed fixture reads the same as "no tests" in the average.`);
+    }
+    if (!reasons.length) { el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = `<b>This run does not describe the whole suite</b>` +
+      reasons.map(r => `<div>${r}</div>`).join("");
   }
 
   function renderServiceChecks() {
@@ -539,20 +603,27 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       persist();
       renderAll();
     });
-    document.getElementById("presets").innerHTML = [
-      ["Только empty", { statuses: ["empty"] }],
-      ["PUT + partial", { methods: ["PUT"], statuses: ["partial"] }],
-      ["segment-a + Clients", { services: ["segment-a", "clients"] }]
-    ].map(([name], i) => `<button type="button" data-preset="${i}">${name}</button>`).join("");
-    const presets = [
-      { statuses: ["empty"] },
-      { methods: ["PUT"], statuses: ["partial"] },
-      { services: ["segment-a", "clients"] }
+    const PRESETS = [
+      ["Not called this run", { kinds: ["unseen"] }],
+      ["Partial", { kinds: ["partial"] }],
+      ["Called, no cells", { kinds: ["empty"] }],
+      ["Write queue", { kinds: ["partial", "empty"] }],
+      ["Writes only", { methods: ["POST", "PUT", "PATCH", "DELETE"] }]
     ];
-    document.querySelectorAll("#presets button").forEach(btn => {
+    document.getElementById("presets").innerHTML =
+      PRESETS.map(([name], i) => `<button type="button" data-preset="${i}">${name}</button>`).join("")
+      + `<button type="button" id="btn-reset-filters">Reset filters</button>`;
+    const presets = PRESETS.map(([, p]) => p);
+    document.getElementById("btn-reset-filters").addEventListener("click", () => {
+      state.filters = { ...EMPTY_FILTERS };
+      state.page = 1;
+      persist();
+      renderAll();
+    });
+    document.querySelectorAll("#presets button[data-preset]").forEach(btn => {
       btn.addEventListener("click", () => {
         const p = presets[Number(btn.getAttribute("data-preset"))];
-        state.filters = { services: [], methods: [], subtypes: [], statuses: [], coverage: "", callsMin: "", callsMax: "", missing: [], search: "", ...p };
+        state.filters = { ...EMPTY_FILTERS, ...p };
         state.page = 1;
         persist();
         renderAll();
@@ -718,7 +789,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     document.getElementById("btn-theme").addEventListener("click", () => {
       const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-theme", next);
-      localStorage.setItem(LS_THEME, next);
+      store.set(LS_THEME, next);
     });
     document.getElementById("btn-help").addEventListener("click", () => {
       document.getElementById("help").classList.toggle("open");

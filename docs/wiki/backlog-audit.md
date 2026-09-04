@@ -78,7 +78,7 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 | **LIB-COV-META** | `meta.merged`, `meta.workers` | ✅ | плюс `partialRun`, `callsTotal`, `unseenRatio` |
 | **LIB-COV-TIMING** | `elapsed_ms` → avg/p50/p95 по типам | ✅ | замер в `track_api_calls`, агрегат `timing_of` |
 | **LIB-COV-HIST-2** | история, `keep=2` | ✅ | `append_snapshot(keep=2)`, `prune_snapshots`, `previous_snapshot` |
-| **LIB-COV-HTML** | целевой UX витрины | ⬜ | `interactive_html.py` из 1.5.0 не переписан |
+| **LIB-COV-HTML** | целевой UX витрины | 🟡 | сделаны «must»: баннер, `unseen` в KPI с кликом в фильтр, видимый сброс, пресеты без доменных имён. Не сделаны drawer, hash-URL фильтров, экспорт CSV/markdown, палитра Ctrl+K |
 | **LIB-SUBTYPE-OVERRIDE** | YAML-map + rebind | ✅ | `partest/methodology/overrides.py`; проверка внутри `classify_endpoint`, а не подменой ссылки |
 | **LIB-COV-CMP kind-aware** | дельта прогона vs дельта suite | ✅ | `not_run`, `comparable`, `warnings`, флаг `--strict` в CLI |
 
@@ -98,9 +98,9 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 
 ## 3. Что осталось
 
-1. **`LIB-COV-HTML`** — целевой UX витрины: drawer по эндпоинту, сброс фильтров, скролл
-   матрицы в контейнере, ms на клетке, пресеты «unseen» и «≥300 ms», баннер частичного
-   прогона. Данные для всего этого в JSON уже есть.
+1. **`LIB-COV-HTML`**, остаток: drawer по эндпоинту, состояние фильтров в hash URL,
+   экспорт CSV/markdown, палитра Ctrl+K, ms-оверлей на клетке матрицы. Данные для всего
+   этого в JSON уже есть — это чистая работа по шаблону.
 2. **Cookbook-долг**: upload, path/layers, integration, e2e, type-дисциплина, UI-ticket.
 3. Из [[proposals]], если возьмётесь: `py.typed`, предупреждения об устаревании алиасов,
    единая команда проверок перед релизом.

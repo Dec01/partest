@@ -406,3 +406,56 @@ def test_two_clean_runs_are_comparable():
 
     assert diff["comparable"] is True
     assert diff["warnings"] == []
+
+
+# --- LIB-COV-HTML ---------------------------------------------------------
+
+
+def _html_payload(meta=None, endpoints=None):
+    return {
+        "meta": {"generated": "now", "engine": "partest", "defaultExcluded": [], **(meta or {})},
+        "summary": {"avg": 50.0, "avgAll": 50.0, "endpoints": 1, "calls": 1,
+                    "full": 0, "partial": 1, "empty": 0, "exception": 0},
+        "services": [{"key": "core", "label": "core", "avg": 50.0, "endpoints": 1}],
+        "subtypes": [], "methods": [], "missingTop": [], "heatmap": {"rows": [], "cols": []},
+        "endpoints": endpoints if endpoints is not None else [
+            {"method": "GET", "path": "/items", "service": "core", "serviceLabel": "core",
+             "subtype": "GET LIST OBJECTS", "subtypeKey": "get_list_objects", "calls": 1,
+             "coverage": 50.0, "status": "partial", "kind": "partial",
+             "executed": ["RequestDefault"], "missing": ["RequestPermissions"],
+             "description": "list"}
+        ],
+    }
+
+
+def test_report_shows_a_not_called_counter_and_banner_hook():
+    from partest.reports.interactive_html import render_html
+
+    html = render_html(_html_payload(), title="t")
+
+    assert 'id="run-banner"' in html, "a partial or unmerged run must be announced at the top"
+    assert "Not called this run" in html
+    assert 'data-kind="unseen"' in html, "the counter must be clickable into a filter"
+    assert "Reset filters" in html
+
+
+def test_report_presets_carry_no_product_names():
+    """The template ships to every user; a consumer's services must not be baked in."""
+    from partest.reports.interactive_html import render_html
+
+    html = render_html(_html_payload(), title="t")
+
+    for leaked in (the service names):
+        assert leaked not in html.lower(), f"{leaked!r} leaked into the shipped template"
+
+
+def test_report_survives_without_local_storage():
+    """Opened from a sandboxed context, persistence must degrade, not blank the page."""
+    from partest.reports.interactive_html import render_html
+
+    html = render_html(_html_payload(), title="t")
+
+    assert html.count("localStorage.") == 2, (
+        "every localStorage access belongs inside the guarded shim"
+    )
+    assert "try { return localStorage.getItem(key); }" in html

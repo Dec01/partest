@@ -46,6 +46,22 @@
 
 ### Added — coverage honesty
 
+- The interactive report opens with a banner when the run behind it does not describe the
+  suite: parallel workers that were never merged, or a large share of endpoints never
+  called. A **Not called this run** counter sits beside Full/Partial/Empty and filters the
+  matrix when clicked, and `Reset filters` is now a visible control. Latency average and
+  p95 appear once calls carry timings (LIB-COV-HTML, partly — drawer, hash-URL filters,
+  CSV export and the command palette are still open).
+
+### Fixed — report template
+
+- The shipped template hardcoded a consumer's service names in its filter presets and
+  named that project in the footer. Presets are now generic (not called / partial /
+  called-with-no-cells / write queue / writes only).
+- Opening the report from a sandboxed or `data:` context blanked the whole page: the
+  first `localStorage` access threw and no rendering ran at all. Every access is guarded,
+  so persistence degrades instead of taking the report with it.
+
 - Explicit subtype overrides: `subtype_overrides` in `confpartest.py` (a mapping or a
   path to YAML) pins the subtype for endpoints the classifier reads wrong. Routes match
   by shape, so `{id}` and `{orderId}` are the same route, and a malformed key or unknown
