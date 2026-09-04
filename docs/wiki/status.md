@@ -20,6 +20,7 @@ allow_version_literals: true
 | **Дистрибуция** | только PyPI. Публичный GitHub не планируется — см. [[decisions/pypi-only]] |
 | **Consumer proof** | aqa: `partest==1.5.0` / `partest[ui]==1.5.0`, волна W4 закрыта |
 | **Источник бэклога** | снапшот `docs/raw/aqa/2026-09-04/` |
+| **Сверка бэклога с кодом** | [[backlog-audit]] — ни один кодовый пункт 1.6/1.7 не реализован |
 
 ---
 

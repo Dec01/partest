@@ -2,6 +2,68 @@
   "generated_by": "tools/docs_index.py",
   "pages": [
     {
+      "slug": "backlog-audit",
+      "path": "docs/wiki/backlog-audit.md",
+      "title": "Аудит бэклога aqa и готовность к переезду",
+      "status": "current",
+      "verified": "2026-09-04",
+      "audience": "maintainer",
+      "ships_in_wheel": false,
+      "sources": [
+        "partest/tracking.py",
+        "partest/coverage.py",
+        "partest/methodology/classifier.py",
+        "partest/payloads.py",
+        "partest/call_storage.py",
+        "partest/reports/payload.py",
+        "partest/reports/analyzer.py",
+        "partest/pytest_plugin.py"
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Аудит бэклога и готовность к переезду"
+        },
+        {
+          "level": 2,
+          "text": "Вывод"
+        },
+        {
+          "level": 2,
+          "text": "1. Что применено в этой сессии"
+        },
+        {
+          "level": 2,
+          "text": "2. Кодовые пункты — проверка построчно"
+        },
+        {
+          "level": 3,
+          "text": "1.6"
+        },
+        {
+          "level": 3,
+          "text": "1.7"
+        },
+        {
+          "level": 3,
+          "text": "Cookbook-долг (docs, не код)"
+        },
+        {
+          "level": 2,
+          "text": "3. Что нужно сделать до релиза, который стоит переезда"
+        },
+        {
+          "level": 2,
+          "text": "4. Что меняется для консьюмера уже сейчас"
+        },
+        {
+          "level": 2,
+          "text": "5. Как обновлять этот аудит"
+        }
+      ],
+      "chars": 8139
+    },
+    {
       "slug": "components/overview",
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
@@ -1092,7 +1154,7 @@
           "text": "Вне wiki"
         }
       ],
-      "chars": 2802
+      "chars": 2923
     },
     {
       "slug": "log",
@@ -1110,6 +1172,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-04 · lint · сверка бэклога с кодом"
+        },
+        {
+          "level": 2,
           "text": "2026-09-04 · restructure · полная реорганизация документации"
         },
         {
@@ -1117,7 +1183,96 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 2859
+      "chars": 3358
+    },
+    {
+      "slug": "proposals",
+      "path": "docs/wiki/proposals.md",
+      "title": "Предложения по развитию сверх бэклога",
+      "status": "draft",
+      "verified": "2026-09-04",
+      "audience": "maintainer",
+      "ships_in_wheel": false,
+      "sources": [
+        "partest/coverage.py",
+        "partest/tracking.py",
+        "partest/pytest_plugin.py",
+        "partest/reports/payload.py",
+        "partest/security/risk.py",
+        "partest/project_gen/cli.py",
+        "setup.py"
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Предложения по развитию"
+        },
+        {
+          "level": 2,
+          "text": "A. Дешёвое, но напрямую про качество пакета"
+        },
+        {
+          "level": 3,
+          "text": "A1. `py.typed` и аннотации как контракт"
+        },
+        {
+          "level": 3,
+          "text": "A2. Предупреждения об устаревании"
+        },
+        {
+          "level": 3,
+          "text": "A3. Один прогон всех проверок"
+        },
+        {
+          "level": 3,
+          "text": "A4. Линтер и форматтер"
+        },
+        {
+          "level": 2,
+          "text": "B. Средняя стоимость, снимает системные проблемы"
+        },
+        {
+          "level": 3,
+          "text": "B1. Корпус фикстур для ключей покрытия"
+        },
+        {
+          "level": 3,
+          "text": "B2. Покрытие знает об исходах тестов, а не только о вызовах"
+        },
+        {
+          "level": 3,
+          "text": "B3. Покрытие, взвешенное по риску"
+        },
+        {
+          "level": 3,
+          "text": "B4. Точки расширения через entry points"
+        },
+        {
+          "level": 2,
+          "text": "C. Крупное, требует отдельного решения"
+        },
+        {
+          "level": 3,
+          "text": "C1. Синхронный фасад `ApiClient`"
+        },
+        {
+          "level": 3,
+          "text": "C2. `partest-gen explain` — план без генерации"
+        },
+        {
+          "level": 3,
+          "text": "C3. `python -m partest.reports plan`"
+        },
+        {
+          "level": 3,
+          "text": "C4. Контрактные проверки против живого `$ref`"
+        },
+        {
+          "level": 2,
+          "text": "Чего делать не стоит"
+        }
+      ],
+      "chars": 5578
     },
     {
       "slug": "status",
@@ -1177,7 +1332,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 5581
+      "chars": 5678
     },
     {
       "slug": "WIKI",
@@ -2466,6 +2621,7 @@
       "components/overview"
     ],
     "partest/call_storage.py": [
+      "backlog-audit",
       "concepts/coverage-honesty",
       "howto/enterprise"
     ],
@@ -2484,8 +2640,10 @@
       "howto/quickstart"
     ],
     "partest/coverage.py": [
+      "backlog-audit",
       "components/overview",
-      "concepts/coverage-honesty"
+      "concepts/coverage-honesty",
+      "proposals"
     ],
     "partest/data_marker.py": [
       "decisions/no-domain",
@@ -2504,6 +2662,7 @@
       "howto/enterprise"
     ],
     "partest/methodology/classifier.py": [
+      "backlog-audit",
       "concepts/methodology"
     ],
     "partest/methodology/inference.py": [
@@ -2519,8 +2678,12 @@
     "partest/methodology/subtypes.py": [
       "concepts/methodology"
     ],
+    "partest/payloads.py": [
+      "backlog-audit"
+    ],
     "partest/project_gen/cli.py": [
-      "components/project-gen"
+      "components/project-gen",
+      "proposals"
     ],
     "partest/project_gen/ir.py": [
       "components/project-gen"
@@ -2533,6 +2696,10 @@
     ],
     "partest/project_gen/ui_layout.py": [
       "components/project-gen"
+    ],
+    "partest/pytest_plugin.py": [
+      "backlog-audit",
+      "proposals"
     ],
     "partest/redact.py": [
       "howto/enterprise"
@@ -2561,10 +2728,15 @@
       "howto/coverage-html"
     ],
     "partest/reports/analyzer.py": [
+      "backlog-audit",
       "concepts/coverage-honesty"
     ],
     "partest/reports/interactive_html.py": [
       "howto/coverage-html"
+    ],
+    "partest/reports/payload.py": [
+      "backlog-audit",
+      "proposals"
     ],
     "partest/reports/services.py": [
       "howto/coverage-html"
@@ -2581,7 +2753,8 @@
     ],
     "partest/security/risk.py": [
       "decisions/no-domain",
-      "howto/security"
+      "howto/security",
+      "proposals"
     ],
     "partest/security/sec_http.py": [
       "howto/security"
@@ -2592,7 +2765,9 @@
       "howto/migration"
     ],
     "partest/tracking.py": [
-      "howto/recipes"
+      "backlog-audit",
+      "howto/recipes",
+      "proposals"
     ],
     "partest/ui/__init__.py": [
       "components/overview",
@@ -2624,7 +2799,8 @@
       "decisions/docs-in-wheel",
       "decisions/pypi-only",
       "howto/contribute",
-      "howto/release"
+      "howto/release",
+      "proposals"
     ],
     "tests/test_docs.py": [
       "howto/contribute"
