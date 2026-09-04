@@ -90,18 +90,21 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 рваных строк на Windows. Цена — воркер, убитый посреди прогона, не отдаёт ничего;
 это в любом случае сломанный прогон.
 
-### Cookbook-долг (docs, не код)
+### Cookbook-долг
 
-`LIB-REC-UPLOAD` (мутации файла, gate vs parse) · `LIB-REC-PATH` (слои L0–L4, оси F и I) ·
-`LIB-REC-INTEGRATION` (201 ≠ persist) · `LIB-REC-E2E` · `LIB-REC-TYPE` · `LIB-REC-CLEANUP` ·
-`LIB-REC-UI-TICKET` — ни одной страницы нет. Спеки лежат в `docs/raw/aqa/2026-09-04/`.
+Закрыто: `LIB-REC-UPLOAD` ([[howto/upload]] + `partest.files`), `LIB-REC-PATH` /
+`LIB-REC-INTEGRATION` / `LIB-REC-E2E` ([[howto/layers]]), `LIB-REC-TYPE` и
+`LIB-REC-CLEANUP` ([[howto/recipes]]), `LIB-REC-ACCESS` ([[howto/permissions]]).
+
+Осталось: `LIB-REC-UI-TICKET` (матрица пункта тикета для UI) и `LIB-REC-SIDEEFFECT`
+(HOLD — нужен доступ к object store и шине).
 
 ## 3. Что осталось
 
 1. **`LIB-COV-HTML`**, остаток: drawer по эндпоинту, состояние фильтров в hash URL,
    экспорт CSV/markdown, палитра Ctrl+K, ms-оверлей на клетке матрицы. Данные для всего
    этого в JSON уже есть — это чистая работа по шаблону.
-2. **Cookbook-долг**: upload, path/layers, integration, e2e, type-дисциплина, UI-ticket.
+2. **Cookbook-долг**, остаток: `LIB-REC-UI-TICKET`; `LIB-REC-SIDEEFFECT` на HOLD.
 3. Из [[proposals]], если возьмётесь: `py.typed`, предупреждения об устаревании алиасов,
    единая команда проверок перед релизом.
 

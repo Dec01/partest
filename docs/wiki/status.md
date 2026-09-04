@@ -117,11 +117,17 @@ i18n шаблонов reporting · `LIB-PERM-QUAD` labels · `LIB-REC-CLEANUP` h
 покрытия. Не смешивать с `LIB-COV-HTML`. Даже переносимое ядро не извлекать, пока владелец
 библиотеки не запросит отдельно. Спека: `raw/aqa/2026-09-04/LIBRARY_UPDATE_COVERAGE.md` §1.4.
 
-### Cookbook-долг (не новые `request_*`)
+### Cookbook-долг
 
-`LIB-REC-UPLOAD` (POST upload: mutations, gate vs parse) · `LIB-REC-PATH` (слои L0–L4, UJ ≠ e2e) ·
-`LIB-REC-INTEGRATION` (поверхности I0–I7; 201 ≠ persist) · `LIB-REC-E2E` (UI↔API) ·
-`LIB-REC-SIDEEFFECT` (HOLD, пока нет доступа к object store / шине).
+| ID | Статус |
+|---|---|
+| `LIB-REC-UPLOAD` | ✅ [[howto/upload]] + корпус `partest.files` |
+| `LIB-REC-PATH` / `LIB-REC-INTEGRATION` / `LIB-REC-E2E` | ✅ [[howto/layers]] — слои L0–L4, поверхности I0–I6 |
+| `LIB-REC-TYPE` | ✅ таблица «какой `type=` для какого вызова» в [[howto/recipes]] |
+| `LIB-REC-ACCESS` | ✅ [[howto/permissions]] |
+| `LIB-REC-CLEANUP` | ✅ [[howto/recipes]] |
+| `LIB-REC-UI-TICKET` | ⬜ матрица пункта тикета для UI |
+| `LIB-REC-SIDEEFFECT` | HOLD — нужен доступ к object store и шине |
 
 ## 4. На стороне consumer (не в этом репозитории)
 

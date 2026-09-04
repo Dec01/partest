@@ -46,7 +46,7 @@
         },
         {
           "level": 3,
-          "text": "Cookbook-долг (docs, не код)"
+          "text": "Cookbook-долг"
         },
         {
           "level": 2,
@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7171
+      "chars": 7245
     },
     {
       "slug": "components/overview",
@@ -626,6 +626,46 @@
       "chars": 3237
     },
     {
+      "slug": "howto/layers",
+      "path": "docs/wiki/howto/layers.md",
+      "title": "Journeys, invariants, integrations, e2e",
+      "status": "current",
+      "verified": "2026-09-04",
+      "audience": "user",
+      "ships_in_wheel": true,
+      "sources": [
+        "partest/test_types.py",
+        "partest/methodology/matrix.py"
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Beyond a single HTTP call"
+        },
+        {
+          "level": 2,
+          "text": "Layers"
+        },
+        {
+          "level": 2,
+          "text": "Choosing the class"
+        },
+        {
+          "level": 2,
+          "text": "Surfaces for an integration test"
+        },
+        {
+          "level": 2,
+          "text": "Steps between the HTTP calls"
+        },
+        {
+          "level": 2,
+          "text": "End to end"
+        }
+      ],
+      "chars": 4211
+    },
+    {
       "slug": "howto/migration",
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
@@ -914,6 +954,10 @@
         },
         {
           "level": 2,
+          "text": "Which type= for which call"
+        },
+        {
+          "level": 2,
           "text": "Types"
         },
         {
@@ -933,7 +977,7 @@
           "text": "custom consumer validator"
         }
       ],
-      "chars": 6044
+      "chars": 7215
     },
     {
       "slug": "howto/release",
@@ -1176,6 +1220,58 @@
       "chars": 3590
     },
     {
+      "slug": "howto/upload",
+      "path": "docs/wiki/howto/upload.md",
+      "title": "Testing file upload endpoints",
+      "status": "current",
+      "verified": "2026-09-04",
+      "audience": "user",
+      "ships_in_wheel": true,
+      "sources": [
+        "partest/files.py",
+        "partest/client.py"
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "Testing file upload endpoints"
+        },
+        {
+          "level": 2,
+          "text": "Two loops, and the cost of mixing them"
+        },
+        {
+          "level": 2,
+          "text": "Required cases"
+        },
+        {
+          "level": 2,
+          "text": "The corpus"
+        },
+        {
+          "level": 3,
+          "text": "`gate_expect` has three values, and the third one matters"
+        },
+        {
+          "level": 2,
+          "text": "Multipart specifics"
+        },
+        {
+          "level": 1,
+          "text": "not multipart at all → IncorrectBody, usually 400 or 415"
+        },
+        {
+          "level": 2,
+          "text": "Size"
+        },
+        {
+          "level": 2,
+          "text": "Building blocks"
+        }
+      ],
+      "chars": 5119
+    },
+    {
       "slug": "index",
       "path": "docs/wiki/index.md",
       "title": "Каталог документации partest",
@@ -1214,7 +1310,7 @@
           "text": "Вне wiki"
         }
       ],
-      "chars": 3017
+      "chars": 3188
     },
     {
       "slug": "log",
@@ -1229,6 +1325,10 @@
         {
           "level": 1,
           "text": "Журнал"
+        },
+        {
+          "level": 2,
+          "text": "2026-09-04 · update · закрыт cookbook-долг"
         },
         {
           "level": 2,
@@ -1259,7 +1359,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 6922
+      "chars": 7815
     },
     {
       "slug": "proposals",
@@ -1397,7 +1497,7 @@
         },
         {
           "level": 3,
-          "text": "Cookbook-долг (не новые `request_*`)"
+          "text": "Cookbook-долг"
         },
         {
           "level": 2,
@@ -1408,7 +1508,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 7005
+      "chars": 7237
     },
     {
       "slug": "WIKI",
@@ -2708,7 +2808,8 @@
       "components/overview",
       "decisions/explicit-type",
       "howto/enterprise",
-      "howto/quickstart"
+      "howto/quickstart",
+      "howto/upload"
     ],
     "partest/collections/base.py": [
       "decisions/no-domain",
@@ -2734,6 +2835,9 @@
     "partest/env/__init__.py": [
       "howto/quickstart"
     ],
+    "partest/files.py": [
+      "howto/upload"
+    ],
     "partest/http/config.py": [
       "howto/recipes"
     ],
@@ -2749,7 +2853,8 @@
       "decisions/explicit-type"
     ],
     "partest/methodology/matrix.py": [
-      "concepts/methodology"
+      "concepts/methodology",
+      "howto/layers"
     ],
     "partest/methodology/steps.py": [
       "concepts/methodology"
@@ -2841,6 +2946,7 @@
     "partest/test_types.py": [
       "concepts/methodology",
       "decisions/explicit-type",
+      "howto/layers",
       "howto/migration",
       "howto/permissions"
     ],
