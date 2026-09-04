@@ -173,6 +173,29 @@ async def test_create_raw_rejected(api_client, models, content, content_type, ex
 
 Keep these on **ApiClient** (`content=`), never raw httpx — otherwise coverage misses the call.
 
+## Which type= for which call
+
+A rich suite can produce a full-looking matrix or a hollow one depending entirely on
+what each call declares. Test names and Allure stories do not reach the matrix — only
+`type=` does. The classic hole: a fixture's setup POST records as `request_default` for
+the create endpoint, so the endpoint looks covered while nothing tested creation.
+
+| The call | `type=` |
+|---|---|
+| your POST inside `test_create_..._success` | `request_default` |
+| a fixture or helper seeding data | `request_new_object` |
+| a POST CREATE endpoint at P1 | **both** cells: Default *and* NewObject |
+| the first happy PUT | `request_default` |
+| a second PUT changing a field | `request_update_object` |
+| a happy DELETE | `request_default` on the DELETE itself |
+| GET or DELETE with an unknown id | `request_not_found` |
+| repeated DELETE, or a soft-cancel cleanup | `request_lifecycle_delete` |
+| the setup POST inside a delete test | `request_new_object` |
+| all four access cells | `request_permissions` |
+
+The rule behind the table: record what the call **proves**, not which test it happens to
+sit in. A seed proves that creation works, wherever it runs.
+
 ## Types
 
 Write **`type=types.request_default`**, not the string `"type_default"` and not the legacy value `"default"`.

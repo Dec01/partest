@@ -459,3 +459,78 @@ def test_report_survives_without_local_storage():
         "every localStorage access belongs inside the guarded shim"
     )
     assert "try { return localStorage.getItem(key); }" in html
+
+
+# --- LIB-REC-UPLOAD: the gate corpus --------------------------------------
+
+
+def test_generated_xlsx_is_a_valid_package():
+    """A stub that no zip reader accepts would test the reader, not the gate."""
+    import io
+    import zipfile
+
+    from partest.files import minimal_xlsx_bytes
+
+    with zipfile.ZipFile(io.BytesIO(minimal_xlsx_bytes())) as zf:
+        assert zf.testzip() is None
+        assert "[Content_Types].xml" in zf.namelist()
+
+
+def test_broken_packages_are_actually_broken():
+    import io
+    import zipfile
+
+    from partest.files import truncated_zip_bytes, zip_without_content_types
+
+    with pytest.raises(zipfile.BadZipFile):
+        zipfile.ZipFile(io.BytesIO(truncated_zip_bytes()))
+
+    with zipfile.ZipFile(io.BytesIO(zip_without_content_types())) as zf:
+        assert "[Content_Types].xml" not in zf.namelist()
+
+
+def test_ole_stub_carries_the_compound_document_magic():
+    from partest.files import minimal_ole_xls_bytes
+
+    assert minimal_ole_xls_bytes()[:8] == bytes([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])
+
+
+def test_mutation_corpus_covers_every_class():
+    from partest.files import mutation_cases
+
+    ids = {c.id for c in mutation_cases()}
+
+    assert {"neighbour-csv", "no-extension", "double-extension"} <= ids, "format handling"
+    assert {"png-named-xlsx", "xlsx-named-txt", "truncated-zip"} <= ids, "content vs name"
+    assert {"traversal-unix", "traversal-windows", "very-long"} <= ids, "filename"
+    assert {"empty-file", "modest-size"} <= ids, "size"
+
+
+def test_content_spoofing_is_a_fact_not_an_expectation():
+    """A gate that only checks the extension is a legitimate design, not a bug."""
+    from partest.files import spoof_cases
+
+    assert {c.gate_expect for c in spoof_cases()} <= {"fact", "reject"}
+    assert next(c for c in spoof_cases() if c.id == "png-named-xlsx").gate_expect == "fact"
+
+
+def test_corpus_carries_no_oversized_payload():
+    """No case may be big enough to hurt a stand; over-limit needs a documented limit."""
+    from partest.files import mutation_cases
+
+    assert max(len(c.content) for c in mutation_cases()) < 1_000_000
+
+
+def test_upload_case_maps_onto_the_client_files_argument():
+    from partest.files import mutation_cases
+
+    case = mutation_cases()[0]
+    name, content, mime = case.files_kwarg["file"]
+    assert name == case.filename and content == case.content and mime == case.content_type
+
+
+def test_filenames_never_contain_a_null_byte():
+    """A NUL breaks the HTTP client before the server sees it — it tests nothing."""
+    from partest.files import mutation_cases
+
+    assert all("\x00" not in c.filename for c in mutation_cases())

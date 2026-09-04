@@ -45,6 +45,8 @@ ships_in_wheel: false
 | [[howto/reporting]] | `ah.check_*`, шаги, вложения, Allure как мягкая зависимость | да |
 | [[howto/coverage-html]] | интерактивный отчёт, `coverage.json`, CLI compare/badge/stubs | да |
 | [[howto/permissions]] | четыре клетки доступа: allow / no_access / inactive / unauth | да |
+| [[howto/upload]] | загрузка файлов: gate против pipeline, корпус мутаций | да |
+| [[howto/layers]] | journey, инварианты, интеграции, e2e — что не клетка матрицы | да |
 | [[howto/security]] | `SecHttp`, JWT-подделки, `RiskProfile`, IncorrectBody | да |
 | [[howto/ui]] | `partest[ui]`: BasePage, PageMonitor, визуальные эталоны, изоляция | да |
 | [[howto/recipes]] | адаптеры на стороне проекта: OIDC-роли, коллекции, очистка | да |
