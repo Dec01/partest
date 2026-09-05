@@ -5,6 +5,10 @@ from __future__ import annotations
 import os
 from typing import Optional
 
+# "AQA" is the common abbreviation for automated QA. Test data carries it so that a
+# delete-by-marker cleanup can find rows this suite created and leave everything else
+# alone — which is why the marker must never be empty. Override per project with
+# TEST_DATA_MARKER when a stand needs a different convention.
 TEST_MARKER = (os.getenv("TEST_DATA_MARKER") or "AQA").strip() or "AQA"
 # Locale for Faker unique names (LIB-04). Examples: en_US, ru_RU, de_DE.
 FAKER_LOCALE = (os.getenv("PARTEST_FAKER_LOCALE") or "en_US").strip() or "en_US"
@@ -63,10 +67,11 @@ def prefix_marker(text: str) -> str:
     return f"{TEST_MARKER} {text}"
 
 
-# Aliases kept for suites migrating from the original ``aqa_*`` names. They carry a
-# consumer project's name into a public API, which the library's own rules forbid, so
-# they are on a removal path — but removing them is a breaking change and needs a major
-# version. A deprecation that never warns never expires, hence the warning.
+# Older names for the same five helpers. Kept working for suites that predate the
+# ``marked_*`` naming, deprecated because one thing with two public names is a surface
+# nobody benefits from — not because of what they are called. Removing them is a
+# breaking change and waits for a major version; a deprecation that never warns never
+# expires, hence the warning.
 def _deprecated_alias(new, old_name: str):
     import functools
     import warnings

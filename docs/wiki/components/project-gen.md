@@ -1,7 +1,7 @@
 ---
 title: partest-gen — suite scaffold
 status: current
-verified: 2026-09-04
+verified: 2026-09-05
 sources: [partest/project_gen/cli.py, partest/project_gen/ir.py, partest/project_gen/skeleton.py, partest/project_gen/ui_layout.py, partest/project_gen/openapi_load.py]
 audience: agent
 ships_in_wheel: false

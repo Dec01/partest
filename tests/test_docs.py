@@ -123,19 +123,17 @@ def _shipped_files():
     return [f for f in files if f.is_file() and "__pycache__" not in f.parts]
 
 
-# The one remaining place the name is published, and it is behaviour rather than
-# prose: TEST_MARKER defaults to the consumer's initials, so a greenfield project's
-# test data is named after someone else's project unless TEST_DATA_MARKER is set.
-# Changing the default would change which rows an existing delete-by-marker cleanup
-# matches, so it waits for a major version. Listed here to keep it visible.
-_KNOWN_MARKER_DEFAULT = {"partest/data_marker.py", "partest/project_gen/skeleton.py"}
+# The test-data marker defaults to "AQA", the ordinary abbreviation for automated QA.
+# It is a deliberate neutral default, not a project name, and cleanup depends on it —
+# so these two files are expected to contain it and are checked separately below.
+_MARKER_DEFAULT_FILES = {"partest/data_marker.py", "partest/project_gen/skeleton.py"}
 
 
 def test_nothing_published_names_the_consumer_project():
     offenders = {}
     for path in _shipped_files():
         rel = path.relative_to(REPO_ROOT).as_posix()
-        if rel in _KNOWN_MARKER_DEFAULT:
+        if rel in _MARKER_DEFAULT_FILES:
             continue
         hits = _names_a_consumer(path.read_text(encoding="utf-8", errors="replace"))
         if hits:
@@ -143,16 +141,28 @@ def test_nothing_published_names_the_consumer_project():
     assert not offenders, f"consumer project named in published files: {offenders}"
 
 
-def test_the_marker_default_stays_the_only_exception():
-    """If the default is ever neutralised, drop it from the allow-list too."""
-    from partest.data_marker import TEST_MARKER
+def test_the_marker_default_is_present_and_overridable():
+    """Cleanup matches on the marker, so an empty one would make it match everything."""
+    import os
+    import subprocess
+    import sys
 
-    for rel in sorted(_KNOWN_MARKER_DEFAULT):
-        text = (REPO_ROOT / rel).read_text(encoding="utf-8")
-        assert _names_a_consumer(text), (
-            f"{rel} no longer names the consumer — remove it from _KNOWN_MARKER_DEFAULT"
-        )
-    assert TEST_MARKER, "the marker must never be empty; cleanup matches on it"
+    from partest.data_marker import TEST_MARKER, marked_name
+
+    assert TEST_MARKER == "AQA"
+    assert TEST_MARKER in marked_name("Client")
+
+    env = {**os.environ, "TEST_DATA_MARKER": "QA1", "PYTHONPATH": str(REPO_ROOT)}
+    result = subprocess.run(
+        [sys.executable, "-c",
+         "from partest.data_marker import TEST_MARKER, marked_name;"
+         "print(TEST_MARKER); print(marked_name('X'))"],
+        capture_output=True, text=True, env=env, cwd=REPO_ROOT,
+    )
+    assert result.returncode == 0, result.stderr
+    marker, name = result.stdout.split()[0], result.stdout.strip().splitlines()[1]
+    assert marker == "QA1", "TEST_DATA_MARKER must override the default"
+    assert name.startswith("QA1"), "generated names must carry the overridden marker"
 
 
 def test_manifest_excludes_the_repository_only_material():
