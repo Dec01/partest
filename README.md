@@ -3,7 +3,8 @@
 Python harness for **methodology-driven API (and optional UI) autotests** with OpenAPI coverage,
 plus the `partest-gen` scaffold.
 
-**PyPI:** https://pypi.org/project/partest/ — the only distribution channel.
+**PyPI:** https://pypi.org/project/partest/ — install from here.
+**Source:** you are looking at it — see [docs/wiki/index.md](docs/wiki/index.md) for how it works and why.
 
 ```bash
 pip install partest

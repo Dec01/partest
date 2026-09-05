@@ -214,7 +214,7 @@ conf = require_confpartest()  # clear errors if swagger_files missing
 
 Aliases (`aqa_*`, legacy TC names, RiskProfile `has_*`) remain **≥ 1 minor**.
 
-Releases go to **PyPI**. Public GitHub is not a distribution channel.
+Releases go to **PyPI**; the source and its history live at `github.com/Dec01/partest`.
 
 ## Checklist after bump
 

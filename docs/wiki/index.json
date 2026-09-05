@@ -274,6 +274,50 @@
       "chars": 4546
     },
     {
+      "slug": "decisions/distribution",
+      "path": "docs/wiki/decisions/distribution.md",
+      "title": "ADR — как распространяется partest",
+      "status": "current",
+      "verified": "2026-09-06",
+      "audience": "maintainer",
+      "ships_in_wheel": false,
+      "sources": [
+        "setup.py",
+        "MANIFEST.in"
+      ],
+      "headings": [
+        {
+          "level": 1,
+          "text": "ADR: как распространяется partest"
+        },
+        {
+          "level": 2,
+          "text": "Решение"
+        },
+        {
+          "level": 2,
+          "text": "Почему решение изменилось"
+        },
+        {
+          "level": 2,
+          "text": "Что было вычищено перед публикацией"
+        },
+        {
+          "level": 2,
+          "text": "Что публикуется в каком артефакте"
+        },
+        {
+          "level": 2,
+          "text": "Следствия"
+        },
+        {
+          "level": 2,
+          "text": "Что изменит решение"
+        }
+      ],
+      "chars": 3877
+    },
+    {
       "slug": "decisions/docs-architecture",
       "path": "docs/wiki/decisions/docs-architecture.md",
       "title": "ADR — архитектура документации: AGENTS + Skills + Wiki",
@@ -354,7 +398,7 @@
           "text": "Альтернативы, которые отклонены"
         }
       ],
-      "chars": 2144
+      "chars": 2153
     },
     {
       "slug": "decisions/explicit-type",
@@ -427,50 +471,6 @@
       "chars": 2319
     },
     {
-      "slug": "decisions/pypi-only",
-      "path": "docs/wiki/decisions/pypi-only.md",
-      "title": "ADR — дистрибуция только через PyPI",
-      "status": "current",
-      "verified": "2026-09-06",
-      "audience": "maintainer",
-      "ships_in_wheel": false,
-      "sources": [
-        "setup.py",
-        "MANIFEST.in"
-      ],
-      "headings": [
-        {
-          "level": 1,
-          "text": "ADR: дистрибуция только через PyPI"
-        },
-        {
-          "level": 2,
-          "text": "Решение"
-        },
-        {
-          "level": 2,
-          "text": "Следствия"
-        },
-        {
-          "level": 2,
-          "text": "Почему так"
-        },
-        {
-          "level": 2,
-          "text": "Что именно публикуется"
-        },
-        {
-          "level": 2,
-          "text": "Лицензия"
-        },
-        {
-          "level": 2,
-          "text": "Что изменит решение"
-        }
-      ],
-      "chars": 2494
-    },
-    {
       "slug": "howto/contribute",
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
@@ -518,7 +518,7 @@
           "text": "Where things are decided"
         }
       ],
-      "chars": 3320
+      "chars": 3323
     },
     {
       "slug": "howto/coverage-html",
@@ -797,7 +797,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 9983
+      "chars": 10001
     },
     {
       "slug": "howto/permissions",
@@ -1064,7 +1064,7 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 3458
+      "chars": 3465
     },
     {
       "slug": "howto/reporting",
@@ -1363,7 +1363,7 @@
           "text": "Вне wiki"
         }
       ],
-      "chars": 3036
+      "chars": 3051
     },
     {
       "slug": "log",
@@ -1378,6 +1378,10 @@
         {
           "level": 1,
           "text": "Журнал"
+        },
+        {
+          "level": 2,
+          "text": "2026-09-06 · restructure · репозиторий стал публичным"
         },
         {
           "level": 2,
@@ -1436,7 +1440,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 14195
+      "chars": 15452
     },
     {
       "slug": "proposals",
@@ -1525,7 +1529,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 5866
+      "chars": 5878
     },
     {
       "slug": "status",
@@ -1634,7 +1638,7 @@
           "text": "Инварианты правки"
         }
       ],
-      "chars": 4951
+      "chars": 4954
     }
   ],
   "raw": [],
@@ -1643,8 +1647,8 @@
       "status"
     ],
     "MANIFEST.in": [
+      "decisions/distribution",
       "decisions/docs-in-wheel",
-      "decisions/pypi-only",
       "howto/release"
     ],
     "docs/wiki/WIKI.md": [
@@ -1849,8 +1853,8 @@
       "howto/quickstart"
     ],
     "setup.py": [
+      "decisions/distribution",
       "decisions/docs-in-wheel",
-      "decisions/pypi-only",
       "howto/contribute",
       "howto/release",
       "proposals"
