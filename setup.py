@@ -24,7 +24,7 @@ setup(
     name="partest",
     version=version(),
     author="dec01",
-    author_email="parschin.ewg@yandex.ru",
+    author_email="parshin.ewgeniy@yandex.ru",
     license="MIT",
     description=(
         "Methodology-driven API/UI autotest harness with OpenAPI coverage, "

@@ -1,7 +1,7 @@
 ---
 title: Recipes — consumer-side adapters
 status: current
-verified: 2026-09-04
+verified: 2026-09-06
 sources: [partest/collections/base.py, partest/http/config.py, partest/validation/incorrect_body.py, partest/tracking.py, partest/data_marker.py]
 audience: user
 ships_in_wheel: true

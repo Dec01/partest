@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.7.0
+
+Two releases' worth of work, published together: 1.6 fixed what the coverage number was
+built on, 1.7 fixed the number itself. No breaking API changes — but coverage figures
+will move, because path resolution and endpoint classification were wrong before. See
+the consumer migration note for what to expect.
+
 
 ### Fixed
 

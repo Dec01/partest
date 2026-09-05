@@ -390,7 +390,7 @@
       "path": "docs/wiki/decisions/no-domain.md",
       "title": "ADR — в библиотеке нет продуктового домена",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-06",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -910,7 +910,7 @@
       "path": "docs/wiki/howto/recipes.md",
       "title": "Recipes — consumer-side adapters",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-06",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1373,6 +1373,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-06 · update · 1.7.0 выпущена, инструкция консьюмеру"
+        },
+        {
+          "level": 2,
           "text": "2026-09-05 · update · лицензия и поправка про маркер"
         },
         {
@@ -1424,14 +1428,14 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 13331
+      "chars": 14205
     },
     {
       "slug": "proposals",
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-09-04",
+      "verified": "2026-09-06",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1546,11 +1550,11 @@
         },
         {
           "level": 3,
-          "text": "1.6 — точность покрытия и доступы · **реализовано, не выпущено**"
+          "text": "1.6 — точность покрытия и доступы · **выпущено в 1.7.0**"
         },
         {
           "level": 3,
-          "text": "1.7 — честность покрытия · **ядро реализовано, не выпущено**"
+          "text": "1.7 — честность покрытия · **выпущено**"
         },
         {
           "level": 3,
@@ -1573,7 +1577,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 7375
+      "chars": 7313
     },
     {
       "slug": "WIKI",
