@@ -1,7 +1,7 @@
 ---
 title: Security cookbook — SecHttp, JWT, RiskProfile
 status: current
-verified: 2026-09-04
+verified: 2026-09-06
 sources: [partest/security/__init__.py, partest/security/sec_http.py, partest/security/jwt_craft.py, partest/security/risk.py, partest/validation/incorrect_body.py]
 audience: user
 ships_in_wheel: true
