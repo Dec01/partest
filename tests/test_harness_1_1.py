@@ -80,7 +80,7 @@ def test_data_marker():
 
 
 def test_risk_profile_level():
-    # aqa-aligned: authz → critical; writes+fk → high; legacy kwargs still work
+    # authz → critical; writes+fk → high; legacy kwargs still work
     critical = RiskProfile(name="users", has_writes=True, has_authz=True)
     assert critical.level == "critical"
     high = RiskProfile(name="pay", has_money=True, has_writes=True, has_authz=False)

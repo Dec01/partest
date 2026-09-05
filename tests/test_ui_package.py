@@ -46,7 +46,7 @@ def test_page_monitor_ignores_tracker():
 
 
 def test_page_monitor_records_api_5xx_not_4xx():
-    """Critical filter: API 5xx yes, API 4xx no (aqa parity)."""
+    """Critical filter: API 5xx yes, API 4xx no."""
     mon = PageMonitor(api_hosts=("api.example.com",))
 
     class Req:
@@ -217,5 +217,11 @@ def test_shipped_docs():
     # Internal pages must never ship: status, roadmaps, ADRs, consumer trackers.
     for internal in ("status.md", "howto-release.md", "howto-contribute.md"):
         assert internal not in names, f"{internal} must not ship in the wheel"
+    import re
+
     for name in names:
-        assert "example-org" not in read_doc(name), f"{name} leaks a private path"
+        text = read_doc(name)
+        # Structural check rather than a name list: this repository is public, so a
+        # literal organisation name here would publish what it exists to catch.
+        assert not re.search(r"[A-Za-z]:\\", text), f"{name} leaks a Windows path"
+        assert "/home/" not in text and "/Users/" not in text, f"{name} leaks a home directory"
