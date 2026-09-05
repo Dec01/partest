@@ -68,7 +68,7 @@
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-05",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -110,7 +110,7 @@
       "path": "docs/wiki/components/project-gen.md",
       "title": "partest-gen — suite scaffold",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-05",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [
@@ -319,7 +319,7 @@
       "path": "docs/wiki/decisions/docs-in-wheel.md",
       "title": "ADR — документация внутри колеса и генерация partest/docs",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-05",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -350,7 +350,7 @@
           "text": "Альтернативы, которые отклонены"
         }
       ],
-      "chars": 2047
+      "chars": 2142
     },
     {
       "slug": "decisions/explicit-type",
@@ -413,25 +413,21 @@
         },
         {
           "level": 2,
-          "text": "Тонкое место: `TEST_MARKER`"
-        },
-        {
-          "level": 2,
-          "text": "Известное нарушение: алиасы `aqa_*`"
+          "text": "Маркер тестовых данных — не домен"
         },
         {
           "level": 2,
           "text": "Как проверять"
         }
       ],
-      "chars": 2292
+      "chars": 2319
     },
     {
       "slug": "decisions/pypi-only",
       "path": "docs/wiki/decisions/pypi-only.md",
       "title": "ADR — дистрибуция только через PyPI",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-05",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -461,21 +457,21 @@
         },
         {
           "level": 2,
-          "text": "Открытые вопросы публикации"
+          "text": "Лицензия"
         },
         {
           "level": 2,
           "text": "Что изменит решение"
         }
       ],
-      "chars": 3033
+      "chars": 2494
     },
     {
       "slug": "howto/contribute",
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-05",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1017,7 +1013,7 @@
       "path": "docs/wiki/howto/release.md",
       "title": "Release checklist",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-05",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1060,7 +1056,7 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 3120
+      "chars": 3550
     },
     {
       "slug": "howto/reporting",
@@ -1181,7 +1177,7 @@
       "path": "docs/wiki/howto/ui.md",
       "title": "UI quickstart (partest[ui])",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-05",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1377,6 +1373,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-05 · update · лицензия и поправка про маркер"
+        },
+        {
+          "level": 2,
           "text": "2026-09-04 · lint · аудит того, что реально уезжает в PyPI"
         },
         {
@@ -1424,7 +1424,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 12267
+      "chars": 13331
     },
     {
       "slug": "proposals",
@@ -1520,7 +1520,7 @@
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-05",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [

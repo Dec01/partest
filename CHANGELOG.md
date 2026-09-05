@@ -44,6 +44,14 @@
   `TrackingApiClient` registers the id there. The test still fails; the leftover does
   not happen. Opt out with `track_before_validate=False` (LIB-TRACK-VALIDATE).
 
+### Added — licence
+
+- `LICENSE` (MIT, `Copyright (c) 2024-2026 Parshin Ewgeniy`) ships in both the wheel and
+  the sdist, and `license="MIT"` is declared in the metadata. The package had been
+  claiming MIT in its classifiers and its description without carrying the text; every
+  build warned about the missing file. The year range runs from the first PyPI release
+  (`0.1.10`, 2 December 2024).
+
 ### Fixed — what gets published
 
 - The sdist shipped `tests/` and the repo-facing `README.md`. The tests name the
@@ -65,9 +73,10 @@
   type checker sees them. Coverage is partial and says so — `TrackingApiClient`
   delegates unknown attributes to the wrapped client and types as `Any` there.
 - The `aqa_*` helpers in `partest.data_marker` emit a `DeprecationWarning` and will be
-  removed in the next major version. They carry a consumer project's name into a public
-  API, which the library's own rules forbid; a deprecation that never warns never
-  expires. The supported names (`marked_name`, `marked_code`, …) stay silent.
+  removed in the next major version. They are older names for the same five functions,
+  and one thing with two public names is a surface nobody benefits from. A deprecation
+  that never warns never expires, hence the warning; `marked_name`, `marked_code` and
+  the rest stay silent.
 - `tools/check_all.py` runs tests, the documentation lint, the index check and the wheel
   drift check in one command; `--package` adds the build and `twine check`. There is no
   public CI here, so a single command is the only thing standing between a stale

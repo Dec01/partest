@@ -1,7 +1,7 @@
 ---
 title: ADR — дистрибуция только через PyPI
 status: current
-verified: 2026-09-04
+verified: 2026-09-05
 sources: [setup.py, MANIFEST.in]
 audience: maintainer
 ships_in_wheel: false
@@ -55,17 +55,11 @@ allow_version_literals: true
 `test_manifest_excludes_the_repository_only_material`,
 `test_shipped_docs_do_not_point_at_repository_paths`.
 
-## Открытые вопросы публикации
+## Лицензия
 
-1. **Нет файла `LICENSE`.** MIT заявлен в классификаторах `setup.py` и в `docs/PYPI.md`,
-   но текста лицензии в репозитории нет, и сборка каждый раз пишет
-   `warning: no files found matching 'LICENSE'`. Пакет объявляет лицензию, которую не
-   прикладывает. Файл с именем правообладателя и годом — решение владельца.
-2. **`TEST_MARKER` по умолчанию — `"AQA"`** (`partest/data_marker.py`, шаблон `.env` в
-   `project_gen/skeleton.py`). Это уже не проза, а поведение: у постороннего проекта
-   тестовые данные по умолчанию называются именем чужого проекта. Смена дефолта меняет
-   то, какие строки найдёт очистка delete-by-marker у существующих потребителей, —
-   поэтому мажорная версия, а не патч.
+MIT, файл `LICENSE` в корне, попадает и в sdist, и в колесо.
+`Copyright (c) 2024-2026 Parshin Ewgeniy` — от года первой публикации на PyPI
+(`0.1.10`, 2 декабря 2024) до текущего.
 
 ## Что изменит решение
 
