@@ -1,4 +1,4 @@
-"""G5: deep UI monorepo layout (aqa-style, product-agnostic).
+"""G5: deep UI monorepo layout (product-agnostic).
 
 Generated consumer tree re-exports ``partest.ui`` (requires ``partest[ui]``).
 Product POM, scenes, and RBAC matrix stay in the consumer project.
@@ -88,7 +88,7 @@ Utils re-export ``partest[ui]`` (``pip install partest[ui]``). Product POM/scene
 
     files["src/ui/conftest.py"] = '''"""UI conftest — isolated from API OpenAPI / TokenManager / partest coverage.
 
-Uses **sync** pytest-playwright ``page`` (aqa-style). Do not import confpartest.
+Uses **sync** pytest-playwright ``page``. Do not import confpartest.
 """
 
 from __future__ import annotations

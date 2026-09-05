@@ -1,4 +1,4 @@
-"""Browser storage helpers — functions + aqa-style ``Storage`` class (LIB-UI-05)."""
+"""Browser storage helpers — functions plus a ``Storage`` façade."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 
 class Storage:
-    """Sync Playwright local/session storage façade (aqa-compatible)."""
+    """Sync Playwright local/session storage façade."""
 
     def __init__(self, page: Any):
         self.page = page

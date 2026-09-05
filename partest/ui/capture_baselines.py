@@ -190,7 +190,7 @@ def capture_baselines_sync(
     locale: str = "en-US",
     ignore_https_errors: bool = True,
 ) -> List[Dict[str, Any]]:
-    """Sync Playwright capture (aqa-style). ``login`` is ``(page) -> None``."""
+    """Sync Playwright capture. ``login`` is ``(page) -> None``."""
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as e:
@@ -289,7 +289,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--async",
         dest="use_async",
         action="store_true",
-        help="Use async Playwright (default: sync, aqa-style)",
+        help="Use async Playwright (default: sync)",
     )
     parser.add_argument(
         "--dry-run",

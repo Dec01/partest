@@ -2,7 +2,7 @@
 
 Freeze / wait helpers have **sync** and **async** variants. Default names that
 existed in 1.4 stay async so ``await inject_freeze_styles(page)`` still works.
-Sync Playwright (aqa / pytest-playwright) should call ``*_sync``.
+Sync Playwright (pytest-playwright) should call ``*_sync``.
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ class VisualCompareResult:
 
     @property
     def ok(self) -> bool:
-        """Alias for ``equal`` (LIB-UI-04 / aqa shim drop)."""
+        """Alias for ``equal``, kept for suites migrating from a local shim."""
         return self.equal
 
     def summary(self) -> str:
@@ -105,7 +105,7 @@ class VisualScene:
 
     @property
     def id(self) -> str:
-        """aqa-style alias for ``name``."""
+        """Legacy alias for ``name``."""
         return self.name
 
 
@@ -206,7 +206,7 @@ def compare_images(
     max_diff_ratio: float = 0.01,
     color_tolerance: int = 10,
 ) -> VisualCompareResult:
-    """Pixel diff. ``diff_output`` is an alias of ``diff_path`` (aqa)."""
+    """Pixel diff. ``diff_output`` is a legacy alias of ``diff_path``."""
     try:
         from PIL import Image, ImageChops
     except ImportError as e:

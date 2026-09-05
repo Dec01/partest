@@ -1,6 +1,6 @@
 """UI harness (optional extra: pip install partest[ui]).
 
-Default Page Object API is **sync** (:class:`BasePage`) for aqa-style suites.
+Default Page Object API is **sync** (:class:`BasePage`) for pytest-playwright suites.
 Use :class:`AsyncBasePage` for async Playwright.
 """
 

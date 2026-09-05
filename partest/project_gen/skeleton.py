@@ -1,4 +1,4 @@
-"""Emit aqa-like monorepo skeleton (G1 — no entity tests)."""
+"""Emit the monorepo skeleton (G1 — no entity tests)."""
 
 from __future__ import annotations
 
