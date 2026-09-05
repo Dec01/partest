@@ -1,7 +1,7 @@
 ---
 title: Статус, версии и что дальше
 status: current
-verified: 2026-09-05
+verified: 2026-09-06
 sources: [partest/__init__.py, CHANGELOG.md]
 audience: maintainer
 ships_in_wheel: false
@@ -18,8 +18,8 @@ allow_version_literals: true
 | **Дата актуализации** | 2026-09-06 |
 | **Текущий релиз** | **1.7.0** (PyPI) |
 | **Дистрибуция** | только PyPI. Публичный GitHub не планируется — см. [[decisions/pypi-only]] |
-| **Consumer proof** | aqa пока на `1.5.0`; переезд описан в `aqa docs/partest/MIGRATION_1.7.0.md` |
-| **Источник бэклога** | снапшот `docs/raw/aqa/2026-09-04/` |
+| **Consumer proof** | консьюмер пока на `1.5.0`; инструкция по переезду передана в его репозиторий |
+| **Источник бэклога** | снапшот консьюмера от 2026-09-04, хранится вне репозитория |
 | **Сверка бэклога с кодом** | [[backlog-audit]] — волны 1.6 и 1.7 (P0-часть) реализованы |
 
 ---
@@ -55,7 +55,7 @@ allow_version_literals: true
 | G1–G6 | `partest-gen`: скелет → IR → ресурсы → P1 → UI → playbook | 1.4–1.5 |
 | 1.5.0 | CANON + BPLUS + COV-* + UI freeze/cap/hooks + GEN | 1.5.0 (PyPI) |
 
-`LIB-11` (изоляция `import partest.ui`) и `LIB-15` (self-tests харнесса) в бэклоге aqa помечены
+`LIB-11` (изоляция `import partest.ui`) и `LIB-15` (self-tests харнесса) во внешнем бэклоге помечены
 «проверить в partest-repo» — **закрыты**: `tests/test_ui_isolation.py`, `tests/test_harness_1_1.py`.
 
 ## 3. Что дальше
@@ -114,7 +114,7 @@ i18n шаблонов reporting · `LIB-PERM-QUAD` labels · `LIB-REC-CLEANUP` h
 
 **Testing Atlas** (`src.atlas` / `src.viz`, pytest-плагины эффектов UI · DB · bus). Это не харнесс
 покрытия. Не смешивать с `LIB-COV-HTML`. Даже переносимое ядро не извлекать, пока владелец
-библиотеки не запросит отдельно. Спека: `raw/aqa/2026-09-04/LIBRARY_UPDATE_COVERAGE.md` §1.4.
+библиотеки не запросит отдельно. Спека: снапшот бэклога, `LIBRARY_UPDATE_COVERAGE.md` §1.4.
 
 ### Cookbook-долг
 
@@ -130,14 +130,14 @@ i18n шаблонов reporting · `LIB-PERM-QUAD` labels · `LIB-REC-CLEANUP` h
 
 ## 4. На стороне consumer (не в этом репозитории)
 
-- **AQA-6** — зелёный полный прогон на стенде.
+- Зелёный полный прогон на стенде консьюмера.
 - Overlay `resource_tracker.py` (track до validate) снимается после `LIB-TRACK-VALIDATE` в 1.6.
-- Навсегда остаются в aqa: `visual_scenes`, PROFILES, roles/credentials, page objects, SQL cleanup,
+- Навсегда остаются у консьюмера: `visual_scenes`, PROFILES, roles/credentials, page objects, SQL cleanup,
   baselines PNG. См. [[decisions/no-domain]].
 
 ## 5. Как обновлять эту страницу
 
-1. Новый снапшот бэклога → `docs/raw/aqa/<дата>/`, старый не трогаем.
+1. Новый снапшот бэклога → локальный `docs/raw/<источник>/<дата>/` (вне git), старый не трогаем.
 2. Переписать §3 по свежему снапшоту; противоречия разрешать в пользу более поздней даты и
    **явно называть** их, как сделано с `LIB-XDIST`.
 3. Обновить `verified:` и добавить строку в [[log]].

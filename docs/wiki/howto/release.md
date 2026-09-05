@@ -1,7 +1,7 @@
 ---
 title: Release checklist
 status: current
-verified: 2026-09-05
+verified: 2026-09-06
 sources: [setup.py, MANIFEST.in, partest/__init__.py, tools/docs_build_wheel.py]
 audience: maintainer
 ships_in_wheel: false
@@ -11,7 +11,7 @@ allow_version_literals: false
 # Release checklist
 
 Version-agnostic procedure. What is in the current release and what is planned lives in
-[[status]]; product notes live in `CHANGELOG.md`. Past releases are recorded under `docs/archive/`.
+[[status]]; product notes live in `CHANGELOG.md`.
 
 Channel: **PyPI only** — see [[decisions/pypi-only]]. Do not push this tree to public GitHub.
 
@@ -52,10 +52,8 @@ python tools/check_all.py --package
 python -m zipfile -l dist/partest-*.whl | grep "partest/docs"
 ```
 
-The wheel must contain exactly the pages marked `ships_in_wheel: true` — no status page, no ADRs,
-no `docs/raw/` snapshots. Check the sdist as well: it carries `partest/**`, `CHANGELOG.md`,
-`LICENSE` and the packaging files, and nothing else. `MANIFEST.in` prunes `tests/`, `docs/`,
-`tools/`, `.claude/` and `.grok/`; if you add a top-level directory, decide there whether it
+The wheel must contain exactly the pages marked `ships_in_wheel: true` — no status page and no ADRs. Check the sdist as well: it carries `partest/**`, `CHANGELOG.md`,
+`LICENSE` and the packaging files, and nothing else. `MANIFEST.in` prunes `tests/`, `docs/`, `tools/`, `.claude/` and `.grok/`; if you add a top-level directory, decide there whether it
 ships before the next release does it for you.
 
 ```bash
@@ -85,8 +83,8 @@ python -m venv /tmp/verify && /tmp/verify/bin/pip install -U partest
 
 - [ ] append a line to [[log]]
 - [ ] update [[status]]: current release, and move closed items out of "what is next"
-- [ ] archive the release record under `docs/archive/RELEASE_<version>.md` if the release had
-      notable operational steps worth keeping
+- [ ] if the release needed notable operational steps, fold them into this checklist so the
+      next one inherits them
 
 ## 6. Rollback
 

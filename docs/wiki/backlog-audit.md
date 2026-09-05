@@ -1,5 +1,5 @@
 ---
-title: Аудит бэклога aqa и готовность к переезду
+title: Аудит внешнего бэклога и готовность к переезду
 status: current
 verified: 2026-09-04
 sources: [partest/tracking.py, partest/coverage.py, partest/methodology/classifier.py, partest/payloads.py, partest/call_storage.py, partest/reports/payload.py, partest/reports/analyzer.py, partest/pytest_plugin.py]
@@ -10,7 +10,8 @@ allow_version_literals: true
 
 # Аудит бэклога и готовность к переезду
 
-Сверка 10 документов из `docs/raw/aqa/2026-09-04/` с фактическим кодом библиотеки.
+Сверка 10 документов снапшота бэклога консьюмера (2026-09-04, хранится вне репозитория)
+с фактическим кодом библиотеки.
 Каждый вердикт проверен запуском или чтением кода — ссылки на строки приведены.
 
 ## Вывод
@@ -23,7 +24,7 @@ allow_version_literals: true
 | **Документационные требования бэклога** | применены |
 | **Волна 1.6** | **реализована**, тесты в `tests/test_wave_1_6.py`; не выпущена |
 | **Волна 1.7** | P0-ядро **реализовано** (xdist-merge, `kind`, meta, timing, history keep=2); открыты витрина HTML, override подтипов, kind-aware compare |
-| **Можно ли переезжать aqa** | да, после публикации: снимается overlay `resource_tracker.py`, чинятся ключи покрытия и классификация |
+| **Можно ли переезжать консьюмеру** | да, после публикации: снимается overlay `resource_tracker.py`, чинятся ключи покрытия и классификация |
 | **Чего переезд не даст** | отчёта из теста под `-n`: слияние живёт на контроллере, `test_zorro` — на воркере. Нужен либо serial, либо `PARTEST_COVERAGE_JSON` |
 
 ---
@@ -36,7 +37,7 @@ allow_version_literals: true
 | unseen ≠ empty ≠ «нет тестов» — зафиксировать как канон (§2.1) | [[concepts/coverage-honesty]] §2 |
 | дисциплина `type=`, инференс не заменяет явный тип (§2.2) | [[decisions/explicit-type]], [[concepts/methodology]] |
 | объём = OpenAPI op × P1 клетки подтипа, не 12 TC на path (§2.4) | [[concepts/methodology]] |
-| «после реализации в partest — короткая шапка и ссылка на `partest.docs`» | снапшот в `docs/raw/`, план в [[status]] |
+| «после реализации в partest — короткая шапка и ссылка на `partest.docs`» | снапшот сохранён локально, план в [[status]] |
 | ACCESS → cookbook в `partest.docs` | [[howto/permissions]] |
 | CLEANUP (track-before-validate, marked payload) → `partest.docs` | [[howto/recipes]] |
 | UPLOAD / PATH / INTEGRATION / E2E cookbooks | **не сделано**, см. §2 «Cookbook-долг» |
@@ -116,8 +117,8 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 
 - **Имена документов в колесе стали плоскими**: `QUICKSTART.md` → `howto-quickstart.md`,
   `MIGRATION.md` → `howto-migration.md`, `UI_QUICKSTART.md` → `howto-ui.md` и т. д.
-  Проверено: в aqa нет вызовов `partest.docs.read_doc` / `list_docs`, так что переезд
-  ничего не ломает. Для любого другого потребителя это ломающее изменение имён.
+  Проверено: у текущего консьюмера нет вызовов `partest.docs.read_doc` / `list_docs`,
+  так что переезд ничего не ломает. Для другого потребителя это ломающее изменение имён.
 - **Из колеса убраны** `MIGRATION_1.3.0_ISSUES.md`, `IMPLEMENTATION_PLAN.md`,
   `RELEASE_1.5.0.md`. Это внутренние документы; их место — этот репозиторий.
 - Появилась команда `python -m partest.docs list | show <page> | path`.

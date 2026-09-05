@@ -81,3 +81,9 @@ docs/_build/
 
 # Optional local tooling (uncomment if you must keep private notes out of git)
 # .python-version
+
+# Consumer-provided source snapshots and superseded internal planning docs.
+# They describe another project's product, roles and infrastructure, so they stay
+# out of this public repository. Kept locally alongside it; see docs/wiki/WIKI.md.
+docs/raw/
+docs/archive/

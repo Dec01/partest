@@ -4,7 +4,7 @@
     {
       "slug": "backlog-audit",
       "path": "docs/wiki/backlog-audit.md",
-      "title": "Аудит бэклога aqa и готовность к переезду",
+      "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
       "verified": "2026-09-04",
       "audience": "maintainer",
@@ -61,14 +61,14 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7400
+      "chars": 7457
     },
     {
       "slug": "components/overview",
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-09-05",
+      "verified": "2026-09-06",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -312,14 +312,14 @@
           "text": "Цена решения"
         }
       ],
-      "chars": 2655
+      "chars": 2680
     },
     {
       "slug": "decisions/docs-in-wheel",
       "path": "docs/wiki/decisions/docs-in-wheel.md",
       "title": "ADR — документация внутри колеса и генерация partest/docs",
       "status": "current",
-      "verified": "2026-09-05",
+      "verified": "2026-09-06",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -350,7 +350,7 @@
           "text": "Альтернативы, которые отклонены"
         }
       ],
-      "chars": 2142
+      "chars": 2144
     },
     {
       "slug": "decisions/explicit-type",
@@ -427,7 +427,7 @@
       "path": "docs/wiki/decisions/pypi-only.md",
       "title": "ADR — дистрибуция только через PyPI",
       "status": "current",
-      "verified": "2026-09-05",
+      "verified": "2026-09-06",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -471,7 +471,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-09-05",
+      "verified": "2026-09-06",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -699,7 +699,7 @@
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-06",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -711,6 +711,10 @@
         {
           "level": 1,
           "text": "Migration guide"
+        },
+        {
+          "level": 2,
+          "text": "1.7.0 — coverage that tells the truth"
         },
         {
           "level": 2,
@@ -789,7 +793,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 7420
+      "chars": 9983
     },
     {
       "slug": "howto/permissions",
@@ -1013,7 +1017,7 @@
       "path": "docs/wiki/howto/release.md",
       "title": "Release checklist",
       "status": "current",
-      "verified": "2026-09-05",
+      "verified": "2026-09-06",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1056,7 +1060,7 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 3550
+      "chars": 3458
     },
     {
       "slug": "howto/reporting",
@@ -1355,7 +1359,7 @@
           "text": "Вне wiki"
         }
       ],
-      "chars": 3188
+      "chars": 3036
     },
     {
       "slug": "log",
@@ -1428,7 +1432,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 14205
+      "chars": 14195
     },
     {
       "slug": "proposals",
@@ -1524,7 +1528,7 @@
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-09-05",
+      "verified": "2026-09-06",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1577,7 +1581,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 7313
+      "chars": 7374
     },
     {
       "slug": "WIKI",
@@ -1626,1223 +1630,10 @@
           "text": "Инварианты правки"
         }
       ],
-      "chars": 4623
+      "chars": 4951
     }
   ],
-  "raw": [
-    {
-      "path": "docs/raw/aqa/2026-09-04/ACCESS_CHECKLIST_FOR_PARTEST.md",
-      "chars": 8014,
-      "chunks": [
-        {
-          "heading": "Инструкция в partest: полнота RequestPermissions (access checklist)",
-          "level": 1,
-          "start": 0,
-          "chars": 698
-        },
-        {
-          "heading": "1. Проблема",
-          "level": 2,
-          "start": 698,
-          "chars": 690
-        },
-        {
-          "heading": "2. Четыре клетки (канон)",
-          "level": 2,
-          "start": 1388,
-          "chars": 1270
-        },
-        {
-          "heading": "3. Что сделать в следующем релизе partest (предложение 1.6)",
-          "level": 2,
-          "start": 2658,
-          "chars": 64
-        },
-        {
-          "heading": "3.1. Docs / recipe — **P1, обязательно**",
-          "level": 3,
-          "start": 2722,
-          "chars": 260
-        },
-        {
-          "heading": "unauth",
-          "level": 1,
-          "start": 2982,
-          "chars": 155
-        },
-        {
-          "heading": "allow",
-          "level": 1,
-          "start": 3137,
-          "chars": 174
-        },
-        {
-          "heading": "no_access",
-          "level": 1,
-          "start": 3311,
-          "chars": 182
-        },
-        {
-          "heading": "inactive — consumer даёт deactivate/restore",
-          "level": 1,
-          "start": 3493,
-          "chars": 344
-        },
-        {
-          "heading": "3.2. Helpers — **P2, желательно**",
-          "level": 3,
-          "start": 3837,
-          "chars": 540
-        },
-        {
-          "heading": "3.3. Coverage labels — **P2, optional (LIB-PERM-QUAD)**",
-          "level": 3,
-          "start": 4377,
-          "chars": 339
-        },
-        {
-          "heading": "3.4. partest-gen (LIB-GEN)",
-          "level": 3,
-          "start": 4716,
-          "chars": 219
-        },
-        {
-          "heading": "4. Чего не делать в library",
-          "level": 2,
-          "start": 4935,
-          "chars": 305
-        },
-        {
-          "heading": "5. Доказательство потребителя (aqa, не копировать в wheel)",
-          "level": 2,
-          "start": 5240,
-          "chars": 444
-        },
-        {
-          "heading": "6. Acceptance релиза",
-          "level": 2,
-          "start": 5684,
-          "chars": 531
-        }
-      ]
-    },
-    {
-      "path": "docs/raw/aqa/2026-09-04/CLEANUP_TRACKING.md",
-      "chars": 3909,
-      "chunks": [
-        {
-          "heading": "partest: tracking + cleanup recipe (handoff)",
-          "level": 1,
-          "start": 0,
-          "chars": 439
-        },
-        {
-          "heading": "Дыра library 1.5.0",
-          "level": 2,
-          "start": 439,
-          "chars": 999
-        },
-        {
-          "heading": "Recipe consumer (пока 1.5)",
-          "level": 2,
-          "start": 1438,
-          "chars": 683
-        },
-        {
-          "heading": "Marker на required-only (`LIB-BODY-MARK`)",
-          "level": 2,
-          "start": 2121,
-          "chars": 653
-        },
-        {
-          "heading": "Что остаётся в consumer навсегда",
-          "level": 2,
-          "start": 2774,
-          "chars": 208
-        },
-        {
-          "heading": "Docs wheel (вклеить)",
-          "level": 2,
-          "start": 2982,
-          "chars": 203
-        }
-      ]
-    },
-    {
-      "path": "docs/raw/aqa/2026-09-04/COVERAGE_REPORT.md",
-      "chars": 6491,
-      "chunks": [
-        {
-          "heading": "Интерактивный отчёт покрытия API (partest 1.5)",
-          "level": 1,
-          "start": 0,
-          "chars": 1234
-        },
-        {
-          "heading": "Запуск (честный JSON)",
-          "level": 2,
-          "start": 1234,
-          "chars": 341
-        },
-        {
-          "heading": "serial, весь API, zorro в том же процессе:",
-          "level": 1,
-          "start": 1575,
-          "chars": 447
-        },
-        {
-          "heading": "aqa HTML (новый шаблон):",
-          "level": 1,
-          "start": 2022,
-          "chars": 217
-        },
-        {
-          "heading": "CLI extras",
-          "level": 2,
-          "start": 2239,
-          "chars": 409
-        },
-        {
-          "heading": "Как добавить сервис",
-          "level": 2,
-          "start": 2648,
-          "chars": 204
-        },
-        {
-          "heading": "Формула",
-          "level": 2,
-          "start": 2852,
-          "chars": 133
-        },
-        {
-          "heading": "Витрина (aqa HTML)",
-          "level": 2,
-          "start": 2985,
-          "chars": 2022
-        }
-      ]
-    },
-    {
-      "path": "docs/raw/aqa/2026-09-04/FILE_UPLOAD_TESTING.md",
-      "chars": 12575,
-      "chunks": [
-        {
-          "heading": "partest: методология проверки файловых upload (A5)",
-          "level": 1,
-          "start": 0,
-          "chars": 383
-        },
-        {
-          "heading": "0. Зачем отдельный канон",
-          "level": 2,
-          "start": 383,
-          "chars": 481
-        },
-        {
-          "heading": "1. Два контура (не смешивать)",
-          "level": 2,
-          "start": 864,
-          "chars": 940
-        },
-        {
-          "heading": "2. Чеклист P1 для upload-endpoint",
-          "level": 2,
-          "start": 1804,
-          "chars": 1147
-        },
-        {
-          "heading": "3. Корпус файлов (мутации)",
-          "level": 2,
-          "start": 2951,
-          "chars": 173
-        },
-        {
-          "heading": "3.1. Форматы (имя)",
-          "level": 3,
-          "start": 3124,
-          "chars": 282
-        },
-        {
-          "heading": "3.2. Содержимое vs имя (spoof)",
-          "level": 3,
-          "start": 3406,
-          "chars": 703
-        },
-        {
-          "heading": "3.3. Имя файла",
-          "level": 3,
-          "start": 4109,
-          "chars": 281
-        },
-        {
-          "heading": "3.4. Размер",
-          "level": 3,
-          "start": 4390,
-          "chars": 238
-        },
-        {
-          "heading": "3.5. Multipart контракт",
-          "level": 3,
-          "start": 4628,
-          "chars": 313
-        },
-        {
-          "heading": "3.6. Чего не класть в corpus",
-          "level": 3,
-          "start": 4941,
-          "chars": 216
-        },
-        {
-          "heading": "4. Pipeline / side-effects",
-          "level": 2,
-          "start": 5157,
-          "chars": 1103
-        },
-        {
-          "heading": "5. Coverage `type=` (чтобы HTML не врал)",
-          "level": 2,
-          "start": 6260,
-          "chars": 659
-        },
-        {
-          "heading": "6. Library API (предложение 1.7+)",
-          "level": 2,
-          "start": 6919,
-          "chars": 482
-        },
-        {
-          "heading": "6.1. Два разных файла: gate-корпус vs шаблон прайса",
-          "level": 2,
-          "start": 7401,
-          "chars": 1365
-        },
-        {
-          "heading": "7. Proof aqa (не копировать в wheel)",
-          "level": 2,
-          "start": 8766,
-          "chars": 934
-        }
-      ]
-    },
-    {
-      "path": "docs/raw/aqa/2026-09-04/LIBRARY_EXTRACTION_BACKLOG.md",
-      "chars": 37547,
-      "chunks": [
-        {
-          "heading": "partest Library Extraction Backlog",
-          "level": 1,
-          "start": 0,
-          "chars": 945
-        },
-        {
-          "heading": "0. Как читать этот документ",
-          "level": 2,
-          "start": 945,
-          "chars": 670
-        },
-        {
-          "heading": "1. DECIDED: уже принятое обновление partest",
-          "level": 2,
-          "start": 1615,
-          "chars": 48
-        },
-        {
-          "heading": "1.1. Сырой body + Content-Type (IncorrectBody full / transport abuse)",
-          "level": 3,
-          "start": 1663,
-          "chars": 2964
-        },
-        {
-          "heading": "1.2. Контекст «не патчить partest внутри aqa»",
-          "level": 3,
-          "start": 4627,
-          "chars": 234
-        },
-        {
-          "heading": "2. Карта: что уже в partest 0.3.0 vs что в aqa",
-          "level": 2,
-          "start": 4861,
-          "chars": 51
-        },
-        {
-          "heading": "2.1. Уже в library (не дублировать, при необходимости ENHANCE)",
-          "level": 3,
-          "start": 4912,
-          "chars": 788
-        },
-        {
-          "heading": "2.2. Дубли / shadow-копии в aqa (свести к library)",
-          "level": 3,
-          "start": 5700,
-          "chars": 441
-        },
-        {
-          "heading": "2.3. Главный gap в ApiClient (кроме §1)",
-          "level": 3,
-          "start": 6141,
-          "chars": 1031
-        },
-        {
-          "heading": "3. EXTRACT — API harness (переиспользовать на любом API-проекте)",
-          "level": 2,
-          "start": 7172,
-          "chars": 203
-        },
-        {
-          "heading": "3.1. Tracking cleanup (POST→201 → LIFO DELETE)",
-          "level": 3,
-          "start": 7375,
-          "chars": 995
-        },
-        {
-          "heading": "3.2. Allure helpers + check_* asserts",
-          "level": 3,
-          "start": 8370,
-          "chars": 942
-        },
-        {
-          "heading": "3.3. Base payload / request body builder",
-          "level": 3,
-          "start": 9312,
-          "chars": 515
-        },
-        {
-          "heading": "3.4. Base response validator (pydantic + partest contract)",
-          "level": 3,
-          "start": 9827,
-          "chars": 532
-        },
-        {
-          "heading": "3.5. RFC 7807 Problem Detail model (optional default)",
-          "level": 3,
-          "start": 10359,
-          "chars": 638
-        },
-        {
-          "heading": "3.6. Test data marker (AQA-like prefix helpers)",
-          "level": 3,
-          "start": 10997,
-          "chars": 610
-        },
-        {
-          "heading": "3.7. Headers / params Config builder",
-          "level": 3,
-          "start": 11607,
-          "chars": 580
-        },
-        {
-          "heading": "3.8. Collection façade pattern (template, not entities)",
-          "level": 3,
-          "start": 12187,
-          "chars": 770
-        },
-        {
-          "heading": "3.9. OAuth2 / OIDC TokenManager (multi-role cache)",
-          "level": 3,
-          "start": 12957,
-          "chars": 772
-        },
-        {
-          "heading": "3.10. Env settings loader (generic)",
-          "level": 3,
-          "start": 13729,
-          "chars": 567
-        },
-        {
-          "heading": "3.11. Risk profile model (без реестра сущностей)",
-          "level": 3,
-          "start": 14296,
-          "chars": 574
-        },
-        {
-          "heading": "3.12. SecHttp — raw httpx for security / transport",
-          "level": 3,
-          "start": 14870,
-          "chars": 659
-        },
-        {
-          "heading": "3.13. Crafted JWT helpers (tampering fixtures)",
-          "level": 3,
-          "start": 15529,
-          "chars": 518
-        },
-        {
-          "heading": "3.14. Pytest Allure enrichment hooks",
-          "level": 3,
-          "start": 16047,
-          "chars": 623
-        },
-        {
-          "heading": "3.15. confpartest / OpenAPI config pattern",
-          "level": 3,
-          "start": 16670,
-          "chars": 434
-        },
-        {
-          "heading": "3.16. generate_init / scaffold utilities",
-          "level": 3,
-          "start": 17104,
-          "chars": 362
-        },
-        {
-          "heading": "3.17. Response timer / compare stands (unexport → public)",
-          "level": 3,
-          "start": 17466,
-          "chars": 498
-        },
-        {
-          "heading": "3.18. Monorepo isolation pattern (docs, not code)",
-          "level": 3,
-          "start": 17964,
-          "chars": 381
-        },
-        {
-          "heading": "4. EXTRACT — UI harness (Playwright), optional extra `partest[ui]`",
-          "level": 2,
-          "start": 18345,
-          "chars": 167
-        },
-        {
-          "heading": "4.1. Base Page Object",
-          "level": 3,
-          "start": 18512,
-          "chars": 477
-        },
-        {
-          "heading": "4.2. PageMonitor (network / console / assets)",
-          "level": 3,
-          "start": 18989,
-          "chars": 531
-        },
-        {
-          "heading": "4.3. Health asserts",
-          "level": 3,
-          "start": 19520,
-          "chars": 341
-        },
-        {
-          "heading": "4.4. Allure UI attaches",
-          "level": 3,
-          "start": 19861,
-          "chars": 399
-        },
-        {
-          "heading": "4.5. Visual compare (pixel diff with tolerance)",
-          "level": 3,
-          "start": 20260,
-          "chars": 446
-        },
-        {
-          "heading": "4.6. Visual freeze / stabilize primitives",
-          "level": 3,
-          "start": 20706,
-          "chars": 656
-        },
-        {
-          "heading": "4.7. Browser storage helpers",
-          "level": 3,
-          "start": 21362,
-          "chars": 236
-        },
-        {
-          "heading": "4.8. JWT decode (UI / API shared)",
-          "level": 3,
-          "start": 21598,
-          "chars": 370
-        },
-        {
-          "heading": "4.9. Capture baselines CLI pattern",
-          "level": 3,
-          "start": 21968,
-          "chars": 547
-        },
-        {
-          "heading": "4.10. UI conftest hooks pattern (docs + thin plugin)",
-          "level": 3,
-          "start": 22515,
-          "chars": 456
-        },
-        {
-          "heading": "5. STAY in consumer — явно не переносить",
-          "level": 2,
-          "start": 22971,
-          "chars": 1270
-        },
-        {
-          "heading": "6. Предлагаемая структура package (target)",
-          "level": 2,
-          "start": 24241,
-          "chars": 1465
-        },
-        {
-          "heading": "7. Приоритеты внедрения (в library repo)",
-          "level": 2,
-          "start": 25706,
-          "chars": 740
-        },
-        {
-          "heading": "8. План переключения aqa (после «всё внесено»)",
-          "level": 2,
-          "start": 26446,
-          "chars": 126
-        },
-        {
-          "heading": "8.1. Dependency",
-          "level": 3,
-          "start": 26572,
-          "chars": 199
-        },
-        {
-          "heading": "8.2. Import rewrites (по мере наличия в library)",
-          "level": 3,
-          "start": 26771,
-          "chars": 1109
-        },
-        {
-          "heading": "8.3. Functional IncorrectBody upgrade",
-          "level": 3,
-          "start": 27880,
-          "chars": 447
-        },
-        {
-          "heading": "8.4. Delete dead local modules",
-          "level": 3,
-          "start": 28327,
-          "chars": 157
-        },
-        {
-          "heading": "8.5. Do not touch during switch",
-          "level": 3,
-          "start": 28484,
-          "chars": 117
-        },
-        {
-          "heading": "9. Чеклист статуса (заполнять при работе в partest-repo)",
-          "level": 2,
-          "start": 28601,
-          "chars": 1915
-        },
-        {
-          "heading": "10. Краткая матрица «файл aqa → действие»",
-          "level": 2,
-          "start": 30516,
-          "chars": 2353
-        },
-        {
-          "heading": "11. Acceptance criteria «library готова к aqa switch»",
-          "level": 2,
-          "start": 32869,
-          "chars": 549
-        },
-        {
-          "heading": "12. История",
-          "level": 2,
-          "start": 33418,
-          "chars": 491
-        }
-      ]
-    },
-    {
-      "path": "docs/raw/aqa/2026-09-04/LIBRARY_ROADMAP.md",
-      "chars": 11834,
-      "chunks": [
-        {
-          "heading": "partest — универсальный роадмап развития library",
-          "level": 1,
-          "start": 0,
-          "chars": 717
-        },
-        {
-          "heading": "0. Что уже универсально (не повторять)",
-          "level": 2,
-          "start": 717,
-          "chars": 977
-        },
-        {
-          "heading": "1. Must — качество library (P1)",
-          "level": 2,
-          "start": 1694,
-          "chars": 1318
-        },
-        {
-          "heading": "2. Product — coverage & DX (P2), EXTRACT из aqa",
-          "level": 2,
-          "start": 3012,
-          "chars": 2225
-        },
-        {
-          "heading": "3. Recipes — чтобы второй проект не копировал aqa (P2)",
-          "level": 2,
-          "start": 5237,
-          "chars": 2212
-        },
-        {
-          "heading": "4. UI extras (P2 / optional)",
-          "level": 2,
-          "start": 7449,
-          "chars": 403
-        },
-        {
-          "heading": "5. Coverage honesty — не «enterprise later»",
-          "level": 2,
-          "start": 7852,
-          "chars": 580
-        },
-        {
-          "heading": "5.1. Enterprise (P3)",
-          "level": 2,
-          "start": 8432,
-          "chars": 604
-        },
-        {
-          "heading": "6. Чего **никогда** не класть в partest",
-          "level": 2,
-          "start": 9036,
-          "chars": 612
-        },
-        {
-          "heading": "7. Порядок релизов (предложение)",
-          "level": 2,
-          "start": 9648,
-          "chars": 652
-        }
-      ]
-    },
-    {
-      "path": "docs/raw/aqa/2026-09-04/LIBRARY_UPDATE_COVERAGE.md",
-      "chars": 37320,
-      "chunks": [
-        {
-          "heading": "partest: инструкция к обновлению library",
-          "level": 1,
-          "start": 0,
-          "chars": 1344
-        },
-        {
-          "heading": "0. Инварианты",
-          "level": 2,
-          "start": 1344,
-          "chars": 566
-        },
-        {
-          "heading": "1. Инвентарь: переиспользовать / уникальное / не трогать",
-          "level": 2,
-          "start": 1910,
-          "chars": 61
-        },
-        {
-          "heading": "1.1. Уже в partest 1.5.0 — не повторять",
-          "level": 3,
-          "start": 1971,
-          "chars": 922
-        },
-        {
-          "heading": "1.2. Универсальное в aqa — EXTRACT / NEW в library",
-          "level": 3,
-          "start": 2893,
-          "chars": 3781
-        },
-        {
-          "heading": "1.3. Уникальное для consumer — **никогда** в partest",
-          "level": 3,
-          "start": 6674,
-          "chars": 812
-        },
-        {
-          "heading": "1.4. HOLD: Testing Atlas — **не EXTRACT** (1.6–1.7 и пока не попросят)",
-          "level": 3,
-          "start": 7486,
-          "chars": 700
-        },
-        {
-          "heading": "2. Новые подходы методологии (нет в library как канон)",
-          "level": 2,
-          "start": 8186,
-          "chars": 291
-        },
-        {
-          "heading": "2.1. Unseen ≠ empty ≠ «нет тестов в git»",
-          "level": 3,
-          "start": 8477,
-          "chars": 992
-        },
-        {
-          "heading": "2.2. Дисциплина `type=` — иначе матрица пустая при живых тестах",
-          "level": 3,
-          "start": 9469,
-          "chars": 971
-        },
-        {
-          "heading": "2.3. RequestPermissions = 4 клетки, не одна 401",
-          "level": 3,
-          "start": 10440,
-          "chars": 239
-        },
-        {
-          "heading": "2.4. Объём = OpenAPI op × P1 клетки подтипа, не 12 TC на path",
-          "level": 3,
-          "start": 10679,
-          "chars": 970
-        },
-        {
-          "heading": "2.5. Профиль сущности E (graph) — recipe, не новый type",
-          "level": 3,
-          "start": 11649,
-          "chars": 399
-        },
-        {
-          "heading": "2.6. User Journey — отдельный слой, не сумма Default",
-          "level": 3,
-          "start": 12048,
-          "chars": 277
-        },
-        {
-          "heading": "2.7. Контракт: живой `$ref`, не имя DTO из памяти",
-          "level": 3,
-          "start": 12325,
-          "chars": 327
-        },
-        {
-          "heading": "2.8. Gaps: fact / xfail(strict)+BUG, вечный skip запрещён",
-          "level": 3,
-          "start": 12652,
-          "chars": 193
-        },
-        {
-          "heading": "2.9. UI: матрица пункта тикета, не один replay",
-          "level": 3,
-          "start": 12845,
-          "chars": 183
-        },
-        {
-          "heading": "2.10. Access на list ≠ access на item",
-          "level": 3,
-          "start": 13028,
-          "chars": 183
-        },
-        {
-          "heading": "2.11. Coverage keys by OpenAPI template, not `{id}` heuristic (**LIB-PATH-RESOLVE**)",
-          "level": 3,
-          "start": 13211,
-          "chars": 1622
-        },
-        {
-          "heading": "2.12. Classifier: граница слова + ACTION vs TO OBJECT (**LIB-CLASSIFY-***)",
-          "level": 3,
-          "start": 14833,
-          "chars": 1143
-        },
-        {
-          "heading": "2.13. Пути, логика, E2E, интеграции — не клетки zorro (**LIB-REC-PATH / INTEGRATION / E2E**)",
-          "level": 3,
-          "start": 15976,
-          "chars": 864
-        },
-        {
-          "heading": "3. Объём покрытия и формирование отчёта",
-          "level": 2,
-          "start": 16840,
-          "chars": 44
-        },
-        {
-          "heading": "3.1. Что считаем «объёмом»",
-          "level": 3,
-          "start": 16884,
-          "chars": 465
-        },
-        {
-          "heading": "3.2. Целевой пайплайн отчёта",
-          "level": 3,
-          "start": 17349,
-          "chars": 431
-        },
-        {
-          "heading": "3.3. Контракт coverage.json (добавки к 1.5)",
-          "level": 3,
-          "start": 17780,
-          "chars": 771
-        },
-        {
-          "heading": "3.3a. Latency × type/subtype (LIB-COV-TIMING)",
-          "level": 3,
-          "start": 18551,
-          "chars": 928
-        },
-        {
-          "heading": "3.3b. Два последних прогона (LIB-COV-HIST-2)",
-          "level": 3,
-          "start": 19479,
-          "chars": 535
-        },
-        {
-          "heading": "3.4. HTML витрина — целевой UX (LIB-COV-HTML)",
-          "level": 3,
-          "start": 20014,
-          "chars": 840
-        },
-        {
-          "heading": "3.5. Compare / stubs / badge",
-          "level": 3,
-          "start": 20854,
-          "chars": 306
-        },
-        {
-          "heading": "4. LIB-XDIST — multiprocess не ловит реальное покрытие",
-          "level": 2,
-          "start": 21160,
-          "chars": 467
-        },
-        {
-          "heading": "4.1. Почему ломается",
-          "level": 3,
-          "start": 21627,
-          "chars": 558
-        },
-        {
-          "heading": "4.2. Почему «подождать test_zorro последним» не работает",
-          "level": 3,
-          "start": 22185,
-          "chars": 211
-        },
-        {
-          "heading": "4.3. Целевой дизайн (предложение)",
-          "level": 3,
-          "start": 22396,
-          "chars": 908
-        },
-        {
-          "heading": "4.4. Контракт merge",
-          "level": 3,
-          "start": 23304,
-          "chars": 339
-        },
-        {
-          "heading": "4.5. Поведение без merge",
-          "level": 3,
-          "start": 23643,
-          "chars": 367
-        },
-        {
-          "heading": "4.6. Acceptance (CI partest, без живого стенда)",
-          "level": 3,
-          "start": 24010,
-          "chars": 453
-        },
-        {
-          "heading": "4.7. Документация library (обязательная страница)",
-          "level": 3,
-          "start": 24463,
-          "chars": 297
-        },
-        {
-          "heading": "4.8. Чего не делать",
-          "level": 3,
-          "start": 24760,
-          "chars": 232
-        },
-        {
-          "heading": "5. План релизов (предложение)",
-          "level": 2,
-          "start": 24992,
-          "chars": 1080
-        },
-        {
-          "heading": "5.1. Definition of Done 1.7 coverage",
-          "level": 3,
-          "start": 26072,
-          "chars": 778
-        },
-        {
-          "heading": "5.2. Switch в aqa после релиза (не делать заранее)",
-          "level": 3,
-          "start": 26850,
-          "chars": 358
-        },
-        {
-          "heading": "6. Рецепты, которые должны попасть в `partest.docs`",
-          "level": 2,
-          "start": 27208,
-          "chars": 611
-        },
-        {
-          "heading": "7. Приоритеты одной таблицей",
-          "level": 2,
-          "start": 27819,
-          "chars": 705
-        },
-        {
-          "heading": "8. Proof aqa (не копировать в wheel)",
-          "level": 2,
-          "start": 28524,
-          "chars": 689
-        }
-      ]
-    },
-    {
-      "path": "docs/raw/aqa/2026-09-04/MIGRATION_1.3.0_ISSUES.md",
-      "chars": 16270,
-      "chunks": [
-        {
-          "heading": "partest — миграция aqa + roadmap library",
-          "level": 1,
-          "start": 0,
-          "chars": 548
-        },
-        {
-          "heading": "1. Цели (не путать)",
-          "level": 2,
-          "start": 548,
-          "chars": 378
-        },
-        {
-          "heading": "Принципы: library vs consumer",
-          "level": 3,
-          "start": 926,
-          "chars": 823
-        },
-        {
-          "heading": "2. Сводка статуса (one glance)",
-          "level": 2,
-          "start": 1749,
-          "chars": 35
-        },
-        {
-          "heading": "2.1. Library 1.5.0",
-          "level": 3,
-          "start": 1784,
-          "chars": 810
-        },
-        {
-          "heading": "2.2. aqa consumer",
-          "level": 3,
-          "start": 2594,
-          "chars": 1639
-        },
-        {
-          "heading": "3. Audit library — детально",
-          "level": 2,
-          "start": 4233,
-          "chars": 199
-        },
-        {
-          "heading": "3.1. Issues tracker (закрыто / открыто)",
-          "level": 3,
-          "start": 4432,
-          "chars": 2139
-        },
-        {
-          "heading": "3.2. Work packages L0–L5 (статус после 1.4.0)",
-          "level": 3,
-          "start": 6571,
-          "chars": 858
-        },
-        {
-          "heading": "3.3. Library backlog owner (после 1.5.0)",
-          "level": 3,
-          "start": 7429,
-          "chars": 134
-        },
-        {
-          "heading": "Осталось в library (не блокирует aqa, не делать в этом repo)",
-          "level": 4,
-          "start": 7563,
-          "chars": 365
-        },
-        {
-          "heading": "4. Статус внедрения **в aqa**",
-          "level": 2,
-          "start": 7928,
-          "chars": 34
-        },
-        {
-          "heading": "4.1. Уже сделано",
-          "level": 3,
-          "start": 7962,
-          "chars": 660
-        },
-        {
-          "heading": "4.2. Карта файлов harness (aqa)",
-          "level": 3,
-          "start": 8622,
-          "chars": 1616
-        },
-        {
-          "heading": "4.3. Осталось **в aqa** (consumer backlog)",
-          "level": 3,
-          "start": 10238,
-          "chars": 579
-        },
-        {
-          "heading": "4.4. Smoke baseline (после W4 / 1.5.0)",
-          "level": 3,
-          "start": 10817,
-          "chars": 703
-        },
-        {
-          "heading": "на стенде (AQA-6):",
-          "level": 1,
-          "start": 11520,
-          "chars": 225
-        },
-        {
-          "heading": "5. Definition of Done (актуальные галочки)",
-          "level": 2,
-          "start": 11745,
-          "chars": 47
-        },
-        {
-          "heading": "5.1. Library product",
-          "level": 3,
-          "start": 11792,
-          "chars": 581
-        },
-        {
-          "heading": "5.2. aqa consumer proof",
-          "level": 3,
-          "start": 12373,
-          "chars": 496
-        },
-        {
-          "heading": "6. План «что дальше» (порядок)",
-          "level": 2,
-          "start": 12869,
-          "chars": 35
-        },
-        {
-          "heading": "Library (owner, не этот repo)",
-          "level": 3,
-          "start": 12904,
-          "chars": 255
-        },
-        {
-          "heading": "aqa (consumer)",
-          "level": 3,
-          "start": 13159,
-          "chars": 213
-        },
-        {
-          "heading": "7. Scorecard «высший уровень»",
-          "level": 2,
-          "start": 13372,
-          "chars": 525
-        },
-        {
-          "heading": "8. История",
-          "level": 2,
-          "start": 13897,
-          "chars": 923
-        }
-      ]
-    },
-    {
-      "path": "docs/raw/aqa/2026-09-04/PATH_INTEGRATION_FOR_PARTEST.md",
-      "chars": 6878,
-      "chunks": [
-        {
-          "heading": "partest: пути, логика, E2E, интеграции (handoff)",
-          "level": 1,
-          "start": 0,
-          "chars": 906
-        },
-        {
-          "heading": "1. Проблема",
-          "level": 2,
-          "start": 906,
-          "chars": 459
-        },
-        {
-          "heading": "2. Слои (канон)",
-          "level": 2,
-          "start": 1365,
-          "chars": 295
-        },
-        {
-          "heading": "3. Ось F — класс сценария",
-          "level": 2,
-          "start": 1660,
-          "chars": 609
-        },
-        {
-          "heading": "4. Ось I — поверхность (подтипы интеграции)",
-          "level": 2,
-          "start": 2269,
-          "chars": 865
-        },
-        {
-          "heading": "5. Шаги C+ (между HTTP)",
-          "level": 2,
-          "start": 3134,
-          "chars": 518
-        },
-        {
-          "heading": "6. E2E UI↔API (LIB-REC-E2E)",
-          "level": 2,
-          "start": 3652,
-          "chars": 349
-        },
-        {
-          "heading": "7. Что сделать в partest",
-          "level": 2,
-          "start": 4001,
-          "chars": 29
-        },
-        {
-          "heading": "7.1. Docs — P1 (1.6 или 1.7 cookbook)",
-          "level": 3,
-          "start": 4030,
-          "chars": 256
-        },
-        {
-          "heading": "7.2. Код — не обязателен в 1.6",
-          "level": 3,
-          "start": 4286,
-          "chars": 290
-        },
-        {
-          "heading": "7.3. Acceptance docs",
-          "level": 3,
-          "start": 4576,
-          "chars": 215
-        },
-        {
-          "heading": "8. Примеры без домена",
-          "level": 2,
-          "start": 4791,
-          "chars": 516
-        }
-      ]
-    },
-    {
-      "path": "docs/raw/aqa/2026-09-04/README.md",
-      "chars": 2684,
-      "chunks": [
-        {
-          "heading": "partest — миграция и backlog",
-          "level": 1,
-          "start": 0,
-          "chars": 1274
-        },
-        {
-          "heading": "Сейчас (2026-09-04)",
-          "level": 3,
-          "start": 1274,
-          "chars": 512
-        },
-        {
-          "heading": "Цели",
-          "level": 3,
-          "start": 1786,
-          "chars": 115
-        },
-        {
-          "heading": "Не в library",
-          "level": 3,
-          "start": 1901,
-          "chars": 452
-        }
-      ]
-    }
-  ],
+  "raw": [],
   "pages_by_source": {
     "CHANGELOG.md": [
       "status"
