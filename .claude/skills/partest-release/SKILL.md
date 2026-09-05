@@ -51,7 +51,8 @@ python -m twine upload dist/*
 
 - **Ask before `twine upload`.** Publishing is irreversible: PyPI never lets a version number be
   reused. Confirm the version and the artifact contents with the user first.
-- Do not push this tree to public GitHub. PyPI is the only channel.
+- Push the release commit and tag to GitHub as well; PyPI carries the artifact, the
+  repository carries how it was built.
 - Do not release with failing tests or a failing docs lint. Report the failure instead.
 
 ## If it went wrong

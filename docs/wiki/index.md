@@ -58,7 +58,7 @@ ships_in_wheel: false
 
 | Страница | Решение |
 |---|---|
-| [[decisions/pypi-only]] | публикуемся только в PyPI, публичного GitHub не будет |
+| [[decisions/distribution]] | PyPI и GitHub: два канала с разными ролями, что и почему вычищено |
 | [[decisions/no-domain]] | в библиотеке нет продуктового домена; где проходит граница |
 | [[decisions/explicit-type]] | явный `type=` побеждает автоинференс |
 | [[decisions/docs-in-wheel]] | `partest/docs` генерируется, `ships_in_wheel` решает состав |

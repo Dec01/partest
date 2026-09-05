@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed — distribution
+
+- The source repository is public at `github.com/Dec01/partest`. PyPI carries the artifact,
+  the repository carries how it was built and why — the decisions and their history do not
+  ship in the wheel and were previously unreadable anywhere.
+- `setup.py` gains `project_urls` for source, issues, changelog and documentation, and its
+  `url` points at the repository rather than back at PyPI.
+- Documentation still ships inside the wheel, now for the reason that it is convenient to
+  read next to an installed package rather than because there was nowhere else to put it.
+
 ## 1.7.0
 
 Two releases' worth of work, published together: 1.6 fixed what the coverage number was

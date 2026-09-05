@@ -15,7 +15,7 @@ Entry point for maintainers and agents working **on** the library (working **wit
 ## Invariants
 
 1. No product domain in the library — [[decisions/no-domain]].
-2. No private absolute paths, stand URLs or secrets in anything that ships — [[decisions/pypi-only]].
+2. No private absolute paths, stand URLs or secrets in anything that ships — [[decisions/distribution]].
 3. Consumer configuration stays in the suite's `confpartest.py` / `.env`, never here.
 4. Canonical TC names in new code; legacy aliases kept for at least one minor —
    [[decisions/explicit-type]].

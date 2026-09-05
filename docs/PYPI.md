@@ -58,7 +58,10 @@ first tests, `p1` adds the full priority-one stub matrix plus a checklist per ta
 
 ## Documentation
 
-Full documentation ships **inside the package** — there is no separate docs site:
+Source, issues and the full documentation wiki: **https://github.com/Dec01/partest**
+
+The user-facing pages also ship **inside the package**, so they are readable next to your
+installed copy without a trip to the browser:
 
 ```bash
 python -m partest.docs list                  # what is available
@@ -66,8 +69,10 @@ python -m partest.docs show howto-quickstart # read a page
 python -m partest.docs path                  # where the files live
 ```
 
-Included: quickstart, migration notes, the coverage methodology, reporting, security, UI,
-recipes, enterprise notes (shared client, retries, redaction, xdist) and the package map.
+Included: quickstart, migration notes, the coverage methodology, permissions, upload testing,
+reporting, security, UI, recipes, layers, and enterprise notes (shared client, retries,
+redaction, xdist). The decisions behind them — why coverage is scored this way, what stays in
+your project — live in the repository, not the wheel.
 
 Or from Python:
 

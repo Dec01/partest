@@ -13,7 +13,7 @@ allow_version_literals: false
 Version-agnostic procedure. What is in the current release and what is planned lives in
 [[status]]; product notes live in `CHANGELOG.md`.
 
-Channel: **PyPI only** — see [[decisions/pypi-only]]. Do not push this tree to public GitHub.
+Artifacts go to **PyPI**, the source and its history to **GitHub** — see [[decisions/distribution]].
 
 ## 1. Decide the number
 

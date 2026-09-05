@@ -16,7 +16,7 @@ def version():
 
 
 def readme():
-    """PyPI long_description. Self-contained: there is no public source mirror to link to."""
+    """PyPI long_description. Kept short on purpose — the repository holds the detail."""
     return (HERE / "docs" / "PYPI.md").read_text(encoding="utf-8")
 
 
@@ -32,7 +32,7 @@ setup(
     ),
     long_description=readme(),
     long_description_content_type="text/markdown",
-    url="https://pypi.org/project/partest/",
+    url="https://github.com/Dec01/partest",
     packages=find_packages(exclude=["src", "tests", "build", "dist"]),
     include_package_data=True,
     package_data={
@@ -83,6 +83,10 @@ setup(
     ],
     keywords="autotest api ui coverage openapi partest pytest allure playwright",
     project_urls={
+        "Source": "https://github.com/Dec01/partest",
+        "Issues": "https://github.com/Dec01/partest/issues",
+        "Changelog": "https://github.com/Dec01/partest/blob/master/CHANGELOG.md",
+        "Documentation": "https://github.com/Dec01/partest/blob/master/docs/wiki/index.md",
         "PyPI": "https://pypi.org/project/partest/",
     },
     python_requires=">=3.9",
