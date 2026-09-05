@@ -278,7 +278,7 @@
       "path": "docs/wiki/decisions/docs-architecture.md",
       "title": "ADR — архитектура документации: AGENTS + Skills + Wiki",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-06",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -309,10 +309,14 @@
         },
         {
           "level": 2,
+          "text": "Почему слой источников не в репозитории"
+        },
+        {
+          "level": 2,
           "text": "Цена решения"
         }
       ],
-      "chars": 2680
+      "chars": 3099
     },
     {
       "slug": "decisions/docs-in-wheel",
@@ -1130,7 +1134,7 @@
       "path": "docs/wiki/howto/security.md",
       "title": "Security cookbook — SecHttp, JWT, RiskProfile",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-06",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1174,7 +1178,7 @@
           "text": "Never in library"
         }
       ],
-      "chars": 2852
+      "chars": 2872
     },
     {
       "slug": "howto/ui",
