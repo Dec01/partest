@@ -1,7 +1,7 @@
 ---
 title: ADR — дистрибуция только через PyPI
 status: current
-verified: 2026-09-05
+verified: 2026-09-06
 sources: [setup.py, MANIFEST.in]
 audience: maintainer
 ships_in_wheel: false

@@ -28,7 +28,7 @@ load it at the right moment and do not skip the parts that are easy to forget.
    ```bash
    python -m zipfile -l dist/partest-*.whl | grep "partest/docs"
    ```
-   No status page, no ADRs, no `docs/raw/` snapshots, no consumer project names.
+   No status page, no ADRs, no consumer project names.
 3. **One version source.** `partest/__init__.py`; `setup.py` reads it. Do not add the number
    anywhere else.
 4. **Update `docs/wiki/status.md`** — current release, and remove what just shipped from

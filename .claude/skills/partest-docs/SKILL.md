@@ -23,9 +23,11 @@ Conventions live in `docs/wiki/WIKI.md`; rationale in
 
 ### Ingest — a new source arrived
 
-1. Put it under `docs/raw/<source>/<date>/`. **Never edit a raw source in place**; a newer
-   snapshot goes in a new dated directory and the old one stays.
-2. Check it for private data before committing: absolute local paths, stand URLs, credentials.
+1. Put it under `docs/raw/<source>/<date>/` — that directory is git-ignored on purpose, because
+   a source snapshot describes someone else's product and infrastructure. **Never edit a raw
+   source in place**; a newer snapshot goes in a new dated directory and the old one stays.
+2. Never commit the snapshot itself. What reaches the repository is the conclusion drawn from
+   it, written in your own words on a wiki page.
 3. Distribute the conclusions into wiki pages — usually `status.md` plus one or two topic pages.
 4. Append an entry to `docs/wiki/log.md` saying what was taken from the snapshot.
 
@@ -49,8 +51,7 @@ with `ships_in_wheel: true`, and drift between `docs/wiki` and generated `partes
 
 ## Rules
 
-1. **Nothing is deleted silently.** Move with `git mv`, or leave a stub in `docs/archive/`
-   pointing at the successor.
+1. **Nothing is deleted silently.** Move with `git mv`, or record the successor in `log.md`.
 2. **One fact, one place.** Status, version and "what is next" exist only in
    `docs/wiki/status.md`. Everything else links to it.
 3. **Code beats documents.** When they disagree, fix the document.
@@ -83,5 +84,5 @@ Pick the category by the question it answers — `concepts/` why, `components/` 
 
 Not enabled. The corpus is small enough that the index plus grep beats embeddings, and an
 embedding index would go stale faster than the pages during active development. The corpus is
-kept RAG-ready (`docs/wiki/index.json`, heading-chunkable raw sources); the switch-on criteria
+kept RAG-ready (`docs/wiki/index.json`, heading-chunkable local sources); the switch-on criteria
 are written in `docs/wiki/WIKI.md`. Do not build a vector index without checking them.

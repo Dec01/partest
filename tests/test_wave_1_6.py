@@ -1,9 +1,8 @@
 """Acceptance tests for the 1.6 wave.
 
-Every case here comes from a concrete failure reported by a consumer suite and
-recorded in ``docs/raw/aqa/2026-09-04/``. Each one silently produced a wrong
-coverage number or a leftover row on the stand rather than a red test, which is
-why they are pinned here.
+Every case here comes from a concrete failure reported by a consumer suite. Each one
+silently produced a wrong coverage number or a leftover row on the stand rather than a
+red test, which is why they are pinned here.
 """
 
 from __future__ import annotations

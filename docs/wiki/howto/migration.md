@@ -1,7 +1,7 @@
 ---
 title: Migration between partest versions
 status: current
-verified: 2026-09-04
+verified: 2026-09-06
 sources: [partest/test_types.py, partest/__init__.py, partest/conf.py]
 audience: user
 ships_in_wheel: true
@@ -18,7 +18,38 @@ pip install -U partest
 pip install -U 'partest[ui]'   # UI suites
 ```
 
-Distributed **via PyPI only**. There is no public GitHub source tree.
+## 1.7.0 — coverage that tells the truth
+
+No breaking API changes. **But your coverage figures will move**, because two things they
+rested on were wrong. Read this section before you open the report and conclude something
+broke.
+
+| Change | What you will see | Action |
+|---|---|---|
+| **Coverage keys resolve to the real OpenAPI template** | endpoints that read as never called start recording; some calls move between keys | none — but expect the average to rise. `defining_url` still wins where you pass it |
+| **Classifier fixed** | paths containing "me" (`/media-types`, `/departments`) are no longer GET BY SELF; `POST /{id}/<verb>` is now ACTION | the required P1 set changes for those endpoints, so `missing_p1` changes with it |
+| **Worker results are merged under `-n`** | a parallel run no longer reports one worker's slice | nothing to configure; see the caveat below |
+| **`kind` per endpoint** | `unseen / empty / partial / full / exception` alongside `status` | use it to tell "nobody called this in this run" from "this has no tests" |
+| **Failures carry their diagnostics again** | `AssertionError` with the formatted status/schema message instead of `RuntimeError: generator didn't stop after throw()` | drop any handling written around that RuntimeError |
+| **Created ids survive a failed validation** | a 201 rejected by `extra=forbid` no longer leaves an untracked row | remove a local track-before-validate overlay if you built one |
+| **`aqa_*` helpers warn** | `DeprecationWarning` on the five legacy aliases | switch to `marked_name`, `marked_code`, `marked_short`, `fill_with_marker`, `prefix_marker` |
+| **Wheel docs renamed** | `QUICKSTART.md` → `howto-quickstart.md`, and so on | only affects code calling `partest.docs.read_doc` |
+
+**The caveat worth knowing:** a report written *by a test* still cannot see the merge — that
+test runs on a worker, and merging happens on the controller after it. Either run the coverage
+pass serially, or let the controller write the artifact:
+
+```bash
+PARTEST_COVERAGE_JSON=coverage.json PARTEST_COVERAGE_HTML=coverage_report.html pytest -n auto
+```
+
+Check `meta.workers` and `meta.merged` before trusting a number from a parallel run, and compare
+runs with `python -m partest.reports compare --strict` rather than eyeballing the average.
+
+New and optional: `partest.access` (four permission cells), `partest.files` (upload corpus),
+`partest.sideeffects` (observing what a write left outside HTTP), `subtype_overrides` in
+`confpartest.py`, `_cleanup_fields` on payloads, `CreatedRegistry.snapshot` / `cleanup_since`.
+Each has a cookbook: `python -m partest.docs list`.
 
 ## 1.5.0 — coverage extras + UI freeze + IB helper
 

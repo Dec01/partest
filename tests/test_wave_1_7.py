@@ -445,8 +445,14 @@ def test_report_presets_carry_no_product_names():
 
     html = render_html(_html_payload(), title="t")
 
-    for leaked in (the service names):
-        assert leaked not in html.lower(), f"{leaked!r} leaked into the shipped template"
+    # The presets must be the generic set, not any project's service names.
+    import re
+
+    presets = re.search(r"const PRESETS = \[(.*?)\];", html, re.S)
+    assert presets, "preset list not found"
+    labels = re.findall(r'\[\s*"([^"]+)"\s*,\s*\{', presets.group(1))
+    assert labels == ["Not called this run", "Partial", "Called, no cells",
+                      "Write queue", "Writes only"], labels
 
 
 def test_report_survives_without_local_storage():

@@ -211,7 +211,7 @@ the consumer migration note for what to expect.
 
 - Documentation reorganized into four layers: `AGENTS.md` (boundaries, ≤60 lines),
   `.claude/skills/` (procedures, loaded on demand), `docs/wiki/` (knowledge),
-  `docs/raw/` (immutable source snapshots). Rationale:
+  a local, git-ignored layer of immutable source snapshots. Rationale:
   ``docs/wiki/decisions/docs-architecture.md``.
 - `docs/wiki/status.md` is now the only source of versions, waves and planned work; the
   duplicated status tables in `AGENTS.md`, `IMPLEMENTATION_PLAN.md`, `LIBRARY_ROADMAP.md`,
@@ -235,8 +235,6 @@ the consumer migration note for what to expect.
 
 Bundles the previously unreleased 1.4.x / 1.5 / 1.6 / 1.7 waves from
 the consumer backlog snapshot. Backward compatible with 1.4.0.
-
-Release record: ``docs/archive/RELEASE_1.5.0.md``.
 
 ### Added — coverage extras (LIB-COV-*)
 

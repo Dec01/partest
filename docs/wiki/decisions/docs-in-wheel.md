@@ -1,7 +1,7 @@
 ---
 title: ADR — документация внутри колеса и генерация partest/docs
 status: current
-verified: 2026-09-05
+verified: 2026-09-06
 sources: [tools/docs_build_wheel.py, partest/docs/__init__.py, setup.py, MANIFEST.in]
 audience: maintainer
 ships_in_wheel: false
@@ -37,7 +37,7 @@ allow_version_literals: true
 ## Следствия
 
 - Перед релизом обязателен `python tools/docs_build_wheel.py`; проверка — `--check` в CI-шаге.
-- Внутренние страницы (статус, ADR, бэклог, снапшоты `docs/raw/`) в колесо не попадают никогда;
+- Внутренние страницы (статус, ADR, бэклог) и локальные снапшоты источников в колесо не попадают;
   полный состав обоих артефактов и список `prune` в `MANIFEST.in` — в [[decisions/pypi-only]].
 - Пользователь получает согласованный набор: quickstart, migration, cookbooks, методология.
 
