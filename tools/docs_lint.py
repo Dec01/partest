@@ -13,6 +13,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 from datetime import date, datetime
@@ -43,9 +44,26 @@ ALLOWED_AQA_IDENTIFIERS = (
 PRIVATE_PATTERNS: Tuple[Tuple[str, "re.Pattern[str]"], ...] = (
     ("windows absolute path", re.compile(r"\b[A-Za-z]:\\\\?[\w.]")),
     ("UNC path", re.compile(r"(?<![\w`])\\\\[A-Za-z0-9_.-]+\\")),
-    ("consumer repo path", re.compile(r"example-org", re.IGNORECASE)),
     ("home directory", re.compile(r"/home/[a-z]|/Users/[A-Za-z]")),
 )
+
+
+def _private_names():
+    """Organisation or project names that must not appear in published pages.
+
+    Deliberately not hardcoded: this repository is public, so a literal list here would
+    publish the very names it exists to catch. Supply them per checkout — one per line in
+    a git-ignored ``.private-names`` file, or comma-separated in ``PARTEST_PRIVATE_NAMES``.
+    """
+    raw = [part.strip() for part in os.getenv("PARTEST_PRIVATE_NAMES", "").split(",") if part.strip()]
+    names_file = REPO_ROOT / ".private-names"
+    if names_file.is_file():
+        raw += [
+            line.strip()
+            for line in names_file.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
+    return [re.compile(re.escape(name), re.IGNORECASE) for name in raw]
 
 
 class Findings:
@@ -171,6 +189,9 @@ def check_private(page: Page, f: Findings) -> None:
     for label, pattern in PRIVATE_PATTERNS:
         for match in pattern.finditer(body):
             f.add("ERROR", page.rel, f"{label} in a page that ships in the wheel: {match.group(0)!r}")
+    for pattern in _private_names():
+        if pattern.search(body):
+            f.add("ERROR", page.rel, "a configured private name appears in a page that ships")
     for match in re.finditer(r"\w*aqa\w*", body, re.IGNORECASE):
         token = match.group(0).lower()
         if token.startswith("aqa_") or token.startswith("_aqa"):

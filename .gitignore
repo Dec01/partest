@@ -87,3 +87,4 @@ docs/_build/
 # out of this public repository. Kept locally alongside it; see docs/wiki/WIKI.md.
 docs/raw/
 docs/archive/
+.private-names
