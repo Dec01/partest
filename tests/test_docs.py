@@ -90,3 +90,86 @@ def test_legacy_aliases_warn_before_they_are_removed():
         warnings.simplefilter("always")
         marked_name("Item")
     assert not caught, "the supported name must stay quiet"
+
+
+# --- What reaches PyPI ----------------------------------------------------
+
+# The consumer project this library grew out of must not be named in anything
+# published. `aqa_*` and `_aqa_monitor` are real public identifiers on a removal
+# path and are allowed until the next major version.
+_ALLOWED_LEGACY = ("aqa_name", "aqa_code", "aqa_short", "aqa_fill", "aqa_prefixed",
+                   "_aqa_monitor", "aqa_*")
+
+
+def _names_a_consumer(text: str) -> list:
+    import re
+
+    hits = []
+    for match in re.finditer(r"\w*aqa\w*", text, re.IGNORECASE):
+        token = match.group(0)
+        if token.lower().startswith("aqa_") or token.lower().startswith("_aqa"):
+            continue
+        if token.lower() in (a.lower() for a in _ALLOWED_LEGACY):
+            continue
+        hits.append(token)
+    return hits
+
+
+def _shipped_files():
+    """Files MANIFEST.in publishes, plus the package itself."""
+    files = [REPO_ROOT / "CHANGELOG.md"]
+    files += sorted((REPO_ROOT / "partest").rglob("*.md"))
+    files += sorted((REPO_ROOT / "partest").rglob("*.py"))
+    return [f for f in files if f.is_file() and "__pycache__" not in f.parts]
+
+
+# The one remaining place the name is published, and it is behaviour rather than
+# prose: TEST_MARKER defaults to the consumer's initials, so a greenfield project's
+# test data is named after someone else's project unless TEST_DATA_MARKER is set.
+# Changing the default would change which rows an existing delete-by-marker cleanup
+# matches, so it waits for a major version. Listed here to keep it visible.
+_KNOWN_MARKER_DEFAULT = {"partest/data_marker.py", "partest/project_gen/skeleton.py"}
+
+
+def test_nothing_published_names_the_consumer_project():
+    offenders = {}
+    for path in _shipped_files():
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        if rel in _KNOWN_MARKER_DEFAULT:
+            continue
+        hits = _names_a_consumer(path.read_text(encoding="utf-8", errors="replace"))
+        if hits:
+            offenders[rel] = sorted(set(hits))
+    assert not offenders, f"consumer project named in published files: {offenders}"
+
+
+def test_the_marker_default_stays_the_only_exception():
+    """If the default is ever neutralised, drop it from the allow-list too."""
+    from partest.data_marker import TEST_MARKER
+
+    for rel in sorted(_KNOWN_MARKER_DEFAULT):
+        text = (REPO_ROOT / rel).read_text(encoding="utf-8")
+        assert _names_a_consumer(text), (
+            f"{rel} no longer names the consumer — remove it from _KNOWN_MARKER_DEFAULT"
+        )
+    assert TEST_MARKER, "the marker must never be empty; cleanup matches on it"
+
+
+def test_manifest_excludes_the_repository_only_material():
+    """Tests and the wiki carry internal references and repo-only dependencies."""
+    manifest = (REPO_ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    for pruned in ("prune tests", "prune docs", "prune tools", "prune .claude", "prune .grok"):
+        assert pruned in manifest, f"MANIFEST.in must {pruned!r}"
+    assert "exclude README.md" in manifest, (
+        "the root README is repo-facing and links to paths that do not ship"
+    )
+
+
+def test_shipped_docs_do_not_point_at_repository_paths():
+    """A user has no docs/wiki or tools/ to follow."""
+    import re
+
+    for path in sorted((REPO_ROOT / "partest" / "docs").glob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        stray = re.findall(r"docs/wiki/[\w/-]+|tools/[\w]+\.py|\.claude/skills", text)
+        assert not stray, f"{path.name} points at repo-only paths: {sorted(set(stray))}"

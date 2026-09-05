@@ -44,6 +44,21 @@
   `TrackingApiClient` registers the id there. The test still fails; the leftover does
   not happen. Opt out with `track_before_validate=False` (LIB-TRACK-VALIDATE).
 
+### Fixed — what gets published
+
+- The sdist shipped `tests/` and the repo-facing `README.md`. The tests name the
+  consumer project this library grew out of, reference an internal snapshot directory,
+  and several of them depend on `tools/`, `docs/wiki/` and `.claude/`, which do not
+  ship — so they could not pass from an sdist anyway. `MANIFEST.in` now prunes them
+  along with `docs/`, `tools/`, `.claude/` and `.grok/`.
+- Fifteen docstrings and one `--help` string described behaviour by naming the consumer
+  project this library grew out of, in a published package. Reworded to say what they
+  actually mean (sync pytest-playwright, page health, and so on).
+- Historical changelog entries for 1.3–1.4 named the same project; the facts stay, the
+  name is gone.
+- The banner on generated documentation pointed at `docs/wiki/` and
+  `tools/docs_build_wheel.py`, paths a user of the package does not have.
+
 ### Added — packaging and maintenance
 
 - `partest/py.typed`: the package now ships its annotations, so a consuming project's
@@ -231,7 +246,7 @@ Release record: ``docs/archive/RELEASE_1.5.0.md``.
 - ``partest.ui.hooks`` + optional plugin
   (``--frontend-url``, ``PARTEST_UI_MONITOR=1`` / ``--partest-ui-monitor``)
 - ``compare_images(..., name=, diff_output=)`` + ``summary()`` / pixel counts
-  (aqa ``visual_compare`` shim can drop after bump)
+  (a local ``visual_compare`` shim can be dropped after the bump)
 
 ### Added — generator + IncorrectBody helper (LIB-GEN / LIB-REC-IB)
 
@@ -250,9 +265,9 @@ Release record: ``docs/archive/RELEASE_1.5.0.md``.
 
 ## 1.4.0
 
-### Added — UI parity for aqa drain (LIB-UI-01…06)
+### Added — UI parity (LIB-UI-01…06)
 
-- **LIB-UI-01** Sync ``BasePage`` (aqa-compatible); ``AsyncBasePage`` for async suites
+- **LIB-UI-01** Sync ``BasePage``; ``AsyncBasePage`` for async suites
 - **LIB-UI-02** ``PageMonitor`` parity: ``attach``, ``finalize``, ``library_issues``,
   ``collect_loaded_assets``, ``attach_report``, critical network filter (assets 4xx + API 5xx)
 - **LIB-UI-03** Public ``should_ignore_url`` / ``is_library_console_message``
@@ -260,7 +275,7 @@ Release record: ``docs/archive/RELEASE_1.5.0.md``.
 - **LIB-UI-05** ``Storage`` class (get_local/set_local/…)
 - **LIB-12** Installable docs: ``partest.docs.read_doc("QUICKSTART.md")`` + package_data
 - SoT copied in-repo: ``docs/MIGRATION_1.3.0_ISSUES.md``
-- Health: ``require_app_shell``, ``assert_libraries_loaded`` aqa-style
+- Health: ``require_app_shell``, ``assert_libraries_loaded``
 
 ### Breaking (UI)
 
@@ -298,7 +313,7 @@ Release record: ``docs/archive/RELEASE_1.5.0.md``.
 
 ### Fixed / multi-project safety (L0 from MIGRATION_1.3.0_ISSUES)
 
-- **LIB-01** `RiskProfile` aligned with aqa: `entity/writes/authz/pii/fk_traversal`,
+- **LIB-01** `RiskProfile` fields: `entity/writes/authz/pii/fk_traversal`,
   levels `critical|high|medium|low`; legacy `name`/`has_*` + `from_legacy()` kept
 - **LIB-02** pytest plugin soft-disable: `PARTEST_PYTEST_PLUGIN=0`,
   `confpartest.pytest_plugin = False`, or `-p no:partest`

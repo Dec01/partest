@@ -1,4 +1,4 @@
-"""High-level page health checks (aqa parity, LIB-UI-02)."""
+"""High-level page health checks."""
 
 from __future__ import annotations
 

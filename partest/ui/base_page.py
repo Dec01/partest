@@ -1,4 +1,4 @@
-"""Base Page Object helpers — **sync** API for aqa-style suites (LIB-UI-01).
+"""Base Page Object helpers — **sync** API for pytest-playwright suites.
 
 Also provides :class:`AsyncBasePage` for async Playwright.
 """
@@ -38,7 +38,7 @@ def _step(title: str):
 
 
 class BasePage:
-    """Sync Page Object base (aqa-compatible).
+    """Sync Page Object base.
 
     Prefer ``data-testid`` locators. Do not close browser/context from here.
     """

@@ -1,4 +1,4 @@
-"""Page health monitor: network, assets, console/page errors (aqa parity).
+"""Page health monitor: network, assets, console and page errors.
 
 Sync Playwright-oriented (LIB-UI-02). Works with duck-typed page objects.
 Importing this module must not load OpenAPI or project config (LIB-11).
