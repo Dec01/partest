@@ -1,0 +1,82 @@
+# The repository is public but has no release automation on purpose: publishing stays a
+# deliberate act (docs/wiki/howto/release.md). This workflow only answers "does the tree
+# still hold together", which is the part a human should not have to remember.
+name: checks
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor the package claims to support, and a current release. Keep the
+        # first entry equal to python_requires in setup.py: 3.9 was claimed for a
+        # release without anyone running it, and partest-gen was broken there.
+        python-version: ["3.10", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The docs linter compares a page's `verified:` date against the last commit
+          # touching its `sources:`. A shallow clone would silently disable that check.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" pytest-xdist pytest-rerunfailures
+
+      - name: Checks
+        # Not --strict-docs: a page going stale is worth reporting on every change but is
+        # not a reason to reject one. The release checklist turns warnings into failures,
+        # because a release publishes those pages.
+        run: python tools/check_all.py
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build and inspect the artifacts
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check dist/*
+      - name: Nothing internal may reach the artifacts
+        # The same rule the release checklist states, enforced where it cannot be skipped.
+        run: |
+          python - <<'PY'
+          import glob, tarfile, zipfile, sys
+
+          wheel = zipfile.ZipFile(glob.glob("dist/*.whl")[0])
+          shipped = sorted(n for n in wheel.namelist() if n.startswith("partest/docs/") and n.endswith(".md"))
+          forbidden = [n for n in shipped if any(
+              part in n for part in ("status", "backlog", "proposals", "release", "contribute", "decisions")
+          )]
+          assert not forbidden, f"internal pages in the wheel: {forbidden}"
+          assert shipped, "no documentation shipped"
+
+          sdist = tarfile.open(glob.glob("dist/*.tar.gz")[0])
+          extra = sorted(
+              n.split("/", 1)[1] for n in sdist.getnames()
+              if "/" in n and not n.split("/", 1)[1].startswith(("partest/", "partest."))
+          )
+          allowed = {"", "CHANGELOG.md", "LICENSE", "MANIFEST.in", "PKG-INFO", "setup.cfg", "setup.py"}
+          unexpected = [n for n in extra if n not in allowed]
+          assert not unexpected, f"unexpected files in the sdist: {unexpected}"
+
+          print(f"wheel: {len(shipped)} doc pages; sdist: {sorted(set(extra) - {''})}")
+          PY

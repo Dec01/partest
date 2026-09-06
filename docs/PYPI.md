@@ -83,7 +83,7 @@ print(read_doc("concepts-methodology.md"))
 
 ## Requirements
 
-Python 3.9+. Core dependencies: `httpx`, `pydantic`, `pyyaml`, `pytest`, `pytest-asyncio`,
+Python 3.10+. Core dependencies: `httpx`, `pydantic`, `pyyaml`, `pytest`, `pytest-asyncio`,
 `allure-pytest`, `requests`, `python-dotenv`, `Faker`, `matplotlib`. The `ui` extra adds
 `playwright` and `Pillow`.
 

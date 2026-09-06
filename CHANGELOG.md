@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- **Python 3.9 is no longer supported**; `python_requires` is now `>=3.10`. The claim had
+  never been verified, and it did not hold: `partest-gen` crashed on 3.9 because
+  `Path.write_text(newline=...)` needs 3.10, so every generated file raised a `TypeError`.
+  Dropping a claim that was false beats keeping it. Suites on 3.9 keep resolving to 1.7.1.
+
+### Added
+
+- `.github/workflows/checks.yml`: `tools/check_all.py` on push and pull request across the
+  supported Python versions, plus a job that builds the artifacts and asserts nothing
+  internal reached them. Publishing stays manual — a release is a deliberate act, not a
+  consequence of a green build.
+- `tests/test_coverage_keys.py`: a corpus for the function that decides which endpoint a
+  call is counted against — nested templates, literal-versus-placeholder, verb suffixes,
+  two parameters in one path, enum values, more than three segments, `after_url`,
+  `defining_url` precedence, and the method as part of the key. It exercises the real entry
+  point rather than the matcher underneath, because the wiring between them is where the
+  previous heuristic went wrong.
+- `tools/check_all.py --strict-docs` turns documentation warnings into failures. Without it
+  a stale page is reported but does not reject a change; the release checklist uses it,
+  because a release publishes those pages.
+
 ## 1.7.1
 
 Metadata and documentation only; no code behaviour changed.

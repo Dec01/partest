@@ -43,11 +43,23 @@ def main() -> int:
         action="store_true",
         help="also build the distribution and validate it with twine",
     )
+    parser.add_argument(
+        "--strict-docs",
+        action="store_true",
+        help="fail on documentation warnings too, not only errors (use before a release)",
+    )
     args = parser.parse_args()
+
+    # Staleness is a warning: a page whose sources moved is worth reporting on every
+    # change but is not a reason to reject one. Before a release it is, because a
+    # release publishes those pages.
+    lint = [sys.executable, "tools/docs_lint.py"]
+    if args.strict_docs:
+        lint.append("--strict")
 
     checks: List[Tuple[str, List[str], bool]] = [
         ("tests", [sys.executable, "-m", "pytest", "tests/", "-q"], False),
-        ("docs lint", [sys.executable, "tools/docs_lint.py", "--strict"], False),
+        ("docs lint", lint, False),
         ("docs index", [sys.executable, "tools/docs_index.py", "--check"], False),
         ("wheel docs", [sys.executable, "tools/docs_build_wheel.py", "--check"], False),
     ]
