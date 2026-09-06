@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.7.1
+
+Metadata and documentation only; no code behaviour changed.
 
 ### Changed — distribution
 
@@ -11,6 +13,9 @@
   `url` points at the repository rather than back at PyPI.
 - Documentation still ships inside the wheel, now for the reason that it is convenient to
   read next to an installed package rather than because there was nowhere else to put it.
+- `partest-gen` templates pin `partest>=1.7.0` instead of `>=1.5.0`. A suite generated today
+  should not start on a version whose coverage keys and endpoint classification are known to
+  be wrong.
 
 ## 1.7.0
 
