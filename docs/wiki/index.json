@@ -1052,6 +1052,10 @@
           "text": "4. Publish"
         },
         {
+          "level": 3,
+          "text": "If you have to publish by hand"
+        },
+        {
           "level": 2,
           "text": "5. Record"
         },
@@ -1064,7 +1068,7 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 3465
+      "chars": 4262
     },
     {
       "slug": "howto/reporting",
@@ -1381,6 +1385,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-06 · restructure · публикация без токена"
+        },
+        {
+          "level": 2,
           "text": "2026-09-06 · update · закрыты хвосты: CI, корпус ключей, минимальный Python"
         },
         {
@@ -1448,7 +1456,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 17628
+      "chars": 18604
     },
     {
       "slug": "proposals",
@@ -1601,7 +1609,7 @@
           "text": "5. Как обновлять эту страницу"
         }
       ],
-      "chars": 7421
+      "chars": 7401
     },
     {
       "slug": "WIKI",

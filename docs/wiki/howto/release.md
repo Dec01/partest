@@ -63,11 +63,20 @@ python -c "import tarfile,glob; t=tarfile.open(glob.glob('dist/*.tar.gz')[0]); p
 
 ## 4. Publish
 
+Publishing runs on GitHub with **trusted publishing**: PyPI authenticates the workflow by
+its identity over OIDC. No API token exists — nothing to store, leak or rotate.
+
 ```bash
-python -m twine upload dist/*
+git push origin master
+git tag -a vX.Y.Z -m "partest X.Y.Z — one line on what it is"
+git push origin vX.Y.Z
 ```
 
-Verify from a clean environment:
+The tag starts `release.yml`. It re-runs every check with `--strict-docs`, refuses to
+continue if the tag and `__version__` disagree, then **waits for a review on the `pypi`
+environment**. That review is the approval: nothing reaches PyPI until a human clicks it.
+
+Verify afterwards from a clean environment:
 
 ```bash
 python -m venv /tmp/verify && /tmp/verify/bin/pip install -U partest
@@ -78,6 +87,16 @@ python -m venv /tmp/verify && /tmp/verify/bin/pip install -U partest
 - [ ] version visible with `pip index versions partest`
 - [ ] `python -m partest.docs list` shows the shipped pages
 - [ ] PyPI project page renders (`twine check` passing is necessary, not sufficient — open it)
+
+### If you have to publish by hand
+
+Only when the workflow is unavailable. Credentials belong in your own keyring or
+`~/.pypirc`, never on a command line and never in a message:
+
+```bash
+python tools/check_all.py --strict-docs --package
+python -m twine upload dist/*
+```
 
 ## 5. Record
 
