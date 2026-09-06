@@ -17,7 +17,9 @@ of this entry is tooling and tests.
 - `.github/workflows/release.yml`: publishing through PyPI trusted publishing. A tag starts
   it, every check re-runs with `--strict-docs`, the tag is refused if it disagrees with
   `__version__`, and the `pypi` environment holds a required review before anything is
-  uploaded. No API token exists at any point.
+  uploaded. No API token exists at any point. The run is idempotent: it asks PyPI whether
+  the version is already there and skips publishing if so, so a tag pushed after a manual
+  upload — or a re-run — is not an error.
 - `.github/workflows/checks.yml`: `tools/check_all.py` on push and pull request across the
   supported Python versions, plus a job that builds the artifacts and asserts nothing
   internal reached them. Publishing stays manual — a release is a deliberate act, not a
