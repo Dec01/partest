@@ -72,10 +72,10 @@ setup(
         ],
     },
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Framework :: Pytest",
@@ -89,5 +89,8 @@ setup(
         "Documentation": "https://github.com/Dec01/partest/blob/master/docs/wiki/index.md",
         "PyPI": "https://pypi.org/project/partest/",
     },
-    python_requires=">=3.9",
+    # 3.9 was declared but never verified, and partest-gen was broken there:
+    # Path.write_text(newline=...) needs 3.10. Dropping the claim beats shipping one
+    # that does not hold. Suites on 3.9 keep resolving to 1.7.1.
+    python_requires=">=3.10",
 )
