@@ -52,7 +52,7 @@ httpx~=0.28.1
 swagger-parser>=1.0.2
 matplotlib>=3.9.2
 pyyaml>=6.0.2
-partest>=1.5.0
+partest>=1.7.0
 fake-useragent>=2.2.0
 """
             ),

@@ -110,7 +110,7 @@
       "path": "docs/wiki/components/project-gen.md",
       "title": "partest-gen — suite scaffold",
       "status": "current",
-      "verified": "2026-09-05",
+      "verified": "2026-09-06",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [
@@ -1381,6 +1381,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-06 · update · релиз 1.7.1"
+        },
+        {
+          "level": 2,
           "text": "2026-09-06 · restructure · репозиторий стал публичным"
         },
         {
@@ -1440,7 +1444,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 15452
+      "chars": 16326
     },
     {
       "slug": "proposals",

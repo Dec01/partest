@@ -168,7 +168,7 @@ Faker>=13.12.0
 """
 
     files["requirements/api.txt"] = """-r base.txt
-partest>=1.5.0
+partest>=1.7.0
 pytest>=8.0.0
 pytest-asyncio>=0.23.7
 allure-pytest>=2.8.18
