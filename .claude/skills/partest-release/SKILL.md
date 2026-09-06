@@ -38,14 +38,14 @@ load it at the right moment and do not skip the parts that are easy to forget.
 ## Commands
 
 ```bash
-python -m pytest tests/ -q
-python tools/docs_lint.py --strict
-python tools/docs_build_wheel.py
-rm -rf dist build
-python -m build
-python -m twine check dist/*
-python -m twine upload dist/*
+python tools/docs_build_wheel.py           # regenerate first: the checks compare against it
+python tools/check_all.py --strict-docs --package
+python -m twine upload dist/*              # only after confirming with the user
 ```
+
+`--strict-docs` makes a stale page fail rather than warn. CI does not use it, because a
+page going stale should not block ordinary work — but a release publishes those pages, so
+here it does.
 
 ## Red lines
 
