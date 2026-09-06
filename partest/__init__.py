@@ -69,7 +69,7 @@ from partest.validation import (
     assert_raw_incorrect_body,
 )
 
-__version__ = "1.7.1"
+__version__ = "1.8.0"
 
 # Lazy-friendly optional: security / http always available
 from partest.http import Config, HeadersBind  # noqa: E402

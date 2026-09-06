@@ -40,7 +40,8 @@ load it at the right moment and do not skip the parts that are easy to forget.
 ```bash
 python tools/docs_build_wheel.py           # regenerate first: the checks compare against it
 python tools/check_all.py --strict-docs --package
-python -m twine upload dist/*              # only after confirming with the user
+git tag -a vX.Y.Z -m "partest X.Y.Z — …"   # the tag is what publishes
+git push origin master vX.Y.Z
 ```
 
 `--strict-docs` makes a stale page fail rather than warn. CI does not use it, because a
@@ -49,8 +50,12 @@ here it does.
 
 ## Red lines
 
-- **Ask before `twine upload`.** Publishing is irreversible: PyPI never lets a version number be
-  reused. Confirm the version and the artifact contents with the user first.
+- **Ask before pushing the tag.** The tag starts the publishing workflow. Publishing is
+  irreversible — PyPI never lets a version number be reused — so confirm the version and
+  the artifact contents with the user first. The `pypi` environment also requires their
+  review, but do not treat that as the place to think: get agreement before tagging.
+- **Never handle a PyPI token.** Publishing uses trusted publishing, so no token exists.
+  If someone offers one, decline, and tell them to revoke it if it was sent in a message.
 - Push the release commit and tag to GitHub as well; PyPI carries the artifact, the
   repository carries how it was built.
 - Do not release with failing tests or a failing docs lint. Report the failure instead.

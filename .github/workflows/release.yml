@@ -1,0 +1,82 @@
+# Publishing without a token anywhere.
+#
+# PyPI's trusted publishing authenticates this workflow by its identity — repository,
+# workflow file and environment — over OIDC. No API token is created, stored in a
+# secret, pasted into a chat, or kept on anyone's laptop, so there is nothing to leak
+# or rotate.
+#
+# One-time setup on PyPI (https://pypi.org/manage/project/partest/settings/publishing/):
+#   Owner:        Dec01
+#   Repository:   partest
+#   Workflow:     release.yml
+#   Environment:  pypi
+#
+# And on GitHub, Settings → Environments → new environment "pypi" with
+# "Required reviewers" set to you. That review is the approval step: the tag starts the
+# run, the run waits for you, and only then does anything reach PyPI.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip build twine
+          pip install -e ".[dev]" pytest-xdist pytest-rerunfailures
+
+      - name: The tag must match the one version source
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python - <<'PY'
+          import os, re, pathlib, sys
+
+          tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+          text = pathlib.Path("partest/__init__.py").read_text(encoding="utf-8")
+          version = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.M).group(1)
+          if tag != version:
+              sys.exit(f"tag v{tag} does not match __version__ {version}")
+          print(f"tag and __version__ agree: {version}")
+          PY
+
+      - name: Checks
+        # --strict-docs here and not in the ordinary CI: a release publishes the pages,
+        # so a stale one is a reason to stop rather than a note.
+        run: python tools/check_all.py --strict-docs --package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    # Approval gate: the environment holds the required reviewer.
+    environment:
+      name: pypi
+      url: https://pypi.org/project/partest/
+    permissions:
+      # The only credential involved: a short-lived OIDC token GitHub mints for this run.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
