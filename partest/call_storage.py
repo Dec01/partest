@@ -43,8 +43,9 @@ call_meta: Dict[Key, List[Dict[str, Any]]] = {}
 endpoint_subtype: Dict[Tuple[str, str], str] = {}
 
 #: How this run was produced. Read by the report so the numbers can be labelled
-#: honestly: ``merged=False`` with ``workers > 1`` means they are one worker's slice.
-run_info: Dict[str, Any] = {"workers": 1, "merged": False}
+#: honestly: ``merged=False`` with ``workers > 1`` means they are one worker's slice,
+#: and a non-empty ``selection`` means the run covered a chosen subset of the suite.
+run_info: Dict[str, Any] = {"workers": 1, "merged": False, "selection": {}}
 
 SHARD_DIR_ENV = "PARTEST_CALL_STORAGE_DIR"
 DEFAULT_SHARD_DIR = ".partest/call_storage"
@@ -57,6 +58,9 @@ def reset_storage() -> None:
         call_type.clear()
         call_meta.clear()
         endpoint_subtype.clear()
+        # `selection` deliberately survives: it describes the pytest invocation, is known
+        # at collection time — before the session fixture that calls this — and cannot be
+        # recovered afterwards. Clearing it here would silently disarm the partial-run flag.
         run_info.update({"workers": 1, "merged": False})
 
 
