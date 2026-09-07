@@ -1,7 +1,7 @@
 ---
 title: Interactive coverage report and CLI
 status: current
-verified: 2026-09-04
+verified: 2026-09-07
 sources: [partest/reports/__init__.py, partest/reports/interactive_html.py, partest/reports/writer.py, partest/reports/services.py, partest/reports/__main__.py]
 audience: user
 ships_in_wheel: true
@@ -44,6 +44,12 @@ python -m partest.reports history-append --json coverage.json --dir coverage_his
 ```
 
 Stubs use `type=types.request_*` (never `"type_default"`).
+
+The history helpers are importable directly, for a pipeline that keeps its own snapshots:
+
+```python
+from partest.reports import append_snapshot, list_snapshots, previous_snapshot, prune_snapshots
+```
 
 ## Service map (consumer)
 

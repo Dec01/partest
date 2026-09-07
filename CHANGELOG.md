@@ -3,55 +3,8 @@
 ## Unreleased — next release is 2.0.0
 
 The scaffold generator left this package. That is a breaking change, so the next release is
-a major one; the version has not been bumped, because no release was requested.
-
-### Fixed — from a 1.5.0 → 1.8.0 upgrade report
-
-Five findings from a consuming suite that made the move, with the numbers to reproduce them.
-The first two shared a failure mode: the comparison returned a confident wrong answer instead
-of an error.
-
-- **A comparison against a snapshot older than `kind` reported endpoints as newly dropped.**
-  `compare_payloads` read a missing `kind` as "not unseen", so an endpoint that was never
-  called in *either* run came back under `not_run` — "covered before and not called now" —
-  with `from: 0.0, to: 0.0` visible in the same record. That in turn made `comparable` false,
-  so `compare --strict` exited 2 on two snapshots between which nothing had changed. A missing
-  `kind` is now inferred from the call count. Comparing against an older snapshot is exactly
-  what happens during an upgrade, so this was wrong at the one moment it mattered.
-
-- **A marker-filtered run was compared as if it were a full one.** Coverage is scored per test
-  case, but `unseen` is a property of an endpoint: `pytest -m "not rbac"` still calls the
-  endpoint, it just drops one cell. So `unseenRatio` stayed near zero, `partialRun` stayed
-  false, and every dropped cell was presented as a regression with the comparison marked
-  sound. Measured on the reporting suite: 46% of tests and 55% of calls gone, `unseenRatio`
-  0.009 → 0.018, 14 fake regressions, `avg_delta -2.78`, `comparable: True`.
-
-  Two guards, because the exact one does not cover old snapshots:
-  - the pytest plugin records `meta.selection` (the `-m` / `-k` expression and the deselected
-    count), and `partialRun` now includes it;
-  - `compare` warns when a run made less than half the calls of the one before it while the
-    share of never-called endpoints barely moved — the signature of a cell-level filter, read
-    from the endpoints, so it works on payloads written before `meta` existed.
-
-  The lost cells stay in `regressed`. Whether a cell was deselected or deleted is unknowable
-  from two payloads, and reclassifying them on a heuristic could bury a real loss.
-
-- **`partest/parparser.py` printed to stdout on every import.** Twelve `print()` calls, no
-  `logging`, messages mixed Russian and English — 33 lines per process on a large
-  specification, which is enough to stop any `python -c` next to partest from being
-  machine-readable. Now `logging.getLogger("partest.parparser")`: unresolvable references and
-  malformed parameters at `warning`, reference tracing at `debug`.
-
-- **`prune_snapshots`, `list_snapshots` and `previous_snapshot` were not importable from
-  `partest.reports`**, despite 1.7.0 calling them public; only the full module path worked.
-  Re-exported along with `append_snapshot` and `latest_snapshot`, and `history` now declares
-  `__all__` so `dir()` stops showing `json`, `Path` and `datetime` as if they were API.
-
-- **`meta.selection`** is new in the payload, present only when the run was filtered.
-
-`run_info["selection"]` deliberately survives `reset_storage()`: it is known at collection
-time, before the session fixture that calls it, and describes the invocation rather than the
-counters. Clearing it there would have silently disarmed the flag.
+a major one. `__version__` reads 1.8.1: the patch below was cut from the 1.8.0 line and
+merged here, so this branch is that release plus everything still waiting for the major.
 
 ### Removed
 
@@ -96,6 +49,69 @@ change, and the release order is `partest` first, then the generator's dependenc
   and `MANIFEST.in` pointed at `docs/wiki/decisions/pypi-only.md`, which was renamed to
   `distribution.md`, and `check_all.py` still claimed there is no public CI. The docstring of
   `partest/docs/__init__.py` still said the package is distributed through PyPI only.
+
+## 1.8.1
+
+Five bug fixes, all reported from a suite that made the 1.5.0 → 1.8.0 move, all with the
+numbers to reproduce them. No API removed, nothing to change in a suite — upgrade and the
+report starts telling the truth about comparisons.
+
+The first two shared the expensive failure mode: the comparison returned a confident wrong
+answer rather than an error.
+
+### Fixed
+
+- **Comparing against a snapshot older than `kind` invented dropped endpoints.**
+  `compare_payloads` read a missing `kind` as "not unseen", so an endpoint never called in
+  *either* run came back under `not_run` — "covered before and not called at all now" — with
+  `from: 0.0, to: 0.0` printed in the same record. That dragged `comparable` to false, so
+  `compare --strict` exited 2 on two snapshots between which nothing had changed. A missing
+  `kind` is now inferred from the call count. Comparing against an older snapshot is what an
+  upgrade *is*, so this was wrong at the one moment it mattered.
+
+- **A marker-filtered run was compared as though it were a full one.** Coverage is scored per
+  test case, but `unseen` is a property of an endpoint: `pytest -m "not rbac"` still calls the
+  endpoint, it just drops one cell. So `unseenRatio` stayed near zero, `partialRun` stayed
+  false, and every dropped cell was presented as a regression with the comparison marked
+  sound. Measured on the reporting suite: 46% of tests and 55% of calls gone, `unseenRatio`
+  0.009 → 0.018, 14 fake regressions, `avg_delta -2.78`, `comparable: True`.
+
+  Two guards, because the exact one cannot help an old snapshot:
+  - the bundled pytest plugin records `meta.selection` — the `-m` / `-k` expression and how
+    many tests were deselected — and `partialRun` now includes it;
+  - `compare` warns when a run made less than half the calls of the one before it while the
+    share of never-called endpoints barely moved. That is what a cell-level filter looks like
+    from the endpoints alone, so it also works on payloads written before `meta` existed.
+
+  The lost cells stay in `regressed`. Deselected and deleted are indistinguishable from two
+  payloads, and reclassifying them on a heuristic could bury a real loss; saying "these are
+  not the same experiment" is the honest answer.
+
+- **`partest/parparser.py` printed to stdout on every import.** Twelve `print()` calls, no
+  `logging`, messages mixed Russian and English — 33 lines per process on a large
+  specification, which stops any `python -c` next to partest from being machine-readable. Now
+  `logging.getLogger("partest.parparser")`: unresolvable references and malformed parameters
+  at `warning`, reference tracing at `debug`.
+
+- **`prune_snapshots`, `list_snapshots` and `previous_snapshot` were not importable from
+  `partest.reports`.** The 1.7.0 notes called them public, but only the full module path
+  worked. Re-exported along with `append_snapshot` and `latest_snapshot`; `history` now
+  declares `__all__`, so `dir()` stops presenting `json`, `Path` and `datetime` as API.
+
+- **The migration page in the wheel had no 1.8.0 section.** The release's only user-facing
+  change — Python 3.10 as the floor — was documented solely in `CHANGELOG.md`, which
+  `MANIFEST.in` excludes from the package. Anyone following the documented path
+  (`python -m partest.docs show howto-migration`) learned nothing about it, and the checklist
+  still said `pip install -U 'partest>=1.5.0'`. On Python 3.9 the upgrade is silent: pip
+  leaves you on the last supporting release. Now written down, with the command to check.
+
+### Added
+
+- `meta.selection` in the coverage payload, present only when the run was filtered.
+
+`run_info["selection"]` deliberately survives `reset_storage()`: it is known at collection
+time, before the session fixture that calls it, and describes the invocation rather than the
+counters. Clearing it there would silently disarm the flag.
 
 ## 1.8.0
 
