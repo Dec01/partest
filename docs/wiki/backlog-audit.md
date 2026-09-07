@@ -1,7 +1,7 @@
 ---
 title: Аудит внешнего бэклога и готовность к переезду
 status: current
-verified: 2026-09-04
+verified: 2026-09-07
 sources: [partest/tracking.py, partest/coverage.py, partest/methodology/classifier.py, partest/payloads.py, partest/call_storage.py, partest/reports/payload.py, partest/reports/analyzer.py, partest/pytest_plugin.py]
 audience: maintainer
 ships_in_wheel: false
@@ -76,7 +76,7 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 |---|---|---|---|
 | **LIB-XDIST** | merge `call_storage` между воркерами | ✅ | шард на воркере + слияние на контроллере в `pytest_sessionfinish`; проверено реальным `-n 2` |
 | **LIB-COV-KIND** | `unseen / empty / partial / full / exception` | ✅ | `_kind_for` в `analyzer.py`, поле `kind` в JSON |
-| **LIB-COV-META** | `meta.merged`, `meta.workers` | ✅ | плюс `partialRun`, `callsTotal`, `unseenRatio` |
+| **LIB-COV-META** | `meta.merged`, `meta.workers` | ✅ | плюс `partialRun`, `callsTotal`, `unseenRatio`; с 1.8.1 — `selection` (`-m`/`-k` прогона) |
 | **LIB-COV-TIMING** | `elapsed_ms` → avg/p50/p95 по типам | ✅ | замер в `track_api_calls`, агрегат `timing_of` |
 | **LIB-COV-HIST-2** | история, `keep=2` | ✅ | `append_snapshot(keep=2)`, `prune_snapshots`, `previous_snapshot` |
 | **LIB-COV-HTML** | целевой UX витрины | ✅ | баннер, `unseen` в KPI с кликом в фильтр, видимый сброс, пресеты без доменных имён, колонка p95 с порогами, фильтры в hash URL, экспорт CSV/JSON/markdown. Не сделаны: палитра Ctrl+K и отдельный drawer — вместо него раскрывающаяся строка |

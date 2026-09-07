@@ -76,7 +76,9 @@ controller write the artifact:
 PARTEST_COVERAGE_JSON=coverage.json PARTEST_COVERAGE_HTML=coverage_report.html pytest -n auto
 ```
 
-Check `meta.workers` and `meta.merged` in the JSON before trusting a number from a parallel run.
+Check `meta.workers` and `meta.merged` in the JSON before trusting a number from a parallel
+run — and `meta.selection`, which is present when the run was filtered with `-m` or `-k`. A
+filter removes test *cases* rather than endpoints, so nothing else in the numbers reveals it.
 For pipelines that publish coverage, `PARTEST_COVERAGE_REQUIRE_MERGE=1` turns an unmerged
 parallel run into a failed session instead of a quiet wrong number.
 
