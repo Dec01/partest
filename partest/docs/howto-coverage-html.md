@@ -39,6 +39,12 @@ python -m partest.reports history-append --json coverage.json --dir coverage_his
 
 Stubs use `type=types.request_*` (never `"type_default"`).
 
+The history helpers are importable directly, for a pipeline that keeps its own snapshots:
+
+```python
+from partest.reports import append_snapshot, list_snapshots, previous_snapshot, prune_snapshots
+```
+
 ## Service map (consumer)
 
 YAML example — **stays in the suite project**:

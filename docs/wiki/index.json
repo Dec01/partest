@@ -6,7 +6,7 @@
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7457
+      "chars": 7500
     },
     {
       "slug": "components/overview",
@@ -489,7 +489,7 @@
       "path": "docs/wiki/howto/coverage-html.md",
       "title": "Interactive coverage report and CLI",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -533,14 +533,14 @@
           "text": "Reading the page honestly"
         }
       ],
-      "chars": 4112
+      "chars": 4314
     },
     {
       "slug": "howto/enterprise",
       "path": "docs/wiki/howto/enterprise.md",
       "title": "Enterprise notes — shared client, retries, redaction, xdist",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -595,7 +595,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 3237
+      "chars": 3418
     },
     {
       "slug": "howto/layers",
@@ -1436,7 +1436,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 23199
+      "chars": 23280
     },
     {
       "slug": "proposals",
@@ -1596,7 +1596,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 10820
+      "chars": 10896
     },
     {
       "slug": "WIKI",
