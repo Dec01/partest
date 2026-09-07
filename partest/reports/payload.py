@@ -328,9 +328,18 @@ def build_payload(
     calls_total = sum(int(e.get("calls") or 0) for e in endpoints)
     unseen = sum(1 for e in endpoints if e.get("kind") == "unseen")
     unseen_ratio = round(unseen / len(endpoints), 4) if endpoints else 0.0
-    # Either a lot of endpoints went untouched, or parallel workers were never
-    # merged — in both cases the average describes this run, not the suite.
-    partial_run = unseen_ratio >= 0.2 or (workers > 1 and not merged)
+    selection = dict(run_info.get("selection") or {})
+    # Three ways this run fails to describe the suite: a lot of endpoints went untouched,
+    # parallel workers were never merged, or the run selected a subset in the first place.
+    # The third needs asking, not measuring: a marker filter drops test *cases*, so the
+    # endpoint is still called and `unseen_ratio` stays near zero while half the suite
+    # never ran. Without this, such a run compared against a full one reports every
+    # dropped cell as a regression, and calls the comparison sound.
+    partial_run = (
+        unseen_ratio >= 0.2
+        or (workers > 1 and not merged)
+        or bool(selection.get("markexpr") or selection.get("keyword"))
+    )
 
     all_metas: list[dict[str, Any]] = []
     for ep in report.endpoints:
@@ -348,6 +357,7 @@ def build_payload(
             "partialRun": partial_run,
             "callsTotal": calls_total,
             "unseenRatio": unseen_ratio,
+            **({"selection": selection} if selection else {}),
         },
         **({"timing": run_timing} if run_timing else {}),
         "summary": {

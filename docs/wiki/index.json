@@ -150,13 +150,16 @@
       "path": "docs/wiki/concepts/coverage-honesty.md",
       "title": "Coverage honesty — when the number lies",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-07",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
         "partest/call_storage.py",
         "partest/coverage.py",
-        "partest/reports/analyzer.py"
+        "partest/reports/analyzer.py",
+        "partest/reports/compare.py",
+        "partest/reports/payload.py",
+        "partest/pytest_plugin.py"
       ],
       "headings": [
         {
@@ -172,6 +175,10 @@
           "text": "2. \"Unseen\" vs \"no tests\""
         },
         {
+          "level": 3,
+          "text": "A filter removes cells, not endpoints"
+        },
+        {
           "level": 2,
           "text": "3. Unmatched paths"
         },
@@ -180,7 +187,7 @@
           "text": "What to trust"
         }
       ],
-      "chars": 3756
+      "chars": 5878
     },
     {
       "slug": "concepts/methodology",
@@ -660,7 +667,7 @@
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -672,6 +679,10 @@
         {
           "level": 1,
           "text": "Migration guide"
+        },
+        {
+          "level": 2,
+          "text": "1.8.0 — Python 3.10 is now the floor"
         },
         {
           "level": 2,
@@ -754,7 +765,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 10001
+      "chars": 10852
     },
     {
       "slug": "howto/permissions",
@@ -1342,6 +1353,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-07 · ingest · отчёт консьюмера о переезде 1.5.0 → 1.8.0"
+        },
+        {
+          "level": 2,
           "text": "2026-09-07 · restructure · генератор уехал в свой репозиторий"
         },
         {
@@ -1421,7 +1436,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 21581
+      "chars": 23199
     },
     {
       "slug": "proposals",
@@ -1574,10 +1589,14 @@
         },
         {
           "level": 2,
-          "text": "6. Как обновлять эту страницу"
+          "text": "6. Отчёт о переезде консьюмера 1.5.0 → 1.8.0 (2026-09-07)"
+        },
+        {
+          "level": 2,
+          "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 8586
+      "chars": 10820
     },
     {
       "slug": "WIKI",
@@ -1726,6 +1745,7 @@
     ],
     "partest/pytest_plugin.py": [
       "backlog-audit",
+      "concepts/coverage-honesty",
       "proposals"
     ],
     "partest/redact.py": [
@@ -1758,11 +1778,15 @@
       "backlog-audit",
       "concepts/coverage-honesty"
     ],
+    "partest/reports/compare.py": [
+      "concepts/coverage-honesty"
+    ],
     "partest/reports/interactive_html.py": [
       "howto/coverage-html"
     ],
     "partest/reports/payload.py": [
       "backlog-audit",
+      "concepts/coverage-honesty",
       "proposals"
     ],
     "partest/reports/services.py": [

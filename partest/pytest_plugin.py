@@ -165,6 +165,50 @@ def pytest_runtest_makereport(item, call):
         pass
 
 
+# --- What this run actually selected --------------------------------------
+
+
+def _record_selection(config, deselected: int = 0) -> None:
+    """Note that the run covered a subset, so the report can say so.
+
+    Coverage is scored per test case, but "never called" is a property of an endpoint.
+    A marker filter removes cases: the endpoint is still hit, it just loses one cell —
+    so the unseen ratio stays near zero and nothing in the numbers reveals that half the
+    suite did not run. Comparing such a run against a full one then presents every
+    dropped cell as a regression. The selection expression is the one exact signal, and
+    it is only available here.
+    """
+    try:
+        from partest.call_storage import run_info
+    except Exception:
+        return
+    option = getattr(config, "option", None)
+    if option is None:
+        return
+    selection = run_info.setdefault("selection", {})
+    for name, key in (("markexpr", "markexpr"), ("keyword", "keyword")):
+        value = (getattr(option, name, None) or "").strip()
+        if value:
+            selection[key] = value
+    if deselected:
+        selection["deselected"] = int(selection.get("deselected", 0)) + int(deselected)
+
+
+def pytest_collection_modifyitems(config, items) -> None:
+    if not plugin_enabled():
+        return
+    _record_selection(config)
+
+
+def pytest_deselected(items) -> None:
+    """``-m`` and ``-k`` come through here; ``--deselect`` and plugins do too."""
+    if not plugin_enabled() or not items:
+        return
+    config = getattr(items[0], "config", None)
+    if config is not None:
+        _record_selection(config, deselected=len(items))
+
+
 # --- Coverage under pytest-xdist ------------------------------------------
 
 
