@@ -1,7 +1,7 @@
 ---
 title: Предложения по развитию сверх бэклога
 status: draft
-verified: 2026-09-06
+verified: 2026-09-07
 sources: [partest/coverage.py, partest/tracking.py, partest/pytest_plugin.py, partest/reports/payload.py, partest/security/risk.py, setup.py]
 audience: maintainer
 ships_in_wheel: false

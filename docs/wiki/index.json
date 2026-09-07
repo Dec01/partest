@@ -68,7 +68,7 @@
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -110,7 +110,7 @@
       "path": "docs/wiki/components/project-gen.md",
       "title": "partest-gen — генератор в соседнем репозитории",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [
@@ -239,7 +239,7 @@
       "path": "docs/wiki/decisions/distribution.md",
       "title": "ADR — как распространяется partest",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -328,7 +328,7 @@
       "path": "docs/wiki/decisions/docs-in-wheel.md",
       "title": "ADR — документация внутри колеса и генерация partest/docs",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -399,7 +399,7 @@
       "path": "docs/wiki/decisions/no-domain.md",
       "title": "ADR — в библиотеке нет продуктового домена",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -436,7 +436,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -805,7 +805,7 @@
       "path": "docs/wiki/howto/quickstart.md",
       "title": "Quickstart — first green API test",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -875,7 +875,7 @@
       "path": "docs/wiki/howto/recipes.md",
       "title": "Recipes — consumer-side adapters",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -978,7 +978,7 @@
       "path": "docs/wiki/howto/release.md",
       "title": "Release checklist",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1025,7 +1025,7 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 4262
+      "chars": 4410
     },
     {
       "slug": "howto/reporting",
@@ -1146,7 +1146,7 @@
       "path": "docs/wiki/howto/ui.md",
       "title": "UI quickstart (partest[ui])",
       "status": "current",
-      "verified": "2026-09-05",
+      "verified": "2026-09-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1290,7 +1290,7 @@
       "path": "docs/wiki/index.md",
       "title": "Каталог документации partest",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-07",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [],
@@ -1331,7 +1331,7 @@
       "path": "docs/wiki/log.md",
       "title": "Журнал операций над документацией",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [],
@@ -1342,7 +1342,7 @@
         },
         {
           "level": 2,
-          "text": "2026-09-06 · restructure · генератор уехал в свой репозиторий"
+          "text": "2026-09-07 · restructure · генератор уехал в свой репозиторий"
         },
         {
           "level": 2,
@@ -1421,14 +1421,14 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 21555
+      "chars": 21581
     },
     {
       "slug": "proposals",
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1520,7 +1520,7 @@
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [

@@ -1,7 +1,7 @@
 ---
 title: Журнал операций над документацией
 status: current
-verified: 2026-09-04
+verified: 2026-09-07
 sources: []
 audience: maintainer
 ships_in_wheel: false
@@ -13,11 +13,12 @@ allow_version_literals: true
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
 
-## 2026-09-06 · restructure · генератор уехал в свой репозиторий
+## 2026-09-07 · restructure · генератор уехал в свой репозиторий
 
 `partest.project_gen` выделен в дистрибутив `partest-gen` (соседний репозиторий
-https://github.com/Dec01/partest-gen). Обоснование — ADR `decisions/separate-package.md`
-**там**; здесь копии нет намеренно, копия протухает в день правки оригинала.
+https://github.com/Dec01/partest-gen, заведён накануне вечером). Обоснование — ADR
+`decisions/separate-package.md` **там**; здесь копии нет намеренно, копия протухает
+в день правки оригинала.
 
 Что изменилось в документации этого репозитория:
 

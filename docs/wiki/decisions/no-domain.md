@@ -1,7 +1,7 @@
 ---
 title: ADR — в библиотеке нет продуктового домена
 status: current
-verified: 2026-09-06
+verified: 2026-09-07
 sources: [partest/security/risk.py, partest/collections/base.py, partest/data_marker.py]
 audience: maintainer
 ships_in_wheel: false

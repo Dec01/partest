@@ -1,7 +1,7 @@
 ---
 title: UI quickstart (partest[ui])
 status: current
-verified: 2026-09-05
+verified: 2026-09-07
 sources: [partest/ui/__init__.py, partest/ui/base_page.py, partest/ui/page_monitor.py, partest/ui/visual.py, partest/ui/capture_baselines.py, partest/ui/hooks.py]
 audience: user
 ships_in_wheel: true
