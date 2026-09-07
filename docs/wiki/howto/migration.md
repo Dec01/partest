@@ -1,7 +1,7 @@
 ---
 title: Migration between partest versions
 status: current
-verified: 2026-09-06
+verified: 2026-09-07
 sources: [partest/test_types.py, partest/__init__.py, partest/conf.py]
 audience: user
 ships_in_wheel: true
@@ -17,6 +17,23 @@ the public API and what a suite has to do about it.
 pip install -U partest
 pip install -U 'partest[ui]'   # UI suites
 ```
+
+## 1.8.0 — Python 3.10 is now the floor
+
+One user-facing change, and it is an install-time one.
+
+`python_requires` is `>=3.10`. Python 3.9 had been declared for releases without anyone
+running the suite on it, and the claim did not hold — so it was dropped rather than patched.
+
+**On Python 3.9 the upgrade is silent.** `pip install -U partest` does not fail; it resolves
+to the last release that still supports 3.9 and leaves you there. Check what you actually got:
+
+```bash
+python -c "import partest, sys; print(partest.__version__, sys.version_info[:2])"
+```
+
+If the version did not move, the interpreter is the reason. Nothing else in this release
+changes behaviour, so a suite already on 3.10 or newer needs no action beyond the bump.
 
 ## 1.7.0 — coverage that tells the truth
 
@@ -218,7 +235,8 @@ Releases go to **PyPI**; the source and its history live at `github.com/Dec01/pa
 
 ## Checklist after bump
 
-- [ ] `pip install -U 'partest>=1.5.0'` (add `[ui]` for UI suites)
+- [ ] `pip install -U partest` (add `[ui]` for UI suites), then **confirm the version moved** —
+      on Python 3.9 pip silently keeps you on the last release that supported it
 - [ ] If POM used async `BasePage` from 1.3.x: switch to `AsyncBasePage` **or** drop `await`
 - [ ] Replace local page_monitor / health / storage with `partest.ui`
 - [ ] Optional: `zorro_enhanced()` instead of a local coverage HTML

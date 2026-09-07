@@ -15,6 +15,15 @@ from typing import Any, Optional, Union
 
 DEFAULT_KEEP = 2
 
+__all__ = [
+    "DEFAULT_KEEP",
+    "append_snapshot",
+    "list_snapshots",
+    "prune_snapshots",
+    "previous_snapshot",
+    "latest_snapshot",
+]
+
 
 def append_snapshot(
     payload: dict[str, Any],

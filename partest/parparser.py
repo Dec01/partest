@@ -1,6 +1,19 @@
+"""Parse an OpenAPI document into path and parameter objects.
+
+Diagnostics go to ``logging``, not ``stdout``. This module runs on import for any suite
+that loads a specification, and a large document produced dozens of lines of noise on
+every process — which also made ``python -c`` next to partest stop being machine-readable.
+Turn them back on with ``logging.getLogger("partest.parparser").setLevel(logging.DEBUG)``.
+"""
+
+import logging
 import os
-import yaml
+
 import requests
+import yaml
+
+logger = logging.getLogger(__name__)
+
 
 class Parameter:
     """Class representing a parameter in an API path.
@@ -197,10 +210,10 @@ class OpenAPIParser:
             The resolved reference.
         """
         if isinstance(ref, dict):
-            print("Обнаружен словарь вместо строки, пропускаем.")
+            logger.debug("reference is a mapping, not a string; skipping")
             return None
 
-        print(f"Разрешение ссылки: {ref}")
+        logger.debug("resolving reference: %s", ref)
 
         if ref.startswith('./') or ref.startswith('../'):
             full_path = os.path.join(self.base_path, ref.split('#')[0])
@@ -214,11 +227,11 @@ class OpenAPIParser:
                 if part:
                     resolved = resolved.get(part)
                     if resolved is None:
-                        print(
-                            f"Ссылка '{ref}' не может быть разрешена в предоставленном словаре swagger, пропускаем.")
+                        logger.warning(
+                            "reference %r cannot be resolved in the specification; skipping", ref)
                         return None
                 else:
-                    print("Обнаружена пустая часть ссылки, пропускаем.")
+                    logger.debug("empty segment in reference; skipping")
             return resolved
 
     def resolve_internal_ref(self, internal_ref, swagger_dict):
@@ -243,7 +256,7 @@ class OpenAPIParser:
                     raise KeyError(
                         f"Ссылка '{internal_ref}' не может быть разрешена в предоставленном словаре swagger.")
             else:
-                print("Обнаружена пустая часть ссылки, пропускаем.")
+                logger.debug("empty segment in reference; skipping")
 
         return resolved
 
@@ -299,8 +312,9 @@ class OpenAPIParser:
                         source_type=self.base_path  # Передаем тип источника
                     ))
                 else:
-                    print(
-                        f"Внимание: ожидались данные в формате dict, но получили {type(details)} для {path} и метода {method}")
+                    logger.warning(
+                        "expected a mapping for %s %s, got %s; skipping",
+                        method, path, type(details).__name__)
 
         return result
 
@@ -320,7 +334,9 @@ class OpenAPIParser:
                 if resolved_param is not None:  # Skip None values
                     parameters.append(resolved_param)
                 else:
-                    print(f"Warning: Skipping invalid parameter in {details.get('operationId', 'unknown operation')}")
+                    logger.warning(
+                        "skipping an invalid parameter in %s",
+                        details.get("operationId", "an unnamed operation"))
         return parameters
 
     def extract_request_body(self, details):
@@ -377,11 +393,13 @@ class OpenAPIParser:
                 ref_value = param['$ref']
                 resolved_param = self.resolve_ref(ref_value)
                 if resolved_param is None:
-                    print(f"Warning: Failed to resolve reference '{ref_value}'. Skipping parameter.")
+                    logger.warning("cannot resolve reference %r; skipping the parameter", ref_value)
                     return None
                 # Ensure resolved_param is a dictionary and has required keys
                 if not isinstance(resolved_param, dict):
-                    print(f"Warning: Resolved parameter for '{ref_value}' is not a dictionary. Skipping parameter.")
+                    logger.warning(
+                        "reference %r resolved to %s, not a mapping; skipping the parameter",
+                        ref_value, type(resolved_param).__name__)
                     return None
                 return Parameter(
                     name=resolved_param['name'],
@@ -393,7 +411,7 @@ class OpenAPIParser:
             else:
                 # Validate that param is a dictionary and has required keys
                 if not isinstance(param, dict):
-                    print(f"Warning: Parameter is not a dictionary. Skipping parameter: {param}")
+                    logger.warning("parameter is not a mapping; skipping: %r", param)
                     return None
                 return Parameter(
                     name=param['name'],
@@ -403,10 +421,10 @@ class OpenAPIParser:
                     schema=param.get('schema')
                 )
         except KeyError as e:
-            print(f"Warning: Missing key {e} in parameter data. Skipping parameter: {param}")
+            logger.warning("parameter is missing key %s; skipping: %r", e, param)
             return None
         except Exception as e:
-            print(f"Warning: Error processing parameter: {e}. Skipping parameter: {param}")
+            logger.warning("could not process a parameter (%s); skipping: %r", e, param)
             return None
 
     def safe_get_description(self, details):
