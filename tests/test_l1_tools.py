@@ -15,7 +15,6 @@ from partest.tracking import (
     nested_id_extractor,
 )
 from partest.env.profiles import KeycloakSettings, frontend_url, keycloak_settings
-from partest.project_gen.cli import main as cli_main
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_openapi.yaml"
 
@@ -71,15 +70,6 @@ def test_generate_init_cli(tmp_path: Path):
     (pkg / "m.py").write_text("Z=1\n", encoding="utf-8")
     assert gen_main(["--directory", str(pkg)]) == 0
     assert (pkg / "__init__.py").is_file()
-
-
-def test_partest_gen_init_package_exports(tmp_path: Path):
-    pkg = tmp_path / "res"
-    pkg.mkdir()
-    (pkg / "paths.py").write_text("P=1\n", encoding="utf-8")
-    rc = cli_main(["init-package-exports", str(pkg), "-v"])
-    assert rc == 0
-    assert "from .paths import *" in (pkg / "__init__.py").read_text(encoding="utf-8")
 
 
 def test_keycloak_settings(monkeypatch):

@@ -1,7 +1,8 @@
 """Documentation shipped inside the installed package.
 
-partest is distributed through PyPI only, so the wheel carries its own docs. Files here are
-generated from the project wiki by ``tools/docs_build_wheel.py`` — do not edit them by hand.
+The wheel carries its own docs, so they are readable next to an installed copy without a
+trip to the browser. Files here are generated from the project wiki by
+``tools/docs_build_wheel.py`` — do not edit them by hand.
 
 Access from Python::
 

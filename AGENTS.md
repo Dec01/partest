@@ -6,18 +6,18 @@ every line you add must work for a project whose domain you have never seen.
 ## TASK
 
 Develop and maintain `partest` — a Python harness for methodology-driven API (and optional UI)
-autotests with OpenAPI coverage, plus the `partest-gen` scaffold. Ship to PyPI.
+autotests with OpenAPI coverage. Ship to PyPI. The `partest-gen` scaffold is a **separate
+repository** and depends on this one; the dependency never points the other way.
 
 ## CONTEXT
 
-- Package map: `docs/wiki/components/overview.md` · What "covered" means:
-  `docs/wiki/concepts/methodology.md`
+- Package map: `docs/wiki/components/overview.md` · what "covered" means:
+  `docs/wiki/concepts/methodology.md` · catalog: `docs/wiki/index.md` · `docs/wiki/WIKI.md`
 - Current version, waves, what is next: `docs/wiki/status.md` — the only status source
-- Documentation catalog: `docs/wiki/index.md` · conventions: `docs/wiki/WIKI.md`
-- Procedures load on demand from `.claude/skills/`: `partest-cover-api`, `partest-scaffold`,
-  `partest-release`, `partest-docs`
-- Source of truth is code: `partest/methodology/*` for methodology,
-  `partest/project_gen/*` for the generator. Documents describe it, they do not define it.
+- Procedures load on demand from `.claude/skills/`: `partest-cover-api`, `partest-release`,
+  `partest-docs`. Scaffolding a suite is `partest-scaffold`, in the `partest-gen` repository.
+- Source of truth is code: `partest/methodology/*` for methodology. Documents describe it,
+  they do not define it. Generator questions: `docs/wiki/components/project-gen.md`.
 
 ## CONSTRAINTS
 
@@ -36,6 +36,8 @@ Red lines — violating any of these is a defect, not a trade-off:
 7. **Do not bump `__version__`** unless the user explicitly asks for a release.
 8. **Do not weaken `tests/test_ui_isolation.py`** — a UI job must never load OpenAPI or confpartest.
 9. Keep `type=` explicit on `make_request`; inference is a fallback, not a replacement.
+10. **Never import `partest_gen` outside `partest/project_gen/`** — that bridge is the only
+    place, and it is optional. A hard dependency would make the two packages circular.
 
 ## FALLBACK
 

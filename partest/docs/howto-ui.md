@@ -49,6 +49,8 @@ def test_home(page, frontend_url):
 
 ## Scaffold
 
+The generated UI tree comes from the separate `partest-gen` package (`pip install partest-gen`):
+
 ```bash
 partest-gen init-ui ./my-suite --force
 # or

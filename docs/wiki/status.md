@@ -18,6 +18,7 @@ allow_version_literals: true
 | **Дата актуализации** | 2026-09-06 |
 | **Текущий релиз** | **1.8.0** (PyPI), минимальный Python — 3.10 |
 | **Дистрибуция** | PyPI — пакет, GitHub — исходники и история; см. [[decisions/distribution]] |
+| **Соседний пакет** | `partest-gen` выделен из `partest.project_gen` 2026-09-06; см. §5 |
 | **Consumer proof** | консьюмер пока на `1.5.0`; инструкция по переезду передана в его репозиторий |
 | **Источник бэклога** | снапшот консьюмера от 2026-09-04, хранится вне репозитория |
 | **Сверка бэклога с кодом** | [[backlog-audit]] — волны 1.6 и 1.7 (P0-часть) реализованы |
@@ -52,7 +53,7 @@ allow_version_literals: true
 | L1–L4 | drain API, cookbooks, UI isolation, recipes | 1.3.2 |
 | L5 | enterprise: retry / redact / xdist-заготовки | 1.3.3 |
 | 1.4 | UI parity: sync BasePage, PageMonitor, доки в колесе | 1.4.0 |
-| G1–G6 | `partest-gen`: скелет → IR → ресурсы → P1 → UI → playbook | 1.4–1.5 |
+| G1–G6 | `partest-gen`: скелет → IR → ресурсы → P1 → UI → playbook | 1.4–1.5, вынесено §5 |
 | 1.5.0 | CANON + BPLUS + COV-* + UI freeze/cap/hooks + GEN | 1.5.0 (PyPI) |
 
 `LIB-11` (изоляция `import partest.ui`) и `LIB-15` (self-tests харнесса) во внешнем бэклоге помечены
@@ -135,7 +136,28 @@ i18n шаблонов reporting · `LIB-PERM-QUAD` labels · `LIB-REC-CLEANUP` h
 - Навсегда остаются у консьюмера: `visual_scenes`, PROFILES, roles/credentials, page objects, SQL cleanup,
   baselines PNG. См. [[decisions/no-domain]].
 
-## 5. Как обновлять эту страницу
+## 5. Соседний пакет `partest-gen`
+
+Генератор выделен в свой дистрибутив 2026-09-06. Здесь остались мост `partest.project_gen`,
+экстра `partest[gen]` и методология, которую генератор читает. Подробности — [[components/project-gen]].
+
+| | |
+|---|---|
+| Репозиторий | https://github.com/Dec01/partest-gen |
+| Версия | 1.0.0, ещё не на PyPI |
+| Требует | `partest>=1.8.0` |
+| Что читает отсюда | `partest.methodology.{classifier,matrix,subtypes}`, `partest.test_types`, `partest.tools.generate_init` |
+
+**Следствие для планирования релизов.** У `classify_endpoint` и `p1_test_cases` теперь второй
+потребитель, и он в другом репозитории. Менять их сигнатуры как приватные нельзя; порядок —
+сначала релиз `partest`, потом поднятие нижней границы в `partest-gen`.
+
+**Незакрытый хвост.** Мост `partest.project_gen` снимается в мажорной версии `partest`.
+Ломающее изменение уже накоплено — консоль-скрипт `partest-gen` из этого дистрибутива убран, —
+поэтому следующий релиз будет **2.0.0**. Версия не бампалась: релиз не запрашивался, накопленное
+лежит в `CHANGELOG.md` под `Unreleased`.
+
+## 6. Как обновлять эту страницу
 
 1. Новый снапшот бэклога → локальный `docs/raw/<источник>/<дата>/` (вне git), старый не трогаем.
 2. Переписать §3 по свежему снапшоту; противоречия разрешать в пользу более поздней даты и

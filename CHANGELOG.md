@@ -1,5 +1,54 @@
 # Changelog
 
+## Unreleased — next release is 2.0.0
+
+The scaffold generator left this package. That is a breaking change, so the next release is
+a major one; the version has not been bumped, because no release was requested.
+
+### Removed
+
+- **The `partest-gen` console script.** It is now declared by the
+  [partest-gen](https://pypi.org/project/partest-gen/) distribution, the one that implements
+  it. `pip install partest` alone no longer gives you the command — install `partest-gen`, or
+  `pip install 'partest[gen]'`.
+
+  Two distributions cannot both own one console script without the winner depending on
+  installation order, which is why this could not be kept as a courtesy.
+
+- **`partest/project_gen/**` source.** The generator moved to `partest_gen`. Its release
+  cadence, dependencies and notion of a breaking change all differ from the harness — for a
+  code generator the *names and locations of the files it writes* are the public API. The
+  reasoning and the rejected alternatives are in `docs/wiki/decisions/separate-package.md`
+  in that repository.
+
+### Deprecated
+
+- **`partest.project_gen`** is now a bridge to `partest_gen`, kept until the major release
+  after this one. Old imports work — including submodules, and resolving to the *same* module
+  objects rather than second copies, so `isinstance` and module-level state behave as before.
+  Importing it warns; importing it without `partest-gen` installed fails with the command to
+  run.
+
+### Added
+
+- **`partest[gen]` extra**, so `pip install 'partest[gen]'` still gets you both packages.
+- `tests/test_project_gen_bridge.py`: that the bridge warns, that submodules resolve to the
+  same objects, that the error names the fix when the distribution is missing, and that this
+  `setup.py` does not declare the console script.
+
+### Note for the methodology
+
+`classify_endpoint` and `p1_test_cases` in `partest.methodology` now have a second consumer in
+another repository. They are no longer internal: changing their signatures is a cross-package
+change, and the release order is `partest` first, then the generator's dependency floor.
+
+### Fixed
+
+- Three stale references left over from before this repository went public: `tools/check_all.py`
+  and `MANIFEST.in` pointed at `docs/wiki/decisions/pypi-only.md`, which was renamed to
+  `distribution.md`, and `check_all.py` still claimed there is no public CI. The docstring of
+  `partest/docs/__init__.py` still said the package is distributed through PyPI only.
+
 ## 1.8.0
 
 Raises the minimum Python to 3.10. Nothing else about the public API changed; the rest

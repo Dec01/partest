@@ -16,8 +16,8 @@ jobs:
       fail-fast: false
       matrix:
         # The floor the package claims to support, and a current release. Keep the
-        # first entry equal to python_requires in setup.py: 3.9 was claimed for a
-        # release without anyone running it, and partest-gen was broken there.
+        # first entry equal to python_requires in setup.py: 3.9 was once claimed for
+        # a release without anyone running it, and the suite did not pass there.
         python-version: ["3.10", "3.13"]
 
     steps:
@@ -70,9 +70,12 @@ jobs:
           assert shipped, "no documentation shipped"
 
           sdist = tarfile.open(glob.glob("dist/*.tar.gz")[0])
+          # Files only: setuptools emits a directory entry for the package root, and counting
+          # it as a stray file would fail this job over the one thing that must be there.
           extra = sorted(
-              n.split("/", 1)[1] for n in sdist.getnames()
-              if "/" in n and not n.split("/", 1)[1].startswith(("partest/", "partest."))
+              m.name.split("/", 1)[1] for m in sdist.getmembers()
+              if m.isfile() and "/" in m.name
+              and not m.name.split("/", 1)[1].startswith(("partest/", "partest."))
           )
           allowed = {"", "CHANGELOG.md", "LICENSE", "MANIFEST.in", "PKG-INFO", "setup.cfg", "setup.py"}
           unexpected = [n for n in extra if n not in allowed]

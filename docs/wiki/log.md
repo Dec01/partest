@@ -13,6 +13,38 @@ allow_version_literals: true
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
 
+## 2026-09-06 · restructure · генератор уехал в свой репозиторий
+
+`partest.project_gen` выделен в дистрибутив `partest-gen` (соседний репозиторий
+https://github.com/Dec01/partest-gen). Обоснование — ADR `decisions/separate-package.md`
+**там**; здесь копии нет намеренно, копия протухает в день правки оригинала.
+
+Что изменилось в документации этого репозитория:
+
+| Страница | Что стало |
+|---|---|
+| [[components/project-gen]] | из справочника по генератору — в указатель: мост, экстра, направление зависимости, что осталось здесь |
+| [[components/overview]] | `project_gen/` в карте пакета описан как устаревший мост |
+| [[howto/contribute]] | убран generator smoke; вместо него раздел «генератор — отдельный пакет» и кросс-репозиторная проверка методологии |
+| [[howto/quickstart]], [[howto/ui]], [[howto/recipes]] | команды `partest-gen` снабжены `pip install partest-gen` — раньше CLI приезжал вместе с харнессом |
+| [[status]] | новый §5 «Соседний пакет»: версия, нижняя граница, порядок релизов, хвост про мост |
+| [[proposals]] | C2 (`partest-gen explain`) помечен как переданный; здесь остался только запрос на публичную «причину классификации» |
+| [[decisions/no-domain]] | строка про `partest-gen` убрана из таблицы границы |
+| `docs/PYPI.md`, `README.md` | генератор описан как отдельный пакет со своей установкой |
+| `.claude/skills/partest-scaffold/` | удалён — переехал целиком, вместе с `references/post-gen-playbook.md` |
+| `.grok/skills/partest/SKILL.md` | строка про скаффолд заменена ссылкой на соседний репозиторий |
+
+Попутно починены три места, которые протухли раньше и всплыли при сверке:
+`tools/check_all.py` ссылался на удалённый ADR `decisions/pypi-only.md` и утверждал, что
+публичного CI нет; `MANIFEST.in` — на тот же ADR; docstring `partest/docs/__init__.py`
+утверждал «distributed through PyPI only». Всё три — следы состояния до выхода в публичный
+GitHub.
+
+Тесты: `tests/test_project_gen_*.py` (6 файлов) уехали, вместо них
+`tests/test_project_gen_bridge.py`. Из `tests/test_l1_tools.py` вынут единственный кейс про
+CLI генератора. `tests/fixtures/sample_openapi.yaml` **скопирован**, а не перемещён: здесь его
+читает `test_l1_tools.py`.
+
 ## 2026-09-06 · update · 1.8.0 на PyPI
 
 Выпущена вручную владельцем: trusted publishing ещё не подключён на стороне PyPI и GitHub.

@@ -103,86 +103,47 @@
           "text": "pytest plugin"
         }
       ],
-      "chars": 4137
+      "chars": 4191
     },
     {
       "slug": "components/project-gen",
       "path": "docs/wiki/components/project-gen.md",
-      "title": "partest-gen — suite scaffold",
+      "title": "partest-gen — генератор в соседнем репозитории",
       "status": "current",
       "verified": "2026-09-06",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [
-        "partest/project_gen/cli.py",
-        "partest/project_gen/ir.py",
-        "partest/project_gen/skeleton.py",
-        "partest/project_gen/ui_layout.py",
-        "partest/project_gen/openapi_load.py"
+        "partest/project_gen/__init__.py",
+        "setup.py"
       ],
       "headings": [
         {
           "level": 1,
-          "text": "partest-gen — suite scaffold"
+          "text": "partest-gen — генератор в соседнем репозитории"
         },
         {
           "level": 2,
-          "text": "1. Goal"
+          "text": "Почему выделен"
         },
         {
           "level": 2,
-          "text": "2. Target tree (API + UI)"
+          "text": "Что осталось в этом репозитории"
         },
         {
           "level": 2,
-          "text": "3. Waves (status)"
+          "text": "Мост и как он себя ведёт"
         },
         {
           "level": 2,
-          "text": "4. CLI reference"
-        },
-        {
-          "level": 1,
-          "text": "API suite full P1"
-        },
-        {
-          "level": 1,
-          "text": "refresh API artifacts only"
-        },
-        {
-          "level": 1,
-          "text": "G2 only"
-        },
-        {
-          "level": 1,
-          "text": "UI (G5)"
+          "text": "Направление зависимости"
         },
         {
           "level": 2,
-          "text": "5. IR (SuiteIR)"
-        },
-        {
-          "level": 2,
-          "text": "6. Emitters"
-        },
-        {
-          "level": 2,
-          "text": "7. G5 UI details"
-        },
-        {
-          "level": 2,
-          "text": "8. Acceptance (generator)"
-        },
-        {
-          "level": 2,
-          "text": "9. After generation (agent loop — G6)"
-        },
-        {
-          "level": 3,
-          "text": "CI golden (library)"
+          "text": "Если задача про генератор"
         }
       ],
-      "chars": 4968
+      "chars": 3012
     },
     {
       "slug": "concepts/coverage-honesty",
@@ -468,7 +429,7 @@
           "text": "Как проверять"
         }
       ],
-      "chars": 2319
+      "chars": 2304
     },
     {
       "slug": "howto/contribute",
@@ -502,23 +463,19 @@
           "text": "Tests"
         },
         {
-          "level": 1,
-          "text": "generator smoke, if you touched project_gen"
-        },
-        {
           "level": 2,
           "text": "Documentation"
         },
         {
           "level": 2,
-          "text": "Generated-file contract in scaffolded projects"
+          "text": "The generator is a separate package"
         },
         {
           "level": 2,
           "text": "Where things are decided"
         }
       ],
-      "chars": 3323
+      "chars": 3625
     },
     {
       "slug": "howto/coverage-html",
@@ -911,7 +868,7 @@
           "text": "Next"
         }
       ],
-      "chars": 3823
+      "chars": 3958
     },
     {
       "slug": "howto/recipes",
@@ -1014,7 +971,7 @@
           "text": "custom consumer validator"
         }
       ],
-      "chars": 7215
+      "chars": 7249
     },
     {
       "slug": "howto/release",
@@ -1274,7 +1231,7 @@
           "text": "Plugin"
         }
       ],
-      "chars": 5538
+      "chars": 5636
     },
     {
       "slug": "howto/upload",
@@ -1367,7 +1324,7 @@
           "text": "Вне wiki"
         }
       ],
-      "chars": 3051
+      "chars": 3069
     },
     {
       "slug": "log",
@@ -1382,6 +1339,10 @@
         {
           "level": 1,
           "text": "Журнал"
+        },
+        {
+          "level": 2,
+          "text": "2026-09-06 · restructure · генератор уехал в свой репозиторий"
         },
         {
           "level": 2,
@@ -1460,7 +1421,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 19385
+      "chars": 21555
     },
     {
       "slug": "proposals",
@@ -1476,7 +1437,6 @@
         "partest/pytest_plugin.py",
         "partest/reports/payload.py",
         "partest/security/risk.py",
-        "partest/project_gen/cli.py",
         "setup.py"
       ],
       "headings": [
@@ -1538,7 +1498,7 @@
         },
         {
           "level": 3,
-          "text": "C2. `partest-gen explain` — план без генерации"
+          "text": "C2. `partest-gen explain` — план без генерации · **передано в `partest-gen`**"
         },
         {
           "level": 3,
@@ -1553,7 +1513,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 6348
+      "chars": 6557
     },
     {
       "slug": "status",
@@ -1610,10 +1570,14 @@
         },
         {
           "level": 2,
-          "text": "5. Как обновлять эту страницу"
+          "text": "5. Соседний пакет `partest-gen`"
+        },
+        {
+          "level": 2,
+          "text": "6. Как обновлять эту страницу"
         }
       ],
-      "chars": 7401
+      "chars": 8586
     },
     {
       "slug": "WIKI",
@@ -1757,20 +1721,7 @@
     "partest/payloads.py": [
       "backlog-audit"
     ],
-    "partest/project_gen/cli.py": [
-      "components/project-gen",
-      "proposals"
-    ],
-    "partest/project_gen/ir.py": [
-      "components/project-gen"
-    ],
-    "partest/project_gen/openapi_load.py": [
-      "components/project-gen"
-    ],
-    "partest/project_gen/skeleton.py": [
-      "components/project-gen"
-    ],
-    "partest/project_gen/ui_layout.py": [
+    "partest/project_gen/__init__.py": [
       "components/project-gen"
     ],
     "partest/pytest_plugin.py": [
@@ -1877,6 +1828,7 @@
       "howto/quickstart"
     ],
     "setup.py": [
+      "components/project-gen",
       "decisions/distribution",
       "decisions/docs-in-wheel",
       "howto/contribute",

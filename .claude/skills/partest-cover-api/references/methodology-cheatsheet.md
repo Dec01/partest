@@ -47,6 +47,7 @@
 ## Generator (quick)
 
 ```bash
+pip install partest-gen     # the scaffold is a separate package
 partest-gen from-openapi ./suite --file openapi.yaml --depth p1 --force --with-ui
 partest-gen init-ui ./suite --force
 python -m partest.ui.capture_baselines --scenes scenes.json --dry-run

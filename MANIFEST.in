@@ -1,5 +1,5 @@
-# What ships to PyPI. Distribution is PyPI-only (docs/wiki/decisions/pypi-only.md),
-# so anything listed here is public forever.
+# What ships to PyPI (docs/wiki/decisions/distribution.md). Anything listed here is
+# public forever.
 include partest/py.typed
 recursive-include partest/docs *.md
 include LICENSE

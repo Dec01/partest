@@ -2,7 +2,7 @@
 title: Предложения по развитию сверх бэклога
 status: draft
 verified: 2026-09-06
-sources: [partest/coverage.py, partest/tracking.py, partest/pytest_plugin.py, partest/reports/payload.py, partest/security/risk.py, partest/project_gen/cli.py, setup.py]
+sources: [partest/coverage.py, partest/tracking.py, partest/pytest_plugin.py, partest/reports/payload.py, partest/security/risk.py, setup.py]
 audience: maintainer
 ships_in_wheel: false
 allow_version_literals: true
@@ -108,12 +108,16 @@ HTTP: `test_exists_but_failed`, `skipped`, `xfail(strict)`. Это шире, ч�
 потребителей. Стоимость — второй путь исполнения и второй набор тестов; браться только
 если есть реальный запрос.
 
-### C2. `partest-gen explain` — план без генерации
+### C2. `partest-gen explain` — план без генерации · **передано в `partest-gen`**
 
-Сейчас генератор либо создаёт дерево, либо ничего. Команда, печатающая по каждой
-операции подтип, требуемый P1-набор и причину классификации, полезна и человеку, и
-агенту: она отвечает на вопрос «что вообще надо покрыть» без записи файлов и без стенда.
-Дешевле, чем кажется — вся логика уже есть в `methodology` и `ir.py`.
+Команда, печатающая по каждой операции подтип, требуемый P1-набор и причину классификации:
+ответ на «что вообще надо покрыть» без записи файлов и без стенда. Идея осталась в силе, но
+реализуется теперь в соседнем репозитории — здесь от неё нужна только та часть, которая уже
+есть в `partest/methodology`.
+
+Что может понадобиться отсюда: публичная функция, возвращающая **причину** классификации, а
+не только результат. Сейчас `classify_endpoint` отдаёт подтип и молчит о том, какое правило
+сработало.
 
 ### C3. `python -m partest.reports plan`
 

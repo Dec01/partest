@@ -125,8 +125,8 @@ def _shipped_files():
 
 # The test-data marker defaults to "AQA", the ordinary abbreviation for automated QA.
 # It is a deliberate neutral default, not a project name, and cleanup depends on it —
-# so these two files are expected to contain it and are checked separately below.
-_MARKER_DEFAULT_FILES = {"partest/data_marker.py", "partest/project_gen/skeleton.py"}
+# so this file is expected to contain it and is checked separately below.
+_MARKER_DEFAULT_FILES = {"partest/data_marker.py"}
 
 
 def test_nothing_published_names_the_consumer_project():

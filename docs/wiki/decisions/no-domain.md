@@ -23,7 +23,7 @@ ships_in_wheel: false
 | `SecHttp`, JWT craft, **модель** `RiskProfile` | реестр `PROFILES`, RBAC-матрица |
 | `env`, `data_marker`, `Config`, скелет `BaseCollection` | SQL-очистка, бизнес-данные |
 | UI: `BasePage`, `PageMonitor`, health, visual, storage | page objects экранов, сцены, PNG baselines |
-| `partest-gen`, хелперы conf/openapi | значения `confpartest`, секреты стендов |
+| хелперы conf/openapi | значения `confpartest`, секреты стендов |
 
 Приём при переносе кода из консьюмера: **STRIP** — убрать имена сущностей, жёсткие роли,
 обращения вида `parents[3]`, префикс проекта как единственный API, отладочный print-спам.

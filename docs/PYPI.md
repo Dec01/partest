@@ -14,7 +14,8 @@ pip install 'partest[ui]'     # + Playwright and Pillow for UI suites
   expectations, GraphQL, and rich status-mismatch errors.
 - **Coverage by methodology** — every operation is classified into a method subtype, and each
   subtype has a required set of test cases. The report tells you which cases are *missing*.
-- **`partest-gen`** — scaffold a runnable pytest monorepo suite straight from an OpenAPI file.
+- **A scaffold, if you want one** — [partest-gen](https://pypi.org/project/partest-gen/) is a
+  separate package that writes a runnable suite straight from an OpenAPI file.
 - **Reporting** — `check_*` helpers, Allure steps and attaches (Allure is a soft dependency),
   interactive HTML coverage, `coverage.json`, compare / badge / stub CLI.
 - **Auth, tracking, security** — OIDC `TokenManager` with injected credentials, created-resource
@@ -48,13 +49,22 @@ def test_zorro():
 
 ## Scaffold a whole suite
 
+The generator ships separately, as
+[partest-gen](https://pypi.org/project/partest-gen/) — it runs once when a project is created
+rather than on every test run, so it is not part of this install:
+
 ```bash
+pip install partest-gen        # brings partest with it
 partest-gen from-openapi ./my-suite --file openapi.yaml --depth p1 --with-ui
 partest-gen sync-openapi ./my-suite --depth p1     # after the spec changes
 ```
 
 `--depth resources` emits paths and collections, `default` adds payloads, validators and the
 first tests, `p1` adds the full priority-one stub matrix plus a checklist per tag.
+
+Upgrading from a version where the generator lived inside this package? `partest.project_gen`
+still resolves once `partest-gen` is installed, and `pip install 'partest[gen]'` installs
+both. The `partest-gen` command itself now comes from that package, not this one.
 
 ## Documentation
 

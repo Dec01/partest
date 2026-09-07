@@ -33,7 +33,7 @@ partest/
   security/            RiskProfile model, SecHttp raw transport, JWT tampering
   collections/         BaseCollection, CollectionsManager
   ui/                  partest[ui]: BasePage, PageMonitor, Storage, visual, capture_baselines
-  project_gen/         partest-gen: CLI, IR, emitters, skeleton, ui_layout
+  project_gen/         deprecated bridge to the separate partest-gen distribution
   redact.py            secret redaction for attaches
   http_retry.py        transport retries
   zorro_report.py      zorro() — Allure + simple coverage HTML
@@ -53,7 +53,7 @@ partest/
 | `methodology` | subtypes × matrix × inference — see [[concepts/methodology]] |
 | `security` | `RiskProfile` model, `SecHttp`, `build_tampered_set`; entity PROFILES stay in the consumer |
 | `ui` | shared UI harness only; page objects stay in the consumer — see [[howto/ui]] |
-| `project_gen` | scaffold: `partest-gen` CLI, OpenAPI → IR → emitters |
+| `project_gen` | deprecated bridge to `partest_gen`; the scaffold is its own distribution, `pip install partest-gen` |
 
 ## Public surface
 
