@@ -6,7 +6,7 @@
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -61,14 +61,14 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7457
+      "chars": 7500
     },
     {
       "slug": "components/overview",
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -482,7 +482,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -532,7 +532,7 @@
       "path": "docs/wiki/howto/coverage-html.md",
       "title": "Interactive coverage report and CLI",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -576,14 +576,14 @@
           "text": "Reading the page honestly"
         }
       ],
-      "chars": 4112
+      "chars": 4314
     },
     {
       "slug": "howto/enterprise",
       "path": "docs/wiki/howto/enterprise.md",
       "title": "Enterprise notes — shared client, retries, redaction, xdist",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -638,7 +638,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 3237
+      "chars": 3418
     },
     {
       "slug": "howto/layers",
@@ -1032,7 +1032,7 @@
       "path": "docs/wiki/howto/release.md",
       "title": "Release checklist",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1482,7 +1482,7 @@
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-09-06",
+      "verified": "2026-09-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
