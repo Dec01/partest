@@ -1,171 +1,70 @@
 ---
-title: partest-gen — suite scaffold
+title: partest-gen — генератор в соседнем репозитории
 status: current
 verified: 2026-09-06
-sources: [partest/project_gen/cli.py, partest/project_gen/ir.py, partest/project_gen/skeleton.py, partest/project_gen/ui_layout.py, partest/project_gen/openapi_load.py]
+sources: [partest/project_gen/__init__.py, setup.py]
 audience: agent
 ships_in_wheel: false
 ---
 
-# partest-gen — suite scaffold
+# partest-gen — генератор в соседнем репозитории
 
-Design and reference for the generator. Waves G0–G6 are implemented; anything planned lives in
-[[status]].
+Скаффолдер, который делает из OpenAPI работающий pytest-проект, **больше не живёт здесь**.
+Он выделен в отдельный дистрибутив `partest-gen` (пакет `partest_gen`):
 
-**Reference architecture:** monorepo with `src/api` + `src/ui` and split requirements.
-**CLI:** `partest-gen`
+**https://github.com/Dec01/partest-gen** · https://pypi.org/project/partest-gen/
 
----
+Всё содержательное о генераторе — команды, IR, эмиттеры, целевое дерево, UI-слой, контракт
+баннера — в его собственной wiki. Копии здесь нет намеренно: копия протухает в тот день,
+когда меняется оригинал.
 
-## 1. Goal
+## Почему выделен
 
-From OpenAPI (and optional UI flag) produce a **runnable** pytest project that:
+Кратко: у генератора другой ритм (один раз при заведении проекта против каждого прогона),
+другие зависимости и другое понятие ломающего изменения — публичный контракт генератора это
+**имена и расположение файлов, которые он пишет**. Полное обоснование и отклонённые
+альтернативы — в ADR `decisions/separate-package.md` соседнего репозитория.
 
-1. Uses library harness (`partest.*`) — no vendored allure_helper.
-2. Follows methodology (subtype → P1 TC stubs with correct `type=`).
-3. Mirrors proven folder architecture (API / UI isolation).
-4. Never embeds product secrets or domain RBAC.
+## Что осталось в этом репозитории
 
----
+| Что | Где | Зачем |
+|---|---|---|
+| Мост `partest.project_gen` | `partest/project_gen/__init__.py` | старые импорты продолжают работать |
+| Экстра `partest[gen]` | `setup.py` | `pip install 'partest[gen]'` ставит оба пакета |
+| Методология, которую читает генератор | `partest/methodology/*` | подтипы, матрица P1, классификатор |
+| `partest.tools.generate_init` | `partest/tools/generate_init.py` | утилита общего назначения, у неё свой публичный вход |
 
-## 2. Target tree (API + UI)
+Команда `partest-gen` объявлена только в `partest-gen`. Два дистрибутива не могут владеть
+одним console script: победитель зависел бы от порядка установки.
 
-```text
-{project}/
-├── requirements/{base,api,ui,local}.txt
-├── confpartest.py, conftest.py, env.example, pytest.ini
-├── docs/{README.md, UI_GUIDE.md}
-├── scripts/{run_ui.ps1, run_ui.sh}
-├── .partest/{suite_ir.json, openapi_summary.md}
-└── src/
-    ├── api/
-    │   ├── resources/{endpoints,payloads,validations,collections,rbac,security}
-    │   └── tests/{conftest,test_zorro,<tag>/…}
-    └── ui/                          # G5 (--with-ui / init-ui)
-        ├── conftest.py              # NO OpenAPI load
-        ├── pages/, components/, fixtures/, utils/, tools/
-        ├── resources/ui_rbac_matrix.py
-        ├── baselines/{reference,actual,diff}
-        └── tests/{smoke,auth,rbac,visual}
+## Мост и как он себя ведёт
+
+```python
+from partest.project_gen.cli import main       # устарело, работает
+from partest_gen.cli import main               # поддерживается
 ```
 
-**Isolation:** `pytest src/ui` must not import `confpartest` / API TokenManager session.
+Мост перенаправляет **и подмодули**, причём на тот же объект модуля, а не на вторую копию —
+иначе получились бы два разных класса с одним именем. Импорт печатает `DeprecationWarning`;
+если `partest-gen` не установлен, падает с текстом, называющим команду установки.
 
----
+Проверяется в `tests/test_project_gen_bridge.py`. Мост снимается в следующей мажорной версии
+`partest` — до тех пор трогать его не нужно.
 
-## 3. Waves (status)
+## Направление зависимости
 
-| Wave | Deliverable | Status |
-|------|-------------|--------|
-| **G0** | Roadmap + target tree | **done** |
-| **G1** | IR + `init` / `dump-ir` skeleton | **done** |
-| **G2** | paths + collections + `sync-openapi` | **done** |
-| **G3** | payloads + validations + Default/NotAllowed | **done** |
-| **G4** | full P1 stubs + `P1_CHECKLIST.md` | **done** |
-| **G5** | deep UI layout + `init-ui` | **done** |
-| **G6** | Agent playbook polish (skill + checklists) | **done** |
+Одностороннее и таким остаётся: `partest_gen` → `partest`. Обратный импорт где-либо, кроме
+самого моста, — красная линия (`AGENTS.md`, п. 10); он сделал бы пакеты циклическими и вернул
+бы ровно ту связанность, ради снятия которой всё делалось.
 
----
+Практическое следствие для этого репозитория: **менять сигнатуры `classify_endpoint` и
+`p1_test_cases` как приватные нельзя**. Это межпакетный API, у него есть второй потребитель.
 
-## 4. CLI reference
+## Если задача про генератор
 
-```bash
-pip install -e .
+Она не решается здесь. Работать надо в `partest-gen`: там свой `AGENTS.md`, свои скиллы
+(`partest-scaffold`, `partest-gen-release`, `partest-gen-docs`) и свой golden-тест.
 
-# API suite full P1
-partest-gen from-openapi ./my-suite --file openapi.yaml --depth p1 --force
-
-# refresh API artifacts only
-partest-gen sync-openapi ./my-suite --depth p1
-
-# G2 only
-partest-gen sync-openapi ./my-suite --depth resources
-
-# UI (G5)
-partest-gen init ./my-suite --with-ui --force
-partest-gen init-ui ./my-suite --force
-
-partest-gen dump-ir openapi.yaml -o .partest/suite_ir.json
-```
-
-| `--depth` | Meaning |
-|-----------|---------|
-| `resources` | G2 |
-| `default` | G2+G3 |
-| `p1` | G2+G3+G4 |
-
-| Flag / command | Meaning |
-|----------------|---------|
-| `--entities a,b` | filter OpenAPI tags |
-| `--with-ui` / `init-ui` | G5 UI tree |
-
----
-
-## 5. IR (SuiteIR)
-
-Each operation: method, path, tag, subtype, `required_p1`, params, request_schema,
-success_response_schema, success_status.
-
-Built in `project_gen/ir.py` via classifier + matrix.
-
----
-
-## 6. Emitters
-
-| Emitter | Output |
-|---------|--------|
-| paths | `src/api/resources/endpoints/paths.py` |
-| collections | `collection_<tag>.py`, manager, factory |
-| payloads | `payloads/<tag>/*_payload.py` |
-| validations | `validations/<tag>/*_validation.py` |
-| tests_default | Default + NotAllowed |
-| tests_p1 | permissions, new/update, incorrect_body, elements, … |
-| ui_layout | full `src/ui/**` + scripts + UI_GUIDE |
-
-Overwrite policy: files with `AUTO-GENERATED by partest-gen` banner; else skip
-unless `--force`.
-
----
-
-## 7. G5 UI details
-
-**1.3+ / 1.7:** generated `src/ui` is **sync** pytest-playwright +
-`from partest.ui import BasePage`. Utils re-export `partest.ui.*`
-(`pip install partest[ui]`).
-
-Still generated as **product stubs** (stay in consumer):
-
-- `LoginPage`, `AppShell`, fixtures auth/api_seed, rbac matrix, visual scenes list
-- tests smoke/auth/rbac/visual, `capture_baselines.py`, `scripts/run_ui.*`
-
----
-
-## 8. Acceptance (generator)
-
-1. Fixture OpenAPI → `from-openapi --depth p1` creates importable tree + IR summary.
-2. Harness imports are `partest.*` only.
-3. UI tree does not load swagger session.
-4. Re-run sync does not destroy non-banner files without `--force`.
-5. No private paths in generated templates.
-
----
-
-## 9. After generation (agent loop — G6)
-
-Full loop for agents: skill `partest-scaffold` → `references/post-gen-playbook.md`.
-
-1. Open `.partest/openapi_summary.md` + `src/api/tests/<tag>/P1_CHECKLIST.md`.
-2. Prioritize endpoints by impact (auth/money/PII first).
-3. Fill `roles.py`, `.env`, unskip path-param tests.
-4. Implement value asserts with `partest.reporting` (status → schema → values).
-5. Run suite → `zorro` → close remaining P1.
-6. UI: selectors, seed, baselines separately from API job  
-   (`python -m partest.ui.capture_baselines` or consumer `src/ui/tools/…`).
-7. `sync-openapi` after OpenAPI changes; respect AUTO-GENERATED banners.
-
-### CI golden (library)
-
-`tests/test_project_gen_golden.py` — fixture OpenAPI → `--depth p1 --with-ui` →
-import smoke + `pytest --collect-only` on generated API tests.
-
-See also: [[howto/contribute]], skill `partest-scaffold`.
+Исключение — задача, которая на самом деле про методологию: «классификатор неверно определяет
+подтип», «в матрице не хватает кейса». Это правится здесь, потом поднимается нижняя граница
+`partest` в зависимостях генератора. См. [[status]] §«Соседний пакет».

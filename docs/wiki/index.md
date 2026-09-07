@@ -34,7 +34,7 @@ ships_in_wheel: false
 | Страница | О чём |
 |---|---|
 | [[components/overview]] | карта пакета, роли модулей, публичный экспорт, pytest-плагин |
-| [[components/project-gen]] | `partest-gen`: команды, IR, эмиттеры, целевое дерево, UI-слой |
+| [[components/project-gen]] | `partest-gen` выделен в свой репозиторий: мост, экстра, направление зависимости |
 
 ## howto — как сделать
 

@@ -1,7 +1,10 @@
 # partest
 
-Python harness for **methodology-driven API (and optional UI) autotests** with OpenAPI coverage,
-plus the `partest-gen` scaffold.
+Python harness for **methodology-driven API (and optional UI) autotests** with OpenAPI coverage.
+
+The `partest-gen` scaffold that generates a suite from an OpenAPI file lives in its own
+repository: **https://github.com/Dec01/partest-gen**. It depends on this package; the
+dependency never points the other way.
 
 **PyPI:** https://pypi.org/project/partest/ — install from here.
 **Source:** you are looking at it — see [docs/wiki/index.md](docs/wiki/index.md) for how it works and why.
@@ -20,10 +23,10 @@ pip install 'partest[ui]'
 | [docs/wiki/status.md](docs/wiki/status.md) | current version, waves, what is next |
 | [docs/wiki/howto/contribute.md](docs/wiki/howto/contribute.md) | invariants, tests, how to make a change |
 | [docs/wiki/WIKI.md](docs/wiki/WIKI.md) | how the documentation itself is organized |
-| [.claude/skills/](.claude/skills/) | procedures: cover an API, scaffold, release, maintain docs |
+| [.claude/skills/](.claude/skills/) | procedures: cover an API, release, maintain docs |
 
 ```bash
-python -m pytest tests/ -q          # units + generator golden + docs lint
+python -m pytest tests/ -q          # units + docs lint + the partest-gen bridge
 python tools/docs_lint.py           # documentation health
 python tools/docs_build_wheel.py    # regenerate partest/docs from the wiki
 ```
@@ -39,7 +42,7 @@ docs/
   raw/            immutable source snapshots
   archive/        superseded documents
 tools/            documentation tooling
-tests/            library and generator tests
+tests/            library tests
 ```
 
 ## License

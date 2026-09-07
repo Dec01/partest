@@ -89,7 +89,10 @@ pytest test_health.py -q --asyncio-mode=auto
 
 ## 3. Scaffold monorepo (recommended)
 
+The scaffold is a separate package — install it once, and it brings this one with it:
+
 ```bash
+pip install partest-gen
 partest-gen from-openapi ./my-suite --file openapi.yaml --depth p1 --force --with-ui
 cd my-suite
 pip install -r requirements/api.txt
@@ -97,7 +100,7 @@ cp env.example .env   # set BASE_URL, optional KEYCLOAK_*
 pytest src/api/tests --collect-only -q
 ```
 
-Post-gen loop for agents: skill `partest-scaffold` → `references/post-gen-playbook.md`.
+What to do next with the generated stubs: `python -m partest_gen.docs show howto-after-generation`.
 
 ## 4. Multi-status & raw IncorrectBody
 
@@ -149,7 +152,7 @@ assert by_level(PROFILES, "critical")[0].entity == "users"
 ## 7. UI isolation (monorepo)
 
 ```bash
-pip install partest[ui]
+pip install partest[ui] partest-gen
 partest-gen init-ui ./my-suite --force
 pytest src/ui/tests -q   # must NOT load confpartest swagger session
 ```

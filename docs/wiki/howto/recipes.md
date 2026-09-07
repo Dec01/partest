@@ -138,8 +138,8 @@ spec = resolve_from_confpartest(service="myservice")
 ## generate package exports
 
 ```bash
-partest-gen init-package-exports src/api/resources -v
 python -m partest.tools.generate_init -d src/api/resources
+partest-gen init-package-exports src/api/resources -v   # same thing, needs partest-gen
 ```
 
 ## Collections + HeadersBind

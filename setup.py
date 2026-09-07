@@ -27,8 +27,8 @@ setup(
     author_email="parshin.ewgeniy@yandex.ru",
     license="MIT",
     description=(
-        "Methodology-driven API/UI autotest harness with OpenAPI coverage, "
-        "security helpers, and partest-gen monorepo scaffold."
+        "Methodology-driven API/UI autotest harness with OpenAPI coverage "
+        "and security helpers."
     ),
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -58,15 +58,22 @@ setup(
             "playwright>=1.40.0",
             "Pillow>=10.0.0",
         ],
+        # The scaffold generator is a separate distribution: it runs once when a project is
+        # created, not on every test run, and for a code generator the names of the files it
+        # writes are the public API. This extra exists so `pip install 'partest[gen]'` still
+        # gets you both, and so `partest.project_gen` keeps resolving.
+        "gen": [
+            "partest-gen>=1.0.0",
+        ],
         "dev": [
             "pytest>=8.0.0",
             "pytest-asyncio>=0.23.7",
         ],
     },
     entry_points={
-        "console_scripts": [
-            "partest-gen=partest.project_gen.cli:main",
-        ],
+        # No partest-gen console script here: it is declared by the distribution that
+        # implements it. Two distributions owning one command make the winner depend on
+        # installation order.
         "pytest11": [
             "partest=partest.pytest_plugin",
         ],

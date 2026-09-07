@@ -1,9 +1,8 @@
 """Run every check that must pass before a release, in one command.
 
-There is no public CI for this project (see ``docs/wiki/decisions/pypi-only.md``), so
-the only defence against shipping something broken is that one command runs everything.
-Checks are spread across pytest and three documentation tools; remembering all of them
-by hand is how a stale ``partest/docs`` or an unregenerated index reaches PyPI.
+CI runs this same script, so what fails on a pull request is what fails on a laptop. The
+checks are spread across pytest and three documentation tools; remembering all of them by
+hand is how a stale ``partest/docs`` or an unregenerated index reaches PyPI.
 
 Usage::
 
