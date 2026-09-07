@@ -1,7 +1,7 @@
 ---
 title: Каталог документации partest
 status: current
-verified: 2026-09-04
+verified: 2026-09-07
 sources: []
 audience: agent
 ships_in_wheel: false

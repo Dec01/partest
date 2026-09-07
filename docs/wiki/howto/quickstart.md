@@ -1,7 +1,7 @@
 ---
 title: Quickstart — first green API test
 status: current
-verified: 2026-09-04
+verified: 2026-09-07
 sources: [partest/client.py, partest/conf.py, partest/env/__init__.py, partest/zorro_report.py]
 audience: user
 ships_in_wheel: true

@@ -1,7 +1,7 @@
 ---
 title: Release checklist
 status: current
-verified: 2026-09-06
+verified: 2026-09-07
 sources: [setup.py, MANIFEST.in, partest/__init__.py, tools/docs_build_wheel.py]
 audience: maintainer
 ships_in_wheel: false
@@ -40,7 +40,9 @@ python -m partest.ui.capture_baselines --dry-run
 - [ ] `CHANGELOG.md`: `Unreleased` folded into the new version section
 - [ ] `docs/wiki/status.md`: current release, waves, what is next
 - [ ] pages touched by the change have a fresh `verified:` date
-- [ ] generator templates pin the new floor if they must (`partest>=X.Y`)
+- [ ] touched `partest/methodology/*`? `partest-gen` reads those functions from another
+      repository — run its golden test against this tree, and raise its floor after the
+      release. See [[components/project-gen]]
 - [ ] no secrets, stand URLs, absolute local paths, or consumer project names in anything with
       `ships_in_wheel: true` — the linter checks this, but read the diff too
 
