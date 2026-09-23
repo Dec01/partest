@@ -2,7 +2,7 @@
 title: ADR — явный type= вместо автоинференса
 status: current
 verified: 2026-09-04
-sources: [partest/methodology/inference.py, partest/test_types.py, partest/client.py]
+sources: [partest/methodology/api/inference.py, partest/test_types.py, partest/client.py]
 audience: maintainer
 ships_in_wheel: false
 allow_version_literals: true
@@ -15,7 +15,7 @@ allow_version_literals: true
 ## Решение
 
 В `make_request` тип тест-кейса передаётся явно: `type=types.request_default`. Инференс
-(`partest/methodology/inference.py`) остаётся страховкой и применяется только когда `type=` не
+(`partest/methodology/api/inference.py`) остаётся страховкой и применяется только когда `type=` не
 задан. Явное значение всегда выигрывает.
 
 Инференс считается высокоуверенным лишь для трёх ситуаций: `405`, `404` и заведомо сломанное

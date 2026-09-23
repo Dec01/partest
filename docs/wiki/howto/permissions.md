@@ -1,7 +1,7 @@
 ---
 title: Permissions — four cells, not one 401
 status: current
-verified: 2026-09-04
+verified: 2026-09-08
 sources: [partest/access.py, partest/test_types.py]
 audience: user
 ships_in_wheel: true
@@ -81,7 +81,7 @@ Two ways to be unauthenticated, and they take different code paths:
 
 ```python
 anonymous_headers()        # no Authorization header at all
-invalid_bearer_headers()   # syntactically valid, unusable token
+invalid_bearer_headers()   # a token shaped like a JWS, refused while parsing
 ```
 
 ## The `inactive` cell

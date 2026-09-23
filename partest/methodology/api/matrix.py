@@ -3,7 +3,7 @@
 from enum import IntEnum
 from typing import Dict, List, Optional, Set
 
-from partest.methodology.subtypes import MethodSubtype
+from partest.methodology.api.subtypes import MethodSubtype
 from partest.test_types import TypesTestCases as T
 
 

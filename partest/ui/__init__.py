@@ -45,7 +45,7 @@ from partest.ui.visual import (
     wait_ready_for_screenshot,
     wait_ready_for_screenshot_sync,
 )
-from partest.ui.capture_baselines import filter_scenes, load_scenes
+from partest.ui.capture_baselines import ignore_https_errors, filter_scenes, load_scenes
 from partest.ui.hooks import (
     attach_page_monitor,
     finalize_page_monitor,
@@ -54,6 +54,7 @@ from partest.ui.hooks import (
 )
 
 __all__ = [
+    "ignore_https_errors",
     "BasePage",
     "AsyncBasePage",
     "PageMonitor",

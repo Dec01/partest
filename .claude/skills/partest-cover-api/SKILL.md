@@ -71,7 +71,7 @@ answer on unusual paths rather than trusting it silently.
 
 ## Step 3 — required cases (axis A × B)
 
-Read `partest/methodology/matrix.py`, or `references/methodology-cheatsheet.md` for the compact
+Read `partest/methodology/api/matrix.py`, or `references/methodology-cheatsheet.md` for the compact
 form. Do not memorize the matrix from any document — the code is the source of truth.
 
 Rough shape: GET STATIC → Default + Benchmark · GET DYNAMIC → Default + Permissions + NotFound ·

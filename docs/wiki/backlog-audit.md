@@ -2,7 +2,7 @@
 title: Аудит внешнего бэклога и готовность к переезду
 status: current
 verified: 2026-09-07
-sources: [partest/tracking.py, partest/coverage.py, partest/methodology/classifier.py, partest/payloads.py, partest/call_storage.py, partest/reports/payload.py, partest/reports/analyzer.py, partest/pytest_plugin.py]
+sources: [partest/tracking.py, partest/coverage.py, partest/methodology/api/classifier.py, partest/payloads.py, partest/call_storage.py, partest/reports/payload.py, partest/reports/analyzer.py, partest/pytest_plugin.py]
 audience: maintainer
 ships_in_wheel: false
 allow_version_literals: true
@@ -80,7 +80,7 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 | **LIB-COV-TIMING** | `elapsed_ms` → avg/p50/p95 по типам | ✅ | замер в `track_api_calls`, агрегат `timing_of` |
 | **LIB-COV-HIST-2** | история, `keep=2` | ✅ | `append_snapshot(keep=2)`, `prune_snapshots`, `previous_snapshot` |
 | **LIB-COV-HTML** | целевой UX витрины | ✅ | баннер, `unseen` в KPI с кликом в фильтр, видимый сброс, пресеты без доменных имён, колонка p95 с порогами, фильтры в hash URL, экспорт CSV/JSON/markdown. Не сделаны: палитра Ctrl+K и отдельный drawer — вместо него раскрывающаяся строка |
-| **LIB-SUBTYPE-OVERRIDE** | YAML-map + rebind | ✅ | `partest/methodology/overrides.py`; проверка внутри `classify_endpoint`, а не подменой ссылки |
+| **LIB-SUBTYPE-OVERRIDE** | YAML-map + rebind | ✅ | `partest/methodology/api/overrides.py`; проверка внутри `classify_endpoint`, а не подменой ссылки |
 | **LIB-COV-CMP kind-aware** | дельта прогона vs дельта suite | ✅ | `not_run`, `comparable`, `warnings`, флаг `--strict` в CLI |
 
 Контракт слияния из спеки соблюдён: `calls` суммируются, `types` объединяются — поздний

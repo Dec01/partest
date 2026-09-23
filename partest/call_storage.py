@@ -30,7 +30,7 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 Key = Tuple[str, str, str]
 
@@ -44,8 +44,20 @@ endpoint_subtype: Dict[Tuple[str, str], str] = {}
 
 #: How this run was produced. Read by the report so the numbers can be labelled
 #: honestly: ``merged=False`` with ``workers > 1`` means they are one worker's slice,
-#: and a non-empty ``selection`` means the run covered a chosen subset of the suite.
-run_info: Dict[str, Any] = {"workers": 1, "merged": False, "selection": {}}
+#: a non-empty ``selection`` means the run covered a chosen subset of the suite, and
+#: ``tlsVerified=False`` means no response in it was authenticated by a certificate.
+run_info: Dict[str, Any] = {
+    "workers": 1,
+    "merged": False,
+    "selection": {},
+    "tlsVerified": True,
+}
+
+#: Node ids this process saw deselected. A **set**, and the thing that crosses a shard:
+#: under ``-n`` every worker collects the whole suite and deselects the same tests, so
+#: summing worker counts would report the filter once per worker. Unioning ids reports it
+#: once — and makes a repeated call on one process idempotent for free.
+deselected_nodes: Set[str] = set()
 
 SHARD_DIR_ENV = "PARTEST_CALL_STORAGE_DIR"
 DEFAULT_SHARD_DIR = ".partest/call_storage"
@@ -61,7 +73,28 @@ def reset_storage() -> None:
         # `selection` deliberately survives: it describes the pytest invocation, is known
         # at collection time — before the session fixture that calls this — and cannot be
         # recovered afterwards. Clearing it here would silently disarm the partial-run flag.
+        # `tlsVerified` survives for the same reason: the clients are built before this.
         run_info.update({"workers": 1, "merged": False})
+
+
+def record_deselected(node_ids: Iterable[str]) -> None:
+    """Remember node ids removed from this run and keep the reported count in step."""
+    with _lock:
+        deselected_nodes.update(str(n) for n in node_ids)
+        if deselected_nodes:
+            run_info.setdefault("selection", {})["deselected"] = len(deselected_nodes)
+
+
+def reset_selection() -> None:
+    """Forget how *this process* was selected.
+
+    A fresh process starts empty, so this is for the second ``pytest.main()`` in one
+    interpreter: without it a full run inherits the previous run's deselected tests and
+    declares itself filtered by an expression it never saw.
+    """
+    with _lock:
+        deselected_nodes.clear()
+        run_info["selection"] = {}
 
 
 def record_call(
@@ -82,7 +115,13 @@ def record_call(
 
 
 def dump_storage() -> Dict[str, Any]:
-    """Serialize counters for cross-process merge (xdist workers)."""
+    """Serialize counters for cross-process merge (xdist workers).
+
+    Carries the selection too. Under xdist the controller does not collect, so neither
+    ``pytest_collection_modifyitems`` nor ``pytest_deselected`` ever fires there: without
+    these two keys a ``-m``-filtered parallel run produced an empty ``selection`` and the
+    report called itself complete.
+    """
     with _lock:
         return {
             "call_count": { _key_str(k): v for k, v in call_count.items() },
@@ -91,6 +130,12 @@ def dump_storage() -> Dict[str, Any]:
             "endpoint_subtype": {
                 f"{m}\t{p}": s for (m, p), s in endpoint_subtype.items()
             },
+            "selection": {
+                k: v for k, v in (run_info.get("selection") or {}).items()
+                if k in {"markexpr", "keyword"}
+            },
+            "deselected_nodes": sorted(deselected_nodes),
+            "tls_verified": bool(run_info.get("tlsVerified", True)),
         }
 
 
@@ -99,6 +144,19 @@ def load_storage(data: Dict[str, Any], *, merge: bool = True) -> None:
     if not merge:
         reset_storage()
     with _lock:
+        selection = run_info.setdefault("selection", {})
+        for key, value in (data.get("selection") or {}).items():
+            # First writer wins: every worker is run with the same expression, and the
+            # controller's own copy is as good as any.
+            if value and not selection.get(key):
+                selection[key] = value
+        nodes = data.get("deselected_nodes") or []
+        if nodes:
+            deselected_nodes.update(str(n) for n in nodes)
+            selection["deselected"] = len(deselected_nodes)
+        if data.get("tls_verified") is False:
+            # One worker running unverified is enough to taint the whole run.
+            run_info["tlsVerified"] = False
         for ks, n in (data.get("call_count") or {}).items():
             key = _key_parse(ks)
             call_count[key] = call_count.get(key, 0) + int(n)

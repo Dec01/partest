@@ -6,7 +6,7 @@ simply gets the required test-case set of the wrong subtype, and the coverage nu
 is confidently incorrect. An override is the escape hatch.
 
 Applied **inside** ``classify_endpoint`` rather than by rebinding it. ``coverage.py``
-does ``from partest.methodology.classifier import classify_endpoint`` at import time,
+does ``from partest.methodology.api.classifier import classify_endpoint`` at import time,
 before a project's configuration is read, so patching the module attribute afterwards
 would never reach the decorator that actually records calls. Consulting a registry from
 within the function sidesteps that entirely.
@@ -29,7 +29,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Tuple, Union
 
-from partest.methodology.subtypes import MethodSubtype
+from partest.methodology.api.subtypes import MethodSubtype
 
 Key = Tuple[str, str]
 

@@ -10,11 +10,22 @@ async with ApiClient(domain, shared_client=True) as api:
     await api.make_request("GET", "/health", expected_status_code=200)
 
 # or inject
-async with httpx.AsyncClient(verify=False) as hx:
+async with httpx.AsyncClient() as hx:
     api = ApiClient(domain, client=hx)
     ...
 # external client is not closed by ApiClient
 ```
+
+**An injected client brings its own TLS setting, and partest cannot see it.** Whatever you
+passed to `httpx.AsyncClient(...)` is what the requests use; `partest/tls.py`, the switch in
+`confpartest` and `PARTEST_TLS_VERIFY` do not apply, and no warning fires on this road — an
+`httpx` client does not expose the setting after construction, so there is nothing to read.
+`ApiClient.verify` reports `None` here rather than a value it does not control.
+
+If you need verification off for an injected client, say so where you build it
+(`httpx.AsyncClient(verify=False)`) and know that it is invisible to everything else. The
+example above deliberately no longer does: it used to, and it taught the one pattern that
+bypasses the package-wide decision.
 
 Default remains **ephemeral client per request** (backward compatible).
 

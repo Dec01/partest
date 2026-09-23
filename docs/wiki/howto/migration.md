@@ -1,8 +1,8 @@
 ---
 title: Migration between partest versions
 status: current
-verified: 2026-09-07
-sources: [partest/test_types.py, partest/__init__.py, partest/conf.py]
+verified: 2026-09-13
+sources: [partest/test_types.py, partest/__init__.py, partest/conf.py, partest/tls.py, partest/pytest_plugin.py, partest/methodology/__init__.py, partest/methodology/api/__init__.py, partest/methodology/ui/__init__.py]
 audience: user
 ships_in_wheel: true
 allow_version_literals: true
@@ -17,6 +17,141 @@ the public API and what a suite has to do about it.
 pip install -U partest
 pip install -U 'partest[ui]'   # UI suites
 ```
+
+## 2.0.0 — the methodology moved into `api/` and `ui/`, TLS is verified, and the plugin flag stopped hiding the run metadata
+
+### The methodology submodules moved — a deep import has to be edited
+
+The methodology is now two areas, `partest.methodology.api` and `partest.methodology.ui`, because
+a second one arrived: UI. The existing modules moved into `api/` unchanged — **nothing inside them
+was renamed**, so every class, function and enum member keeps its name and its meaning. The import
+path is the only thing that broke.
+
+| Was | Now |
+|---|---|
+| `partest.methodology.subtypes` | `partest.methodology.api.subtypes` |
+| `partest.methodology.matrix` | `partest.methodology.api.matrix` |
+| `partest.methodology.classifier` | `partest.methodology.api.classifier` |
+| `partest.methodology.inference` | `partest.methodology.api.inference` |
+| `partest.methodology.overrides` | `partest.methodology.api.overrides` |
+| `partest.methodology.steps` | `partest.methodology.api.steps` |
+
+**If you import from the package itself, nothing changes**: `partest.methodology` re-exports every
+name it exported before — `MethodSubtype`, `SUBTYPE_LABELS`, `CoveragePriority`,
+`applicable_test_cases`, `required_test_cases`, `p1_test_cases`, `p2_test_cases`,
+`classify_endpoint`, `classify_path_object`, `InferResult`, `infer_test_type`, `TestStep`,
+`STEPS_BY_GROUP` — plus the new UI names alongside them.
+
+```bash
+# a deep import is a one-line mechanical fix
+grep -rn "partest\.methodology\.\(subtypes\|matrix\|classifier\|inference\|overrides\|steps\)" .
+```
+
+**There are no shims on the old paths, deliberately.** `import partest.methodology.matrix` raises
+`ModuleNotFoundError` rather than importing something that works: two live spellings of one module
+is a cost that outlives the migration, and a major release is the moment such a move is allowed to
+be visible. The table above is what replaces them.
+
+If a package of yours reads these functions — the scaffold generator does — raise its floor to this
+release in the same change. With an older partest installed the new paths do not exist at all, and
+the failure arrives as an `ImportError` at collection.
+
+### A second methodology: UI
+
+New, additive, and nothing to migrate — there was no UI methodology to migrate from.
+`partest.methodology.ui` gives a surface-type vocabulary (axis A), eleven check families (axis B), a
+priority matrix and four depth levels. **The surface type is declared by your page object**; there is
+no classifier, because no project has a machine-readable description of its screens.
+
+```python
+from partest.methodology import SurfaceType, UiTestCases, required_checks
+
+class ClientsPage(BasePage):
+    surface = SurfaceType.LIST_TABLE
+
+required_checks(ClientsPage.surface)      # includes UiTestCases.screen_state_persistence
+```
+
+The one family worth reading about before you write the list: `screen_state_persistence` — filters,
+sorting, columns and page size still in effect **after a reload of the same screen**. A suite that
+starts each test from a clean profile never reaches it. See [[concepts/methodology]].
+
+### TLS certificate verification is on by default — this can break your suite
+
+The HTTP clients used to default to `verify=False`. A suite that wrote `ApiClient(domain)` ran
+without certificate validation and had no way of knowing. That is now reversed: `ApiClient`,
+`SecHttp`, `TokenManager`, `CreatedRegistry.cleanup`, `TrackingApiClient` and the
+`capture_baselines` browser context all verify unless told otherwise.
+
+**The two specification loaders moved the other way, and the difference is worth a minute.**
+`partest.openapi.resolve_swagger` declared `verify: bool = True`, and
+`partest.parparser.OpenAPIParser.load_swagger_yaml` relied on the `requests` default — both
+verified always, and neither could be told not to. They now read the same switch as everything
+else, so the single line below **also** stops verifying the host that serves your
+specification, which is often not the host under test. If you need them to differ, pass
+`verify=` to `resolve_swagger` explicitly; the argument still wins. Its default changed from
+`True` to `None` ("not specified") — a behaviour change at an unchanged signature, so a caller
+that relied on the documented `True` has to say so now.
+
+A failure here arrives **during collection**, not as a failing test: the specification is
+loaded while the suite is being assembled.
+
+**If your stand serves a self-signed or internally signed certificate, the upgrade turns green
+runs into `SSLError` / `ConnectError`.** One line puts it back, for the whole suite:
+
+```python
+# confpartest.py
+tls_verify = False
+```
+
+```bash
+# or the environment, which wins over confpartest
+PARTEST_TLS_VERIFY=0
+```
+
+Prefer trusting the CA over switching the check off — same one line, and the suite keeps
+detecting a certificate that is genuinely wrong:
+
+```bash
+PARTEST_TLS_VERIFY=/etc/ssl/corp-ca.pem
+```
+
+`verify=` on a call still wins over both and still accepts what httpx accepts (`True`, `False`,
+or a CA bundle path); the only change is what happens when you pass nothing. Whenever
+verification ends up off, the run emits one `partest.tls.TLSVerificationDisabled` warning.
+Silence it deliberately if you mean it:
+
+```ini
+# pytest.ini
+filterwarnings = ignore::partest.tls.TLSVerificationDisabled
+```
+
+### `PARTEST_PYTEST_PLUGIN` no longer switches off the run metadata
+
+The flag was documented as the way to avoid double Allure titles and attachments, and it did
+that — but it also silenced the recording of *what the run selected*. Projects that followed the
+advice lost `meta.selection` from the coverage payload without any sign, and a `-m`-filtered run
+compared against a full one then reported every dropped cell as a regression.
+
+The Allure half keeps the flag and its meaning. Recording the selection moved to its own switch,
+on by default:
+
+```bash
+PARTEST_RUN_METADATA=0        # or confpartest: run_metadata = False
+```
+
+**What you will see** if you keep `pytest_plugin = False`: `meta.selection` and
+`meta.partialRun` start appearing in `coverage.json` for filtered runs, and comparisons against
+a full snapshot are marked unsound instead of reporting phantom regressions. Nothing is written
+to Allure by this half — no attachment, no title, no file — so there is nothing new to collide
+with your own hooks.
+
+**Under `-n` this used to produce nothing at all.** The xdist controller does not collect, so
+the hooks never fired there, and the shard a worker wrote carried no run metadata; a filtered
+parallel run came out with correct counts and no record of being filtered. The selection now
+travels with the shard. The deselected figure is a count of distinct node ids rather than a
+running total, because every worker deselects the *same* tests — counts would add up, sets
+merge. If you run filtered suites in parallel, this is the half that changes your reports.
 
 ## 1.8.0 — Python 3.10 is now the floor
 
@@ -119,7 +254,7 @@ from partest.ui import (
 | Change | Impact | Action |
 |--------|--------|--------|
 | **RiskProfile fields** | Primary API is now `entity`, `writes`, `authz`, `pii`, `fk_traversal`; levels include **critical** | Prefer new fields; old `name=` / `has_*=` still work; use `RiskProfile.from_legacy(...)` |
-| **pytest plugin** | Still auto entry point; can double-attach with local Allure hooks | Set `PARTEST_PYTEST_PLUGIN=0` or `pytest_plugin = False` |
+| **pytest plugin** | Still auto entry point; can double-attach with local Allure hooks | Set `PARTEST_PYTEST_PLUGIN=0` or `pytest_plugin = False` — from 2.0.0 that flag covers the Allure hooks only, not the run metadata |
 | **Multi status** | `expected_status_code=(400, 415)` supported | Update TC that accept either 400 or 415 |
 | **Faker locale** | `PARTEST_FAKER_LOCALE` (default `en_US`) | Set env for RU/DE data |
 | **TokenManager** | `verbose=False` default; logs via `logging` not print | Optional `verbose=True`; optional `client_secret=` |
@@ -237,6 +372,8 @@ Releases go to **PyPI**; the source and its history live at `github.com/Dec01/pa
 
 - [ ] `pip install -U partest` (add `[ui]` for UI suites), then **confirm the version moved** —
       on Python 3.9 pip silently keeps you on the last release that supported it
+- [ ] Grep for deep methodology imports (`partest.methodology.subtypes` and friends) and move them
+      under `api/`; imports from `partest.methodology` itself need nothing
 - [ ] If POM used async `BasePage` from 1.3.x: switch to `AsyncBasePage` **or** drop `await`
 - [ ] Replace local page_monitor / health / storage with `partest.ui`
 - [ ] Optional: `zorro_enhanced()` instead of a local coverage HTML

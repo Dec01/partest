@@ -75,6 +75,27 @@ mon.reset()  # clear before intentional 404 probe
 
 Aliases: `network_issues` == `network_errors`; legacy attr `_aqa_monitor` set.
 
+## Which checks a screen owes
+
+The methodology has a UI half: a surface-type vocabulary, the check families each type owes, and
+the depth each family has to reach. **Declare the surface type on the page object** — nothing
+derives it, because no project has a machine-readable description of its screens:
+
+```python
+from partest.methodology import SurfaceType, required_checks
+
+class ClientsPage(BasePage):
+    surface = SurfaceType.LIST_TABLE
+
+required_checks(ClientsPage.surface)
+```
+
+For a list that answer includes `screen_state_persistence`: the filter, sorting, column set and page
+size are still in effect **after a reload of the same screen**. A suite that opens a fresh browser
+profile per test cannot fail that check, which is why it needs naming rather than remembering.
+
+Full axes, the matrix and why so many of its cells are deliberately empty: [Coverage methodology — two areas, three axes each](concepts-methodology.md).
+
 ## Covering a ticket item
 
 A UI ticket item is not covered by replaying it once. Five columns, and the answer to
@@ -177,4 +198,12 @@ Key names are **product-specific** — not hardcoded in library.
 UI markers: enable `pytest_plugins = ["partest.ui.pytest_plugin"]` in UI conftest
 (does not load API coverage plugin).
 
-API dual-hook opt-out still: `PARTEST_PYTEST_PLUGIN=0`.
+API dual-hook opt-out still: `PARTEST_PYTEST_PLUGIN=0` — that flag covers the Allure hooks only.
+
+## HTTPS in baseline capture
+
+`capture_baselines` used to pass `ignore_https_errors=True` unconditionally. It now follows the
+same switch as the API clients (`partest/tls.py`): the browser context refuses a bad certificate
+unless `PARTEST_TLS_VERIFY=0` / `tls_verify = False` says otherwise, and
+`ignore_https_errors=True` on the call still wins. A frontend on a self-signed dev certificate
+needs that one line, or capture fails on `page.goto`.

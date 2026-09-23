@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import httpx
@@ -11,6 +12,13 @@ from partest.allure_step import allure_step as _step
 from partest.coverage import track_api_calls
 from partest.http_retry import RetryPolicy
 from partest.redact import redact_headers
+from partest.tls import (
+    VerifySetting,
+    certificate_error,
+    is_certificate_error,
+    resolve_verify,
+    verify_for_httpx,
+)
 from partest.utils import ErrorDesc, Logger, StatusCode
 
 BodyType = Optional[Union[Dict[str, Any], list, str, bytes, int, float, bool]]
@@ -140,12 +148,22 @@ class ApiClient:
 
         ApiClient(domain, max_retries=2)  # 429/502/503 + network
         await api.make_request(..., max_retries=3)
+
+    TLS certificates are **verified** unless told otherwise. ``verify=`` takes ``False``, a
+    path to a CA bundle, or an :class:`ssl.SSLContext`; leaving it ``None`` reads
+    ``PARTEST_TLS_VERIFY`` / ``confpartest.tls_verify`` (see :mod:`partest.tls`), which is
+    how a self-signed stand is handled once instead of at every call site.
+
+    ``self.verify`` is what *this* client decided — and it is ``None`` when ``client=`` was
+    given, because then TLS belongs to the client that was handed in and httpx does not
+    expose its setting. Claiming ``True`` there would be a guess, and the warning about an
+    unverified run would be both false-positive and false-negative.
     """
 
     def __init__(
         self,
         domain,
-        verify=False,
+        verify: Optional[VerifySetting] = None,
         follow_redirects=True,
         *,
         client: Optional[httpx.AsyncClient] = None,
@@ -157,7 +175,18 @@ class ApiClient:
         retry_on_network: bool = True,
     ):
         self.domain = domain
-        self.verify = verify
+        if client is not None:
+            # Not our decision and not readable: say nothing rather than something false.
+            if verify is not None:
+                warnings.warn(
+                    "partest: verify= is ignored when an external client= is given — "
+                    "TLS verification belongs to the client you passed in.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            self.verify: Optional[VerifySetting] = None
+        else:
+            self.verify = resolve_verify(verify)
         self.follow_redirects = follow_redirects
         self.default_timeout = timeout
         self.logger = Logger()
@@ -210,7 +239,7 @@ class ApiClient:
     async def _ensure_owned_client(self, timeout: float) -> httpx.AsyncClient:
         if self._owned_client is None:
             self._owned_client = httpx.AsyncClient(
-                verify=self.verify,
+                verify=verify_for_httpx(self.verify),
                 follow_redirects=self.follow_redirects,
                 timeout=timeout,
             )
@@ -372,6 +401,13 @@ class ApiClient:
             ) from err
 
         except httpx.RequestError as e:
+            if is_certificate_error(e):
+                # "Network/request error: [SSL: CERTIFICATE_VERIFY_FAILED]" is where a
+                # consumer would otherwise meet the changed default, with nothing in it
+                # naming the setting that decides.
+                explained = certificate_error(e, url=url, verify=self.verify)
+                self.logger.error(str(explained))
+                raise explained from e
             self.logger.error(f"Network/request error: {e}")
             raise
 
@@ -428,8 +464,8 @@ class ApiClient:
                     content=content,
                     timeout=timeout,
                 )
-            except httpx.RequestError:
-                if policy.should_retry_network(attempt):
+            except httpx.RequestError as exc:
+                if policy.should_retry_network(attempt, exc):
                     await policy.sleep(attempt)
                     attempt += 1
                     continue
@@ -483,7 +519,7 @@ class ApiClient:
                 content=content,
             )
         async with httpx.AsyncClient(
-            verify=self.verify,
+            verify=verify_for_httpx(self.verify),
             follow_redirects=self.follow_redirects,
             timeout=timeout,
         ) as client:

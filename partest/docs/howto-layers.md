@@ -15,7 +15,7 @@ percentage meaningless in both directions.
 
 | Layer | What it covers | Where it is scored |
 |---|---|---|
-| **L0** | one HTTP operation, the axes of [Coverage methodology — three axes](concepts-methodology.md) | `coverage.json` |
+| **L0** | one HTTP operation, the axes of [Coverage methodology — two areas, three axes each](concepts-methodology.md) | `coverage.json` |
 | **L1** | user case / journey — a path that must stay consistent | a checklist, not the matrix |
 | **L2** | logic invariant across resources | checklist |
 | **L3** | integration — a write left a trace outside HTTP | checklist |
@@ -169,4 +169,4 @@ Without step 4 it is a screen test. Without step 2 it is an API journey. Both ar
 useful; neither is end to end, and calling them that hides which risk is actually
 covered.
 
-Related: [Coverage methodology — three axes](concepts-methodology.md) · [Testing file upload endpoints](howto-upload.md) · [UI quickstart (partest[ui])](howto-ui.md) · [Coverage honesty — when the number lies](concepts-coverage-honesty.md)
+Related: [Coverage methodology — two areas, three axes each](concepts-methodology.md) · [Testing file upload endpoints](howto-upload.md) · [UI quickstart (partest[ui])](howto-ui.md) · [Coverage honesty — when the number lies](concepts-coverage-honesty.md)

@@ -1,7 +1,7 @@
 """Coverage analyzer + HTML report smoke tests."""
 
 from partest.call_storage import reset_storage, record_call
-from partest.methodology.subtypes import MethodSubtype
+from partest.methodology.api.subtypes import MethodSubtype
 from partest.reports.analyzer import CoverageAnalyzer
 from partest.reports.html_coverage import render_html, write_html_report
 from partest.test_types import TypesTestCases as T

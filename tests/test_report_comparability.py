@@ -152,14 +152,15 @@ def test_a_declared_selection_makes_the_comparison_unsound():
 
 def test_the_plugin_records_the_selection_expression():
     from partest.call_storage import run_info
-    from partest.pytest_plugin import _record_selection
+    from partest.pytest_plugin import _record_selection, _reset_selection_state
 
     run_info["selection"] = {}
+    _reset_selection_state()
     try:
         config = types.SimpleNamespace(
             option=types.SimpleNamespace(markexpr="not rbac and not security", keyword="")
         )
-        _record_selection(config, deselected=992)
+        _record_selection(config, deselected=[f"tests/test_x.py::t{i}" for i in range(992)])
 
         assert run_info["selection"] == {
             "markexpr": "not rbac and not security",
@@ -167,6 +168,7 @@ def test_the_plugin_records_the_selection_expression():
         }
     finally:
         run_info["selection"] = {}
+        _reset_selection_state()
 
 
 def test_the_selection_survives_reset_storage():

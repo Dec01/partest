@@ -6,14 +6,14 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from partest.call_storage import call_count, call_meta, call_type, endpoint_subtype
-from partest.methodology.classifier import classify_path_object
-from partest.methodology.matrix import (
+from partest.methodology.api.classifier import classify_path_object
+from partest.methodology.api.matrix import (
     CoveragePriority,
     applicable_test_cases,
     p1_test_cases,
     required_test_cases,
 )
-from partest.methodology.subtypes import SUBTYPE_LABELS, MethodSubtype
+from partest.methodology.api.subtypes import SUBTYPE_LABELS, MethodSubtype
 from partest.test_types import (
     EXCEPTION_TYPES,
     TYPE_LABELS,

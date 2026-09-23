@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Union
 
 
 class ConfpartestError(RuntimeError):
@@ -29,6 +30,45 @@ def load_confpartest(
             f"Cannot import {module_name!r}. Place confpartest.py at the project root "
             f"(next to pytest.ini) or pass project_root=. Original: {e}"
         ) from e
+
+
+def conf_attr(
+    name: str,
+    default: Any = None,
+    *,
+    module_name: str = "confpartest",
+) -> Any:
+    """Read one attribute from the consumer ``confpartest``, if there is one.
+
+    The single reader for every library switch that can be written in the project file.
+    Two cases are told apart deliberately:
+
+    * **no ``confpartest`` at all** — legitimate (a suite that only uses ``ApiClient``,
+      our own tests) and silent: *default* is returned;
+    * **a ``confpartest`` that exists but cannot be imported** — loud. That is a file the
+      consumer wrote and meant. Swallowing the failure is how ``tls_verify = False`` ends
+      up quietly unread while the run warns that verification is *on*.
+
+    The modules that read switches used to do a bare ``import confpartest`` and swallow
+    ``ImportError``, which conflates the two: a project with a non-standard layout got the
+    library's defaults back and no hint why.
+    """
+    module = sys.modules.get(module_name)
+    if module is None:
+        try:
+            spec = importlib.util.find_spec(module_name)
+        except Exception:  # a broken parent package, a ValueError from a stub entry
+            spec = None
+        if spec is None:
+            return default
+        try:
+            module = importlib.import_module(module_name)
+        except Exception as exc:
+            raise ConfpartestError(
+                f"{module_name} is importable but failed while reading {name!r}: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+    return getattr(module, name, default)
 
 
 def validate_confpartest(conf: Any) -> List[str]:

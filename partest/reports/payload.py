@@ -357,6 +357,12 @@ def build_payload(
             "partialRun": partial_run,
             "callsTotal": calls_total,
             "unseenRatio": unseen_ratio,
+            # A run without certificate verification is a fact about the artifact, not
+            # about one call: the warning it emitted does not outlive the session, and
+            # whoever reads the report a week later has no other way to know. It does not
+            # touch `comparable` — an unverified run is still a valid measurement of
+            # coverage.
+            "tlsVerified": bool(run_info.get("tlsVerified", True)),
             **({"selection": selection} if selection else {}),
         },
         **({"timing": run_timing} if run_timing else {}),

@@ -11,8 +11,10 @@ import asyncio
 
 import pytest
 
-from partest.methodology.classifier import classify_endpoint
-from partest.methodology.subtypes import MethodSubtype
+from partest.access import INVALID_BEARER, anonymous_headers, invalid_bearer_headers
+from partest.auth import jwt_claim
+from partest.methodology.api.classifier import classify_endpoint
+from partest.methodology.api.subtypes import MethodSubtype
 from partest.path_match import build_concrete_url, match_template
 from partest.payloads import BaseRequestBody
 from partest.test_types import PERMISSION_CELLS, permission_cell_label
@@ -270,6 +272,31 @@ def test_permission_cell_label_rejects_unknown_cell():
     assert permission_cell_label("unauth") == "Permissions/Unauthenticated"
     with pytest.raises(ValueError):
         permission_cell_label("forbidden")
+
+
+def test_invalid_bearer_is_unparsable_and_visibly_not_a_credential():
+    """The default token of :func:`invalid_bearer_headers`, which the library never sends.
+
+    ``access_cases`` builds its ``unauth`` cell from ``anonymous_headers`` — a request
+    with no ``Authorization`` at all. The broken token is the other half of that cell,
+    offered to suites that want to exercise the second code path, and nothing inside
+    the package calls it.
+
+    Two invariants: three dot-separated segments, so anything splitting on dots still
+    sees the compact-JWS shape, and no claims to read, so it cannot be mistaken for a
+    working credential by a reader, a log or a secret scanner.
+    """
+    assert len(INVALID_BEARER.split(".")) == 3
+    assert jwt_claim(INVALID_BEARER, "sub") is None
+
+
+def test_invalid_bearer_headers_carry_the_broken_token():
+    headers = invalid_bearer_headers({"X-Trace": "1"})
+    assert headers["Authorization"] == "Bearer " + INVALID_BEARER
+    assert headers["Accept"] == "application/json"
+    assert headers["X-Trace"] == "1"
+    # the unauth cell's other half: no Authorization at all, even if one is passed in
+    assert "Authorization" not in anonymous_headers(headers)
 
 
 # --- ApiClient hook ordering (end to end) ---------------------------------

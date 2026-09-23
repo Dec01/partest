@@ -14,10 +14,19 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 
+from partest.flags import env_bool
+
 
 def env_truthy(name: str) -> bool:
-    raw = (os.getenv(name) or "").strip().lower()
-    return raw in ("1", "true", "yes", "on", "y")
+    """Whether *name* is set to something meaning yes.
+
+    The reading comes from :mod:`partest.flags`, shared with the plugin and the TLS switch
+    — this helper used to accept a list of true words and have no list of false ones, so
+    ``PARTEST_UI_MONITOR=off`` and ``PARTEST_UI_MONITOR=nonsense`` were the same answer by
+    accident rather than by decision. ``partest.flags`` imports nothing, which is what a
+    UI job requires: no ``confpartest``, no specification.
+    """
+    return env_bool(name) is True
 
 
 def resolve_frontend_url(

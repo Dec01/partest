@@ -10,6 +10,7 @@ from partest.client import format_expected_status, status_matches
 from partest.reporting.attach import attach_failure, attach_request, attach_response
 from partest.reporting.steps import step
 from partest.reporting.templates import ErrorTemplates, StepTemplates
+from partest.tls import VerifySetting, resolve_verify, verify_for_httpx
 
 ExpectedStatus = Optional[Union[int, Sequence[int]]]
 
@@ -21,6 +22,10 @@ class SecHttp:
     crafted Authorization — outside ApiClient JSON helpers.
 
     ``token_or_manager``: ``TokenManager`` (fresh Bearer each call) or str token.
+
+    ``verify`` defaults to :mod:`partest.tls` — certificates are checked unless the
+    project says otherwise. A security suite is the last place to accept any certificate
+    by default.
     """
 
     def __init__(
@@ -29,7 +34,7 @@ class SecHttp:
         token_or_manager: Any = None,
         *,
         token: Optional[str] = None,
-        verify: bool = False,
+        verify: Optional[VerifySetting] = None,
         timeout: float = 40.0,
         follow_redirects: bool = True,
         instrument: bool = True,
@@ -37,7 +42,7 @@ class SecHttp:
         self.base_url = base_url.rstrip("/")
         self._token_manager = None
         self.token = token
-        self.verify = verify
+        self.verify = resolve_verify(verify)
         self.timeout = timeout
         self.follow_redirects = follow_redirects
         self.instrument = instrument
@@ -78,7 +83,7 @@ class SecHttp:
         async def _do() -> httpx.Response:
             async with httpx.AsyncClient(
                 base_url=self.base_url,
-                verify=self.verify,
+                verify=verify_for_httpx(self.verify),
                 timeout=self.timeout,
                 follow_redirects=self.follow_redirects,
             ) as client:

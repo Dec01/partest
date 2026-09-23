@@ -66,7 +66,11 @@ Two things now prevent that:
 
 - **The selection is recorded.** The pytest plugin writes `meta.selection` — the `-m` / `-k`
   expression and how many tests were deselected. Exact, and it comes from the only place that
-  knows: the invocation.
+  knows: the invocation. This is `PARTEST_RUN_METADATA` / `run_metadata`, on by default and
+  **separate from `PARTEST_PYTEST_PLUGIN`**: the Allure switch is the one projects turn off to
+  keep their own hooks, and it used to take this signal down with it. The deselected figure is
+  a count of distinct node ids, so merging the shards of a parallel run does not double it —
+  every worker deselects the same tests.
 - **A call-volume collapse is caught even without it.** `compare` warns when a run made less
   than half the calls of the one before it while the share of never-called endpoints barely
   moved. That signature is what a cell-level filter looks like, and it reads from the endpoints
@@ -112,4 +116,4 @@ Comparing against a snapshot older than `kind` works: a missing `kind` is inferr
 call count, so an endpoint that was never called in either run is not reported as one that
 used to be covered.
 
-Related: [Coverage methodology — three axes](concepts-methodology.md) · [Interactive coverage report and CLI](howto-coverage-html.md) · [Enterprise notes — shared client, retries, redaction, xdist](howto-enterprise.md)
+Related: [Coverage methodology — two areas, three axes each](concepts-methodology.md) · [Interactive coverage report and CLI](howto-coverage-html.md) · [Enterprise notes — shared client, retries, redaction, xdist](howto-enterprise.md)

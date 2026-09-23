@@ -54,6 +54,10 @@ nosetests.xml
 /allure-reports/
 /allure-results/
 
+# Run artifacts written into the working directory by the report builders
+# (partest/allure_graph.py, partest/zorro_report.py). Generated per run, never source.
+/api_call_counts.png
+
 # Local secrets & runtime logs (never ship)
 .env
 .env.*

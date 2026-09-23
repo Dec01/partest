@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import random
-from dataclasses import dataclass, field
-from typing import Sequence, Tuple
+from dataclasses import dataclass
+from typing import Optional, Tuple
+
+from partest.tls import is_certificate_error
 
 
 @dataclass
@@ -24,8 +26,19 @@ class RetryPolicy:
             return False
         return int(status) in self.retry_statuses
 
-    def should_retry_network(self, attempt: int) -> bool:
-        return self.retry_on_network and attempt < self.max_retries
+    def should_retry_network(
+        self, attempt: int, exc: Optional[BaseException] = None
+    ) -> bool:
+        """Whether to try again after a transport failure.
+
+        *exc* is optional for callers written before certificates were verified, but pass
+        it: a rejected certificate arrives as ``httpx.ConnectError`` — indistinguishable
+        here from a refused connection — and it is never transient. Retrying one costs the
+        backoff of every attempt on every test and still ends in the same failure.
+        """
+        if not (self.retry_on_network and attempt < self.max_retries):
+            return False
+        return not (exc is not None and is_certificate_error(exc))
 
     async def sleep(self, attempt: int) -> None:
         # attempt 0 = first retry after failure

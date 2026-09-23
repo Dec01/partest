@@ -2,7 +2,7 @@
 name: partest
 description: >
   Pointer to the canonical partest skills. Build and grow API/UI autotest suites with partest:
-  OpenAPI coverage, methodology (subtypes × test cases × steps), ApiClient, zorro reports.
+  OpenAPI coverage, methodology in two areas (API: subtypes × test cases × steps; UI: surfaces × checks × depth), ApiClient, zorro reports.
 ---
 
 # partest — pointer

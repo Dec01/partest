@@ -1,9 +1,9 @@
 """Unit tests for methodology modules (no live HTTP)."""
 
-from partest.methodology.classifier import classify_endpoint
-from partest.methodology.inference import infer_test_type
-from partest.methodology.matrix import p1_test_cases, p2_test_cases
-from partest.methodology.subtypes import MethodSubtype
+from partest.methodology.api.classifier import classify_endpoint
+from partest.methodology.api.inference import infer_test_type
+from partest.methodology.api.matrix import p1_test_cases, p2_test_cases
+from partest.methodology.api.subtypes import MethodSubtype
 from partest.test_types import TYPE_LABELS, B_PLUS_TYPES
 from partest.test_types import TypesTestCases as T
 from partest.test_types import canonicalize_type

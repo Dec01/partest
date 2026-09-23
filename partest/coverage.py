@@ -15,8 +15,8 @@ from partest.call_storage import (
     record_call,
     update_last_meta,
 )
-from partest.methodology.classifier import classify_endpoint
-from partest.methodology.inference import infer_test_type
+from partest.methodology.api.classifier import classify_endpoint
+from partest.methodology.api.inference import infer_test_type
 from partest.path_match import build_concrete_url, resolve_endpoint_template
 from partest.test_types import canonicalize_type
 
@@ -38,7 +38,7 @@ if SWAGGER_AVAILABLE and swagger_files:
 # here rather than being ignored: an override that silently does nothing looks exactly
 # like the misclassification it was written to fix.
 try:
-    from partest.methodology.overrides import load_from_confpartest
+    from partest.methodology.api.overrides import load_from_confpartest
 
     load_from_confpartest()
 except ImportError:
