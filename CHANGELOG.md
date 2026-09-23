@@ -1,5 +1,96 @@
 # Changelog
 
+## 2.1.0 — 2026-09-23
+
+**Support for pytest 8 ends with this release.** `PYSEC-2026-1845` is fixed in pytest 9.0.3
+and in no 8.x release — there is no version of pytest 8 without it, so there was nothing to
+keep supporting. Consumers still on pytest 8 stay on `partest 2.0.1`; moving to 2.1.0 means
+moving to pytest 9 in the same step.
+
+### Security
+
+- **The declared lower bounds allowed versions with known advisories.** The bounds, not the
+  development environment, are what a consumer gets: `pip install partest` resolves the
+  oldest version every line still permits. Audited as such — a file of `name==floor` fed to
+  `pip-audit -r` — the floors carried **24 findings across 5 packages**:
+
+  | package | was | now | why exactly this version |
+  |---|---|---|---|
+  | `pytest` | `>=8.0.0` | `>=9.0.3,<10` | PYSEC-2026-1845, fixed in 9.0.3; no 8.x fix exists |
+  | `pydantic` | `>=2.0.0` | `>=2.4.0` | PYSEC-2026-1812, fixed in 2.4.0 |
+  | `requests` | `>=2.31.0` | `>=2.33.0` | PYSEC-2026-1873 / -1872 / -2275; the last of them is fixed in 2.33.0 |
+  | `python-dotenv` | `>=1.0.0` | `>=1.2.2` | PYSEC-2026-2270, fixed in 1.2.2 |
+  | `Pillow` (extra `ui`) | `>=10.0.0` | `>=12.3.0` | 18 advisories; the last of them is fixed in 12.3.0 |
+  | `pytest-asyncio` | `>=0.23.7` | `>=1.3.0` | not security: every earlier release declares `pytest<9` |
+  | `pytest-xdist` (extra `dev`) | `>=3.0.0` | `>=3.0.2` | 3.0.0 was never released; the first 3.x on PyPI is 3.0.2 |
+
+  Each floor is the release that *fixed* the advisory, not the newest available: a package
+  must not demand more than it needs.
+
+- **The audit had never looked at `python-dotenv` or `Pillow` at all.** `pip-audit` reads
+  dependencies from `requirements.txt`, and neither was listed there — so the gate reported
+  `pip-audit PASSED` while two of the seven bounds above were outside its scope entirely.
+
+### Changed
+
+- **`pytest` now has an upper bound, `<10`.** `partest` registers as a `pytest11` plugin on
+  six hooks, so it loads in every session of a consumer — including runs that never touch
+  partest — and a hook signature a future major drops fails at plugin registration, before
+  collection, taking the whole session with it. `<10` states what was run rather than
+  promising a compatibility nobody checked. It is a debt, not a wall: the cap is lifted by a
+  patch release as soon as the suite passes on the next major. A cap left to rot is how the
+  consumer's environment was held on pytest 8 by two other plugins.
+
+- **`requirements.txt` is now the audit target and nothing else**, and it matches `setup.py`
+  line for line: `install_requires` plus the consumer-facing extras `ui` and `gen`. It used
+  to be a list of pins that described nothing — 21 names the package never declared
+  (transitive dependencies plus `ruff` and `pytest-repeat`), the abandoned `py==1.11.0`, and
+  pins that had drifted from the installed environment. The `dev` extra stays out on purpose:
+  the audit answers "is what ships safe", not "what do we develop with". The one place that
+  still installed from it — the `Dockerfile` — now installs `-e ".[dev]"`, which is what it
+  needed all along: the old line brought in neither the package nor the plugins `pytest.ini`
+  demands.
+
+- **`tests/test_packaging.py` keeps the two files from drifting apart again.** Names *and*
+  bounds are compared, so a floor raised in one file and not the other fails the suite; a new
+  extra has to be classified as consumer-facing or as tooling before the suite passes; and
+  the pytest the suite actually runs on has to fall inside the declared window, which is what
+  stops the upper bound from being widened without a run behind it.
+
+### Added
+
+- **Python 3.14 is supported, and the claim comes from a run.** The suite was installed into
+  a fresh 3.14 environment and executed there with the same result as on 3.10 — 390 passed,
+  2 skipped as this release went out — before the classifier was written. Every dependency resolves: the compiled ones
+  ship `cp314` wheels, the rest carry no ABI tag. `python_requires` stays `>=3.10`; this
+  release adds a version, it drops none.
+
+- **`tests/test_packaging.py` — the configuration may not demand what the installation does
+  not provide.** A new guard reads `pytest.ini` and `setup.py` side by side, so a setting that
+  needs a plugin fails the suite until an extra installs that plugin. It also compiles the
+  whole package looking for invalid escape sequences, and checks that the interpreter the
+  suite just passed on is among the declared classifiers.
+
+### Fixed
+
+- **`SyntaxWarning: invalid escape sequence '\>'` on every import.** `partest/utils/checking.py`
+  wrote `<\>` inside a plain string twice. On Python 3.12+ it warns, in the consumer's own
+  output, for a package they merely installed; in a coming version it becomes a `SyntaxError`.
+  The backslash is now escaped and the printed text is byte-for-byte what it was — the report
+  it appears in is read by people.
+
+- **`pip install -e '.[dev]'` produced an environment that could not run a single test.**
+  `pytest.ini` puts `--reruns=2` into `addopts`, but `pytest-rerunfailures` was declared
+  nowhere, and pytest rejects an unknown option while parsing arguments — before collection.
+  The failure named the argument and no plugin:
+
+  ```
+  error: unrecognized arguments: --reruns=2
+  ```
+
+  The plugin is now in the `dev` extra, and the new packaging guard keeps `pytest.ini` and
+  `setup.py` from drifting apart again.
+
 ## 2.0.1 — 2026-09-23
 
 ### Fixed

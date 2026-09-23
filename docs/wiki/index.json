@@ -114,7 +114,7 @@
           "text": "confpartest.py — the same decision, in the project instead of the environment"
         }
       ],
-      "chars": 7051
+      "chars": 7146
     },
     {
       "slug": "components/project-gen",
@@ -279,14 +279,14 @@
           "text": "Axis C — depth"
         }
       ],
-      "chars": 10686
+      "chars": 10966
     },
     {
       "slug": "decisions/distribution",
       "path": "docs/wiki/decisions/distribution.md",
       "title": "ADR — как распространяется partest",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-23",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -483,7 +483,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-23",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -718,7 +718,9 @@
         "partest/tls.py",
         "partest/pytest_plugin.py",
         "partest/methodology/__init__.py",
+        "partest/methodology/_moved.py",
         "partest/methodology/api/__init__.py",
+        "partest/methodology/api/overrides.py",
         "partest/methodology/ui/__init__.py"
       ],
       "headings": [
@@ -732,11 +734,15 @@
         },
         {
           "level": 3,
-          "text": "The methodology submodules moved — a deep import has to be edited"
+          "text": "The methodology submodules moved — a deep import has to be edited, but not today"
         },
         {
-          "level": 1,
-          "text": "a deep import is a one-line mechanical fix"
+          "level": 4,
+          "text": "Upgrade in two steps, in this order"
+        },
+        {
+          "level": 4,
+          "text": "`active_overrides` has a stable home now"
         },
         {
           "level": 3,
@@ -851,7 +857,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 19374
+      "chars": 21513
     },
     {
       "slug": "howto/permissions",
@@ -1085,7 +1091,7 @@
       "path": "docs/wiki/howto/release.md",
       "title": "Release checklist",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-23",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1604,11 +1610,11 @@
         },
         {
           "level": 3,
-          "text": "A6. `requirements.txt` не читает ни один прогон"
+          "text": "A6. `requirements.txt` не читает ни один прогон · ✅ решено в 2.1.0"
         },
         {
           "level": 3,
-          "text": "A7. `py==1.11.0` в списке разработки"
+          "text": "A7. `py==1.11.0` в списке разработки · ✅ снят в 2.1.0"
         },
         {
           "level": 3,
@@ -1683,7 +1689,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 13439
+      "chars": 14330
     },
     {
       "slug": "status",
@@ -1751,7 +1757,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 11748
+      "chars": 13616
     },
     {
       "slug": "WIKI",
@@ -1879,6 +1885,9 @@
       "concepts/methodology",
       "howto/migration"
     ],
+    "partest/methodology/_moved.py": [
+      "howto/migration"
+    ],
     "partest/methodology/api/__init__.py": [
       "howto/migration"
     ],
@@ -1893,6 +1902,9 @@
     "partest/methodology/api/matrix.py": [
       "concepts/methodology",
       "howto/layers"
+    ],
+    "partest/methodology/api/overrides.py": [
+      "howto/migration"
     ],
     "partest/methodology/api/steps.py": [
       "concepts/methodology"
