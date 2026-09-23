@@ -1,7 +1,7 @@
 ---
 title: Migration between partest versions
 status: current
-verified: 2026-09-13
+verified: 2026-09-23
 sources: [partest/test_types.py, partest/__init__.py, partest/conf.py, partest/tls.py, partest/pytest_plugin.py, partest/methodology/__init__.py, partest/methodology/api/__init__.py, partest/methodology/ui/__init__.py]
 audience: user
 ships_in_wheel: true
@@ -117,14 +117,35 @@ PARTEST_TLS_VERIFY=/etc/ssl/corp-ca.pem
 ```
 
 `verify=` on a call still wins over both and still accepts what httpx accepts (`True`, `False`,
-or a CA bundle path); the only change is what happens when you pass nothing. Whenever
-verification ends up off, the run emits one `partest.tls.TLSVerificationDisabled` warning.
-Silence it deliberately if you mean it:
+a CA bundle path, or a ready `ssl.SSLContext`); the only change is what happens when you pass
+nothing. Whenever verification ends up off, the run emits one
+`partest.tls.TLSVerificationDisabled` warning and the report says `meta.tlsVerified: false`.
+A context you built yourself with `verify_mode = ssl.CERT_NONE` counts as off, because it is:
+it accepts any certificate. Silence the warning deliberately if you mean it:
 
 ```ini
 # pytest.ini
 filterwarnings = ignore::partest.tls.TLSVerificationDisabled
 ```
+
+A rejected certificate is not retried — nothing the next attempt does makes it valid. A TLS
+connection that simply dropped (`SSLEOFError`, `SSLZeroReturnError`, `SSLSyscallError`) is a
+different thing and is still retried as the transient failure it is.
+
+### A broken `confpartest.py` is now an error instead of silence
+
+Every switch that can live in the project file is read through one function,
+`partest.conf.conf_attr`, and it separates two cases the library used to conflate:
+
+- **no `confpartest` at all** — normal, and silent: you get the library default;
+- **a `confpartest` that exists but raises while importing** — `ConfpartestError`, naming the
+  switch that was being read and the original exception.
+
+Previously the `ImportError` was swallowed, which is how `tls_verify = False` ends up unread
+while the run warns that verification is *on*. The cost of the new behaviour is real and it is
+deliberate: if your `confpartest.py` cannot be imported, you now find out on every read of a
+switch — including in the `ApiClient` constructor — rather than in whichever test first depends
+on a setting. Run `python -c "import confpartest"` from the suite root if this fires.
 
 ### `PARTEST_PYTEST_PLUGIN` no longer switches off the run metadata
 

@@ -1,7 +1,7 @@
 ---
 title: Journeys, invariants, integrations, e2e
 status: current
-verified: 2026-09-04
+verified: 2026-09-23
 sources: [partest/sideeffects.py, partest/test_types.py, partest/methodology/api/matrix.py]
 audience: user
 ships_in_wheel: true

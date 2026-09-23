@@ -6,7 +6,7 @@
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-23",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -68,7 +68,7 @@
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-09-13",
+      "verified": "2026-09-23",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -114,7 +114,7 @@
           "text": "confpartest.py — the same decision, in the project instead of the environment"
         }
       ],
-      "chars": 6690
+      "chars": 7051
     },
     {
       "slug": "components/project-gen",
@@ -205,7 +205,7 @@
       "path": "docs/wiki/concepts/methodology.md",
       "title": "Coverage methodology — two areas, three axes each",
       "status": "current",
-      "verified": "2026-09-13",
+      "verified": "2026-09-23",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -279,7 +279,7 @@
           "text": "Axis C — depth"
         }
       ],
-      "chars": 10485
+      "chars": 10686
     },
     {
       "slug": "decisions/distribution",
@@ -413,7 +413,7 @@
       "path": "docs/wiki/decisions/explicit-type.md",
       "title": "ADR — явный type= вместо автоинференса",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-23",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -643,7 +643,7 @@
       "path": "docs/wiki/howto/layers.md",
       "title": "Journeys, invariants, integrations, e2e",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-23",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -708,7 +708,7 @@
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
       "status": "current",
-      "verified": "2026-09-13",
+      "verified": "2026-09-23",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -757,6 +757,10 @@
         {
           "level": 1,
           "text": "pytest.ini"
+        },
+        {
+          "level": 3,
+          "text": "A broken `confpartest.py` is now an error instead of silence"
         },
         {
           "level": 3,
@@ -847,7 +851,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 17992
+      "chars": 19374
     },
     {
       "slug": "howto/permissions",
@@ -1249,7 +1253,7 @@
       "path": "docs/wiki/howto/ui.md",
       "title": "UI quickstart (partest[ui])",
       "status": "current",
-      "verified": "2026-09-13",
+      "verified": "2026-09-23",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1344,7 +1348,7 @@
           "text": "HTTPS in baseline capture"
         }
       ],
-      "chars": 7007
+      "chars": 7694
     },
     {
       "slug": "howto/upload",
@@ -1455,6 +1459,10 @@
         },
         {
           "level": 2,
+          "text": "2026-09-23 · update · сверка перед 2.0.0 и даты `verified`"
+        },
+        {
+          "level": 2,
           "text": "2026-09-13 · update · методология стала двумя областями"
         },
         {
@@ -1546,7 +1554,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 25492
+      "chars": 27023
     },
     {
       "slug": "proposals",
@@ -1682,7 +1690,7 @@
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-09-13",
+      "verified": "2026-09-23",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1743,14 +1751,14 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 11464
+      "chars": 11748
     },
     {
       "slug": "WIKI",
       "path": "docs/wiki/WIKI.md",
       "title": "Схема документации",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-23",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [],
@@ -1792,7 +1800,7 @@
           "text": "Инварианты правки"
         }
       ],
-      "chars": 4958
+      "chars": 5196
     }
   ],
   "raw": [],

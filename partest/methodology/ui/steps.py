@@ -18,6 +18,7 @@ and fails on what no user would notice (a font hint).
 from enum import Enum
 from typing import Dict, List
 
+from partest.methodology.ui.checks import _canonical
 from partest.methodology.ui.checks import UiTestCases as T
 
 
@@ -64,7 +65,7 @@ _MINIMUM_DEPTH: Dict[str, UiStep] = {
 
 def minimum_depth(check: str) -> UiStep:
     """Shallowest step at which *check* counts as covered; raises on an unknown check."""
-    key = (check or "").strip().lower().replace("-", "_")
+    key = _canonical(check)
     if key not in _MINIMUM_DEPTH:
         raise ValueError(
             f"unknown UI check {check!r}; expected one of {sorted(_MINIMUM_DEPTH)}"

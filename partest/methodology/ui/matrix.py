@@ -23,7 +23,7 @@ members would only make a report pick one at random.
 from typing import Dict, List
 
 from partest.methodology.api.matrix import CoveragePriority
-from partest.methodology.ui.checks import UI_CHECK_SET, UI_CORE_CHECKS
+from partest.methodology.ui.checks import UI_CHECK_SET, UI_CORE_CHECKS, _canonical
 from partest.methodology.ui.checks import UiTestCases as T
 from partest.methodology.ui.surfaces import SurfaceType
 
@@ -153,7 +153,7 @@ def priority_of(surface: SurfaceType, check: str) -> CoveragePriority:
 
     A typo must not answer ``NA``: that reads as "the methodology does not ask for it".
     """
-    key = (check or "").strip().lower().replace("-", "_")
+    key = _canonical(check)
     if key not in UI_CHECK_SET:
         raise ValueError(
             f"unknown UI check {check!r}; expected one of {sorted(UI_CHECK_SET)}"

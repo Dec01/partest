@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — next release is 2.0.0
+## 2.0.0 — 2026-09-23
 
 Three breaking changes, any one of which alone would make this a major release. The scaffold
 generator left this package — see `Removed`. The methodology submodules moved under
@@ -8,9 +8,6 @@ generator left this package — see `Removed`. The methodology submodules moved 
 new import paths sit side by side. And **TLS certificates are now verified by default**, which is
 the one that will reach a running suite first: also `Breaking`. If you are here because a prior
 green run started failing on certificates, that section is the answer.
-
-`__version__` reads 1.8.1: the patch below was cut from the 1.8.0 line and merged here, so
-this branch is that release plus everything still waiting for the major.
 
 ### Removed
 
@@ -27,6 +24,14 @@ this branch is that release plus everything still waiting for the major.
   code generator the *names and locations of the files it writes* are the public API. The
   reasoning and the rejected alternatives are in `docs/wiki/decisions/separate-package.md`
   in that repository.
+
+- **`setup_project.py` from the repository root.** It imported
+  `partest.project_gen.new_parparser` — a module that does not exist anywhere in the family:
+  during the extraction it became `openapi_load.py` in `partest-gen`. The script therefore
+  could not run at all, and it sat at the root of a public repository looking like a
+  supported entry point. The scaffold has its own command: `pip install partest-gen`, then
+  `partest-gen`. Two reviewers found this independently, which is what a dead file in a
+  visible place earns.
 
 ### Deprecated
 
@@ -62,6 +67,11 @@ this branch is that release plus everything still waiting for the major.
   instead of answering `NA`, because `NA` reads as "the methodology does not ask for this" and a typo
   must not be able to say that.
 
+  `CoveragePriority` is re-exported from `partest.methodology.ui` as well: it is what
+  `priority_of` returns and what `required_checks` takes, and a consumer of this area
+  should not have to import from the `api` one to name a value this one handed it. It is
+  the same object in both places, deliberately — P1 means "implement first" in both areas.
+
 - **`partest[gen]` extra**, so `pip install 'partest[gen]'` still gets you both packages.
 - `tests/test_project_gen_bridge.py`: that the bridge warns, that submodules resolve to the
   same objects, that the error names the fix when the distribution is missing, and that this
@@ -70,14 +80,30 @@ this branch is that release plus everything still waiting for the major.
   `partest.openapi.resolve_swagger`) and a `timeout=` keyword on
   `OpenAPIParser.load_swagger_yaml` and `SwaggerSettings`. Fetching a specification over
   HTTP had no timeout at all, so an unreachable stand could hold the import of every suite
-  that loads a spec. The keyword is optional and defaults to the constant, so nothing that
-  worked before changes. It is a per-operation limit, not a deadline for the whole load: a
-  redirect chain gets it again on each hop, and reading the body and parsing the YAML are
-  outside it.
-- **`pytest-xdist` in `extras_require["dev"]`.** The package still treats xdist as an
-  optional integration — the plugin detects a parallel run through
+  that loads a spec. The signature is unchanged and the keyword is optional — **but the
+  behaviour is not the same**, and that is the point of the change: a fetch that used to
+  wait forever now gives up after 60 seconds. A specification served by a stand that takes
+  longer than that has to say so explicitly (`timeout=`), and a suite that hung during
+  collection now fails there instead. It is a per-operation limit, not a deadline for the
+  whole load: a redirect chain gets it again on each hop, and reading the body and parsing
+  the YAML are outside it.
+- **`partest.flags`, a public module for reading switches.** `coerce_bool` (a string to
+  `True`/`False`/`None`), `env_bool` (the same for an environment variable) and the two
+  word lists behind them, `TRUE_WORDS` and `FALSE_WORDS`. Every on/off setting
+  in the package — `PARTEST_TLS_VERIFY`, `PARTEST_PYTEST_PLUGIN`, `PARTEST_RUN_METADATA` —
+  is parsed here, so `off`, `no`, `disabled` and `0` mean the same thing wherever a
+  consumer writes them. It is public because a suite reading its own flags should not have
+  to invent a second spelling table.
+- **`partest.conf.conf_attr`**, the single reader for a switch that may be written in the
+  consumer's `confpartest.py`. Returns a default when there is no `confpartest` at all;
+  see `Changed` for the case where there is one and it does not import.
+- **`pytest-xdist` and `partest-gen` in `extras_require["dev"]`.** The package still treats
+  xdist as an optional integration — the plugin detects a parallel run through
   `hasattr(config, "workerinput")` and never imports it — but the test suite runs a real
   `-n 2` session, and that case now skips instead of erroring when xdist is absent.
+  `partest-gen` is there for the bridge cases below: without it installed they skip, and
+  the deprecation bridge that is this release's compatibility promise would go through a
+  green gate unexecuted.
 
 ### Changed
 
@@ -93,6 +119,23 @@ this branch is that release plus everything still waiting for the major.
   narrower than "not authenticated", re-check it. `access_cases` is unaffected: its `unauth`
   cell sends no `Authorization` header at all.
 
+- **A `confpartest.py` that exists but does not import is now an error, not silence.**
+  Every module that read a switch used to do a bare `import confpartest` and swallow
+  `ImportError`. That conflates two different situations: *there is no project file* —
+  legitimate, and the library's defaults are the right answer — and *there is one, the
+  consumer wrote it, and it is broken*. `partest.conf.conf_attr` now tells them apart: no
+  `confpartest` on the path returns the default as before, while a `confpartest` that is
+  found and raises while importing raises `ConfpartestError`, naming the switch that was
+  being read and the original exception.
+
+  **This is a deliberate trade and it is not a cheap one.** A project whose `confpartest.py`
+  is broken now fails on every read of a switch, including the `ApiClient` constructor, and
+  it fails at import time rather than in one test. Swallowing was worse: it is exactly how
+  `tls_verify = False` ends up unread while the run warns that verification is *on*, and how
+  a project with a non-standard layout gets the library's defaults back with no hint why. A
+  configuration file that cannot be imported is not a configuration that means "use the
+  defaults".
+
 - **Dependency floors raised in `requirements.txt`** after `pip-audit` could finally resolve
   the file: `idna` 3.15, `requests` 2.33.0, `urllib3` 2.7.0, `pytest` 9.0.3 (11 advisories in
   4 packages). `install_requires` still declares `pytest>=8.0.0`; the suite was verified
@@ -100,6 +143,31 @@ this branch is that release plus everything still waiting for the major.
   `requirements.txt`: nothing in the repository imports it, it was never in `install_requires`,
   and it was the requirement that made the file unresolvable — which is why the audit had been
   answering "could not look" instead of reporting these.
+
+- **The pytest plugin's run metadata no longer depends on the Allure switch.**
+  `pytest_plugin = False` / `PARTEST_PYTEST_PLUGIN=0` turned off four hooks at once: two that
+  write into Allure, and two that record which tests the run actually selected. The flag was
+  introduced against double Allure titles and attachments — and the documentation only ever
+  gave that reason — but consumers who followed the advice silently lost `meta.selection`.
+
+  That loss is worst exactly where the signal matters: a marker-filtered run over a full
+  suite still touches every endpoint, so the unseen ratio stays near zero and nothing in the
+  numbers reveals that half the suite did not run. Comparing such a run against a full one
+  then reports every dropped cell as a regression.
+
+  Recording the selection attaches nothing and prints nothing, so it has nothing to collide
+  with. It is now behind its own switch, on by default: `PARTEST_RUN_METADATA=0` or
+  `run_metadata = False` in `confpartest`. `plugin_enabled()` keeps its meaning — the Allure
+  half — and its documentation now says so.
+
+  **The signal now survives `-n`, which is where it was needed most.** Under `pytest-xdist`
+  the controller does not collect, so neither hook fires there, and the shard a worker wrote
+  carried no run metadata at all: a filtered parallel run produced correct counts and no
+  record that it was filtered. The selection now travels with the shard, and the deselected
+  tests travel as node ids rather than as a number — workers deselect *the same* tests, so
+  counts cannot be summed while sets can be merged. Separate deselection rounds still add up,
+  and the state is cleared at session start, so a second `pytest.main()` in one process no
+  longer inherits the first one's filter.
 
 ### Note for the methodology
 
@@ -136,7 +204,8 @@ to be raised in the same wave, and it must not be published before this release 
   same change, because with an older partest the new paths do not exist at all.
 
 - **TLS certificates are verified by default.** The HTTP clients — `ApiClient`, `SecHttp`,
-  `TokenManager`, `TrackingApiClient` — and the browser context of `capture_baselines` used
+  `TokenManager`, `TrackingApiClient` — `CreatedRegistry.cleanup`, which deletes tracked
+  test data over its own client, and the browser context of `capture_baselines` used
   to default to `verify=False`. A consumer who wrote `ApiClient(domain)` ran the whole suite
   without certificate validation and had no way of knowing: nothing in the signature, the
   output or the report said so.
@@ -156,6 +225,10 @@ to be raised in the same wave, and it must not be published before this release 
   The error a rejected certificate produces now names the switch, the release and the host
   instead of arriving as "Network/request error", and it is no longer retried: a certificate
   failure is not transient, and retrying multiplied one wrong setting across every test.
+  That applies to a **rejected certificate** and nothing else — a TLS connection that drops
+  mid-handshake (`ssl.SSLEOFError`, `ssl.SSLZeroReturnError`, `ssl.SSLSyscallError`) is an
+  ordinary transient failure and is still retried, and it is not answered with advice to
+  switch verification off.
 
   **This is breaking.** A stand with a self-signed certificate will now fail with a TLS error
   where it used to pass. That is deliberate — the point is that the choice becomes visible —
@@ -174,7 +247,11 @@ to be raised in the same wave, and it must not be published before this release 
   category. An explicit `verify=False` at a call site is honoured and warns too: the warning
   is about the run being unverified, not about how it got that way. A run that went out
   unverified also says so in the report, as `meta.tlsVerified`: a warning does not survive
-  the session, an artefact does.
+  the session, an artefact does. `verify=False` is not the only way to get there — an
+  `ssl.SSLContext` with `verify_mode = ssl.CERT_NONE` accepts any certificate just as
+  thoroughly, and it warns and is recorded the same way. A context that only turns
+  `check_hostname` off is weakened, not off, and is left alone: the field is worth having
+  only while it means one thing.
 
   `verify=` now accepts a CA bundle path, so **`client.verify` is no longer always a `bool`**
   — an assertion like `client.verify is False` has to change. A path is converted to an
@@ -182,43 +259,6 @@ to be raised in the same wave, and it must not be published before this release 
   the `requests` road the path is passed through. The browser context takes neither: Playwright
   offers only on/off and checks the OS trust store, so a bundle leaves verification on there
   and says that it was not applied.
-
-### Changed — coverage metadata
-
-- **The pytest plugin's run metadata no longer depends on the Allure switch.**
-  `pytest_plugin = False` / `PARTEST_PYTEST_PLUGIN=0` turned off four hooks at once: two that
-  write into Allure, and two that record which tests the run actually selected. The flag was
-  introduced against double Allure titles and attachments — and the documentation only ever
-  gave that reason — but consumers who followed the advice silently lost `meta.selection`.
-
-  That loss is worst exactly where the signal matters: a marker-filtered run over a full
-  suite still touches every endpoint, so the unseen ratio stays near zero and nothing in the
-  numbers reveals that half the suite did not run. Comparing such a run against a full one
-  then reports every dropped cell as a regression.
-
-  Recording the selection attaches nothing and prints nothing, so it has nothing to collide
-  with. It is now behind its own switch, on by default: `PARTEST_RUN_METADATA=0` or
-  `run_metadata = False` in `confpartest`. `plugin_enabled()` keeps its meaning — the Allure
-  half — and its documentation now says so.
-
-  **The signal now survives `-n`, which is where it was needed most.** Under `pytest-xdist`
-  the controller does not collect, so neither hook fires there, and the shard a worker wrote
-  carried no run metadata at all: a filtered parallel run produced correct counts and no
-  record that it was filtered. The selection now travels with the shard, and the deselected
-  tests travel as node ids rather than as a number — workers deselect *the same* tests, so
-  counts cannot be summed while sets can be merged. Separate deselection rounds still add up,
-  and the state is cleared at session start, so a second `pytest.main()` in one process no
-  longer inherits the first one's filter.
-
-### Removed
-
-- **`setup_project.py` from the repository root.** It imported
-  `partest.project_gen.new_parparser` — a module that does not exist anywhere in the family:
-  during the extraction it became `openapi_load.py` in `partest-gen`. The script therefore
-  could not run at all, and it sat at the root of a public repository looking like a
-  supported entry point. The scaffold has its own command: `pip install partest-gen`, then
-  `partest-gen`. Two reviewers found this independently, which is what a dead file in a
-  visible place earns.
 
 ### Fixed
 

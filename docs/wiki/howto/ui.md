@@ -1,7 +1,7 @@
 ---
 title: UI quickstart (partest[ui])
 status: current
-verified: 2026-09-13
+verified: 2026-09-23
 sources: [partest/methodology/ui/__init__.py, partest/ui/__init__.py, partest/ui/base_page.py, partest/ui/page_monitor.py, partest/ui/visual.py, partest/ui/capture_baselines.py, partest/ui/hooks.py, partest/tls.py]
 audience: user
 ships_in_wheel: true
@@ -210,6 +210,15 @@ API dual-hook opt-out still: `PARTEST_PYTEST_PLUGIN=0` — that flag covers the 
 
 `capture_baselines` used to pass `ignore_https_errors=True` unconditionally. It now follows the
 same switch as the API clients (`partest/tls.py`): the browser context refuses a bad certificate
-unless `PARTEST_TLS_VERIFY=0` / `tls_verify = False` says otherwise, and
-`ignore_https_errors=True` on the call still wins. A frontend on a self-signed dev certificate
-needs that one line, or capture fails on `page.goto`.
+unless `PARTEST_TLS_VERIFY=0` says otherwise, and `ignore_https_errors=True` on the call still
+wins. A frontend on a self-signed dev certificate needs that one line, or capture fails on
+`page.goto`. Whenever it ends up off, the capture warns once
+(`partest.tls.TLSVerificationDisabled`) — a UI run used to be the one road where an unverified
+session announced nothing.
+
+**On this road the environment variable is the only switch: `tls_verify = False` in
+`confpartest.py` is not read here.** That is the isolation guarantee above, not an oversight —
+a UI job must not import `confpartest` at all (`tests/test_ui_isolation.py`), so the browser
+side reads the environment and stops. A CA bundle path is refused with its own warning as
+well: a Playwright context has no CA option and trusts the OS store, so verification stays on
+and says the bundle was not applied. Install the CA into the system store instead.

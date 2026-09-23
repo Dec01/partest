@@ -163,6 +163,27 @@ def _record_unverified() -> None:
         pass
 
 
+def _verification_is_off(value: VerifySetting) -> bool:
+    """Whether *value* means "this run does not check certificates".
+
+    ``False`` is the obvious spelling, and it is not the only one: :data:`VerifySetting`
+    publicly accepts an :class:`ssl.SSLContext`, and a context built with
+    ``verify_mode = ssl.CERT_NONE`` accepts any certificate exactly as ``verify=False``
+    does. Reading only the boolean let such a context travel through unwarned and
+    unrecorded, and the report then said ``meta.tlsVerified: true`` about a run that
+    verified nothing — which is the one thing that field exists to prevent.
+
+    ``check_hostname`` is deliberately not consulted: a context that still builds the
+    chain to a trusted root is weakened, not off, and calling it off would make the flag
+    lie in the other direction.
+    """
+    if value is False:
+        return True
+    if isinstance(value, ssl.SSLContext):
+        return value.verify_mode == ssl.CERT_NONE
+    return False
+
+
 def resolve_verify(
     verify: Optional[VerifySetting] = None,
     *,
@@ -172,14 +193,15 @@ def resolve_verify(
 
     ``None`` means "not specified" and falls back to :func:`default_verify`. An explicit
     ``verify=False`` is honoured — and still warns, because the point of the warning is
-    that the run is unverified, not how it got that way. ``env_only`` is passed through
-    for the UI road; see :func:`default_verify`.
+    that the run is unverified, not how it got that way. A context with
+    ``verify_mode = ssl.CERT_NONE`` is the same choice spelled differently and is treated
+    the same. ``env_only`` is passed through for the UI road; see :func:`default_verify`.
     """
     if verify is None:
         value: VerifySetting = default_verify(env_only=env_only)
     else:
         value = _coerce(verify, source="verify=")  # type: ignore[assignment]
-    if value is False:
+    if _verification_is_off(value):
         _warn_once()
         _record_unverified()
     return value
@@ -222,17 +244,29 @@ def is_certificate_error(exc: BaseException) -> bool:
     failure is suite-wide, so retrying multiplies one wrong setting by the retry count
     over every test.
 
+    Only a **certificate** failure qualifies. ``ssl.SSLEOFError``,
+    ``ssl.SSLZeroReturnError`` and ``ssl.SSLSyscallError`` are subclasses of
+    ``ssl.SSLError`` and say nothing about a certificate — they are a connection that
+    dropped, and a connection that dropped is exactly what a retry is for. Matching the
+    base class stopped them from being retried and answered a dropped connection with a
+    message advising the consumer to turn certificate verification off.
+
     The chain is walked through both ``__cause__`` and ``__context__``, and
     ``requests``/``urllib3`` are matched by class name: they define their own ``SSLError``
-    and this module does not import either.
+    and this module does not import either. That branch skips anything from ``ssl``
+    itself — there the class hierarchy is the better evidence, and a bare
+    ``ssl.SSLError`` would otherwise come back through the name and undo the narrowing.
     """
     seen: set[int] = set()
     current: Optional[BaseException] = exc
     while current is not None and id(current) not in seen:
         seen.add(id(current))
-        if isinstance(current, ssl.SSLError):
+        if isinstance(current, ssl.SSLCertVerificationError):
             return True
-        if type(current).__name__ in {"SSLError", "SSLCertVerificationError"}:
+        if not isinstance(current, ssl.SSLError) and type(current).__name__ in {
+            "SSLError",
+            "SSLCertVerificationError",
+        }:
             return True
         current = current.__cause__ or current.__context__
     return False

@@ -184,8 +184,10 @@ same surface, so the missing family was the defect.
 
 ## Axis A × B — the UI matrix
 
-`partest/methodology/ui/matrix.py`, the same `CoveragePriority` values as the API side. The rule for
-filling it is the opposite of completeness:
+`partest/methodology/ui/matrix.py`, the same `CoveragePriority` as the API side — the same object,
+re-exported from `partest.methodology.ui` as well, because P1 means "implement first" in both areas
+and two enums with identical members would only make a report pick one at random. The rule for
+filling this table is the opposite of completeness:
 
 > a cell nobody can justify is `NA`, not "probably P2".
 

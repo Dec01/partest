@@ -21,7 +21,6 @@ prune .grok
 exclude README.md
 exclude conftest.py
 exclude confpartest.py
-exclude setup_project.py
 exclude pytest.ini
 exclude Dockerfile
 exclude requirements.txt
