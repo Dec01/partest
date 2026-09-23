@@ -12,7 +12,7 @@
       "sources": [
         "partest/tracking.py",
         "partest/coverage.py",
-        "partest/methodology/classifier.py",
+        "partest/methodology/api/classifier.py",
         "partest/payloads.py",
         "partest/call_storage.py",
         "partest/reports/payload.py",
@@ -61,17 +61,18 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7500
+      "chars": 7504
     },
     {
       "slug": "components/overview",
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-13",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
+        "partest/methodology/__init__.py",
         "partest/__init__.py",
         "partest/client.py",
         "partest/coverage.py",
@@ -79,7 +80,9 @@
         "partest/reporting/__init__.py",
         "partest/ui/__init__.py",
         "partest/security/__init__.py",
-        "partest/auth/__init__.py"
+        "partest/auth/__init__.py",
+        "partest/tls.py",
+        "partest/pytest_plugin.py"
       ],
       "headings": [
         {
@@ -101,9 +104,17 @@
         {
           "level": 2,
           "text": "pytest plugin"
+        },
+        {
+          "level": 2,
+          "text": "TLS verification"
+        },
+        {
+          "level": 1,
+          "text": "confpartest.py — the same decision, in the project instead of the environment"
         }
       ],
-      "chars": 4191
+      "chars": 6690
     },
     {
       "slug": "components/project-gen",
@@ -143,14 +154,14 @@
           "text": "Если задача про генератор"
         }
       ],
-      "chars": 3012
+      "chars": 3016
     },
     {
       "slug": "concepts/coverage-honesty",
       "path": "docs/wiki/concepts/coverage-honesty.md",
       "title": "Coverage honesty — when the number lies",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-08",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -187,28 +198,37 @@
           "text": "What to trust"
         }
       ],
-      "chars": 5878
+      "chars": 6269
     },
     {
       "slug": "concepts/methodology",
       "path": "docs/wiki/concepts/methodology.md",
-      "title": "Coverage methodology — three axes",
+      "title": "Coverage methodology — two areas, three axes each",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-13",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
-        "partest/methodology/subtypes.py",
-        "partest/methodology/matrix.py",
-        "partest/methodology/steps.py",
-        "partest/methodology/inference.py",
-        "partest/methodology/classifier.py",
-        "partest/test_types.py"
+        "partest/methodology/__init__.py",
+        "partest/methodology/api/subtypes.py",
+        "partest/methodology/api/matrix.py",
+        "partest/methodology/api/steps.py",
+        "partest/methodology/api/inference.py",
+        "partest/methodology/api/classifier.py",
+        "partest/test_types.py",
+        "partest/methodology/ui/surfaces.py",
+        "partest/methodology/ui/checks.py",
+        "partest/methodology/ui/matrix.py",
+        "partest/methodology/ui/steps.py"
       ],
       "headings": [
         {
           "level": 1,
           "text": "Coverage methodology"
+        },
+        {
+          "level": 1,
+          "text": "API methodology"
         },
         {
           "level": 2,
@@ -237,9 +257,29 @@
         {
           "level": 2,
           "text": "What \"100% covered\" means here"
+        },
+        {
+          "level": 1,
+          "text": "UI methodology"
+        },
+        {
+          "level": 2,
+          "text": "Axis A — surface type"
+        },
+        {
+          "level": 2,
+          "text": "Axis B — check families"
+        },
+        {
+          "level": 2,
+          "text": "Axis A × B — the UI matrix"
+        },
+        {
+          "level": 2,
+          "text": "Axis C — depth"
         }
       ],
-      "chars": 4546
+      "chars": 10485
     },
     {
       "slug": "decisions/distribution",
@@ -377,7 +417,7 @@
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
-        "partest/methodology/inference.py",
+        "partest/methodology/api/inference.py",
         "partest/test_types.py",
         "partest/client.py"
       ],
@@ -399,7 +439,7 @@
           "text": "Когда пересмотреть"
         }
       ],
-      "chars": 1364
+      "chars": 1368
     },
     {
       "slug": "decisions/no-domain",
@@ -482,7 +522,7 @@
           "text": "Where things are decided"
         }
       ],
-      "chars": 3625
+      "chars": 3633
     },
     {
       "slug": "howto/coverage-html",
@@ -540,14 +580,15 @@
       "path": "docs/wiki/howto/enterprise.md",
       "title": "Enterprise notes — shared client, retries, redaction, xdist",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-08",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
         "partest/http_retry.py",
         "partest/redact.py",
         "partest/call_storage.py",
-        "partest/client.py"
+        "partest/client.py",
+        "partest/tls.py"
       ],
       "headings": [
         {
@@ -595,7 +636,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 3418
+      "chars": 4151
     },
     {
       "slug": "howto/layers",
@@ -608,7 +649,7 @@
       "sources": [
         "partest/sideeffects.py",
         "partest/test_types.py",
-        "partest/methodology/matrix.py"
+        "partest/methodology/api/matrix.py"
       ],
       "headings": [
         {
@@ -667,18 +708,59 @@
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-13",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
         "partest/test_types.py",
         "partest/__init__.py",
-        "partest/conf.py"
+        "partest/conf.py",
+        "partest/tls.py",
+        "partest/pytest_plugin.py",
+        "partest/methodology/__init__.py",
+        "partest/methodology/api/__init__.py",
+        "partest/methodology/ui/__init__.py"
       ],
       "headings": [
         {
           "level": 1,
           "text": "Migration guide"
+        },
+        {
+          "level": 2,
+          "text": "2.0.0 — the methodology moved into `api/` and `ui/`, TLS is verified, and the plugin flag stopped hiding the run metadata"
+        },
+        {
+          "level": 3,
+          "text": "The methodology submodules moved — a deep import has to be edited"
+        },
+        {
+          "level": 1,
+          "text": "a deep import is a one-line mechanical fix"
+        },
+        {
+          "level": 3,
+          "text": "A second methodology: UI"
+        },
+        {
+          "level": 3,
+          "text": "TLS certificate verification is on by default — this can break your suite"
+        },
+        {
+          "level": 1,
+          "text": "confpartest.py"
+        },
+        {
+          "level": 1,
+          "text": "or the environment, which wins over confpartest"
+        },
+        {
+          "level": 1,
+          "text": "pytest.ini"
+        },
+        {
+          "level": 3,
+          "text": "`PARTEST_PYTEST_PLUGIN` no longer switches off the run metadata"
         },
         {
           "level": 2,
@@ -765,14 +847,14 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 10852
+      "chars": 17992
     },
     {
       "slug": "howto/permissions",
       "path": "docs/wiki/howto/permissions.md",
       "title": "Permissions — four cells, not one 401",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-08",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -809,21 +891,23 @@
           "text": "Coverage"
         }
       ],
-      "chars": 4347
+      "chars": 4360
     },
     {
       "slug": "howto/quickstart",
       "path": "docs/wiki/howto/quickstart.md",
       "title": "Quickstart — first green API test",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-08",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
         "partest/client.py",
         "partest/conf.py",
         "partest/env/__init__.py",
-        "partest/zorro_report.py"
+        "partest/zorro_report.py",
+        "partest/tls.py",
+        "partest/pytest_plugin.py"
       ],
       "headings": [
         {
@@ -844,7 +928,11 @@
         },
         {
           "level": 1,
-          "text": "pytest_plugin = False   # if you already own Allure hooks"
+          "text": "pytest_plugin = False   # if you already own Allure hooks — Allure only, see below"
+        },
+        {
+          "level": 1,
+          "text": "tls_verify = False      # if the stand serves a self-signed certificate"
         },
         {
           "level": 2,
@@ -876,10 +964,14 @@
         },
         {
           "level": 2,
+          "text": "9. TLS"
+        },
+        {
+          "level": 2,
           "text": "Next"
         }
       ],
-      "chars": 3958
+      "chars": 5459
     },
     {
       "slug": "howto/recipes",
@@ -1157,16 +1249,18 @@
       "path": "docs/wiki/howto/ui.md",
       "title": "UI quickstart (partest[ui])",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-13",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
+        "partest/methodology/ui/__init__.py",
         "partest/ui/__init__.py",
         "partest/ui/base_page.py",
         "partest/ui/page_monitor.py",
         "partest/ui/visual.py",
         "partest/ui/capture_baselines.py",
-        "partest/ui/hooks.py"
+        "partest/ui/hooks.py",
+        "partest/tls.py"
       ],
       "headings": [
         {
@@ -1207,6 +1301,10 @@
         },
         {
           "level": 2,
+          "text": "Which checks a screen owes"
+        },
+        {
+          "level": 2,
           "text": "Covering a ticket item"
         },
         {
@@ -1240,9 +1338,13 @@
         {
           "level": 2,
           "text": "Plugin"
+        },
+        {
+          "level": 2,
+          "text": "HTTPS in baseline capture"
         }
       ],
-      "chars": 5636
+      "chars": 7007
     },
     {
       "slug": "howto/upload",
@@ -1301,7 +1403,7 @@
       "path": "docs/wiki/index.md",
       "title": "Каталог документации partest",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-13",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [],
@@ -1335,14 +1437,14 @@
           "text": "Вне wiki"
         }
       ],
-      "chars": 3069
+      "chars": 3094
     },
     {
       "slug": "log",
       "path": "docs/wiki/log.md",
       "title": "Журнал операций над документацией",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-13",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [],
@@ -1350,6 +1452,10 @@
         {
           "level": 1,
           "text": "Журнал"
+        },
+        {
+          "level": 2,
+          "text": "2026-09-13 · update · методология стала двумя областями"
         },
         {
           "level": 2,
@@ -1440,14 +1546,14 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 24349
+      "chars": 25492
     },
     {
       "slug": "proposals",
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-09-07",
+      "verified": "2026-09-08",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1456,7 +1562,8 @@
         "partest/pytest_plugin.py",
         "partest/reports/payload.py",
         "partest/security/risk.py",
-        "setup.py"
+        "setup.py",
+        "requirements.txt"
       ],
       "headings": [
         {
@@ -1486,6 +1593,42 @@
         {
           "level": 3,
           "text": "A4. Линтер и форматтер"
+        },
+        {
+          "level": 3,
+          "text": "A6. `requirements.txt` не читает ни один прогон"
+        },
+        {
+          "level": 3,
+          "text": "A7. `py==1.11.0` в списке разработки"
+        },
+        {
+          "level": 3,
+          "text": "A8. `--reruns=2` безусловно на весь набор"
+        },
+        {
+          "level": 3,
+          "text": "A9. `setup_logger` ничего не настраивает"
+        },
+        {
+          "level": 3,
+          "text": "A10. Две константы вместо одной для отбраковки токена"
+        },
+        {
+          "level": 3,
+          "text": "A11. Флаг назван именем плагина, а управляет его третью"
+        },
+        {
+          "level": 3,
+          "text": "A12. Состояние плагина живёт в модуле, а не в сессии"
+        },
+        {
+          "level": 3,
+          "text": "A13. Предупреждать ли на явный `verify=False`"
+        },
+        {
+          "level": 3,
+          "text": "A14. Сетевая ветка `parparser` — кандидат в устаревшие, и это минус зависимость"
         },
         {
           "level": 2,
@@ -1532,14 +1675,14 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 6557
+      "chars": 13439
     },
     {
       "slug": "status",
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-13",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1600,7 +1743,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 10883
+      "chars": 11464
     },
     {
       "slug": "WIKI",
@@ -1649,7 +1792,7 @@
           "text": "Инварианты правки"
         }
       ],
-      "chars": 4954
+      "chars": 4958
     }
   ],
   "raw": [],
@@ -1723,22 +1866,46 @@
     "partest/http_retry.py": [
       "howto/enterprise"
     ],
-    "partest/methodology/classifier.py": [
+    "partest/methodology/__init__.py": [
+      "components/overview",
+      "concepts/methodology",
+      "howto/migration"
+    ],
+    "partest/methodology/api/__init__.py": [
+      "howto/migration"
+    ],
+    "partest/methodology/api/classifier.py": [
       "backlog-audit",
       "concepts/methodology"
     ],
-    "partest/methodology/inference.py": [
+    "partest/methodology/api/inference.py": [
       "concepts/methodology",
       "decisions/explicit-type"
     ],
-    "partest/methodology/matrix.py": [
+    "partest/methodology/api/matrix.py": [
       "concepts/methodology",
       "howto/layers"
     ],
-    "partest/methodology/steps.py": [
+    "partest/methodology/api/steps.py": [
       "concepts/methodology"
     ],
-    "partest/methodology/subtypes.py": [
+    "partest/methodology/api/subtypes.py": [
+      "concepts/methodology"
+    ],
+    "partest/methodology/ui/__init__.py": [
+      "howto/migration",
+      "howto/ui"
+    ],
+    "partest/methodology/ui/checks.py": [
+      "concepts/methodology"
+    ],
+    "partest/methodology/ui/matrix.py": [
+      "concepts/methodology"
+    ],
+    "partest/methodology/ui/steps.py": [
+      "concepts/methodology"
+    ],
+    "partest/methodology/ui/surfaces.py": [
       "concepts/methodology"
     ],
     "partest/payloads.py": [
@@ -1749,7 +1916,10 @@
     ],
     "partest/pytest_plugin.py": [
       "backlog-audit",
+      "components/overview",
       "concepts/coverage-honesty",
+      "howto/migration",
+      "howto/quickstart",
       "proposals"
     ],
     "partest/redact.py": [
@@ -1824,6 +1994,13 @@
       "howto/migration",
       "howto/permissions"
     ],
+    "partest/tls.py": [
+      "components/overview",
+      "howto/enterprise",
+      "howto/migration",
+      "howto/quickstart",
+      "howto/ui"
+    ],
     "partest/tracking.py": [
       "backlog-audit",
       "howto/recipes",
@@ -1854,6 +2031,9 @@
     ],
     "partest/zorro_report.py": [
       "howto/quickstart"
+    ],
+    "requirements.txt": [
+      "proposals"
     ],
     "setup.py": [
       "components/project-gen",

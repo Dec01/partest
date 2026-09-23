@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any, List, Optional, Sequence
 
-from partest.methodology.overrides import lookup as lookup_override
-from partest.methodology.subtypes import MethodSubtype
+from partest.methodology.api.overrides import lookup as lookup_override
+from partest.methodology.api.subtypes import MethodSubtype
 
 # Description/operationId tokens that usually mean "collection list / search"
 # Do NOT match generic resource names like "items" in the path alone.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from partest.methodology.subtypes import MethodSubtype
+from partest.methodology.api.subtypes import MethodSubtype
 from partest.reports.analyzer import CoverageReport, EndpointCoverage
 from partest.reports.badge import badge_from_payload
 from partest.reports.compare import compare_payloads

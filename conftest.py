@@ -16,6 +16,9 @@ def domain(request):
 
 @pytest.fixture(scope="session")
 def api_client(domain):
+    # The library verifies certificates by default (partest/tls.py). This fixture points
+    # at a throwaway local stand, so it opts out — explicitly, in one visible place, the
+    # way a consumer with a self-signed stand should.
     return ApiClient(domain=domain, verify=False)
 
 

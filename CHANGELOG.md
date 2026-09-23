@@ -2,9 +2,15 @@
 
 ## Unreleased — next release is 2.0.0
 
-The scaffold generator left this package. That is a breaking change, so the next release is
-a major one. `__version__` reads 1.8.1: the patch below was cut from the 1.8.0 line and
-merged here, so this branch is that release plus everything still waiting for the major.
+Three breaking changes, any one of which alone would make this a major release. The scaffold
+generator left this package — see `Removed`. The methodology submodules moved under
+`partest/methodology/api/` to make room for a second area, UI — see `Breaking`, where the old and
+new import paths sit side by side. And **TLS certificates are now verified by default**, which is
+the one that will reach a running suite first: also `Breaking`. If you are here because a prior
+green run started failing on certificates, that section is the answer.
+
+`__version__` reads 1.8.1: the patch below was cut from the 1.8.0 line and merged here, so
+this branch is that release plus everything still waiting for the major.
 
 ### Removed
 
@@ -32,23 +38,221 @@ merged here, so this branch is that release plus everything still waiting for th
 
 ### Added
 
+- **A second methodology: `partest.methodology.ui`.** Three axes, like the API half —
+  `SurfaceType` (axis A), `UiTestCases` (axis B, eleven check families), `UiStep` (axis C) and a
+  surface × check matrix with `applicable_checks`, `priority_of`, `required_checks`, `p1_checks`,
+  `p2_checks`. All of it is re-exported from `partest.methodology`.
+
+  **It has no classifier, and it is not getting one.** The API half derives axis A from the OpenAPI
+  specification; no project ships a machine-readable description of its screens, so the surface type
+  is declared by the consumer on its own page object. Guessing it from markup has the same failure
+  mode as a misclassified endpoint — the screen silently gets the required set of a different kind of
+  screen — with none of the evidence. `tests/test_methodology_ui.py` asserts the absence, so a later
+  "small helper" cannot drift back into guessing.
+
+  Two parts of it are findings from practice rather than vocabulary:
+  `UiTestCases.screen_state_persistence` and the `UiStep.SURVIVES_RELOAD` depth level. Every other
+  family and level describes **one** load of a screen, so "the filter the user set is still set after
+  a reload" had nowhere to live — and a suite that starts each test from a clean browser profile
+  cannot fail that check no matter how many tests it has.
+
+  The matrix is deliberately small: more than half its cells are `NA`, every cell that is not carries
+  its justification on its line in the source, and a cell that could only be justified by "it seems
+  likely" is left empty and marked as left empty. `priority_of` raises on an unknown check name
+  instead of answering `NA`, because `NA` reads as "the methodology does not ask for this" and a typo
+  must not be able to say that.
+
 - **`partest[gen]` extra**, so `pip install 'partest[gen]'` still gets you both packages.
 - `tests/test_project_gen_bridge.py`: that the bridge warns, that submodules resolve to the
   same objects, that the error names the fix when the distribution is missing, and that this
   `setup.py` does not declare the console script.
+- **`SWAGGER_FETCH_TIMEOUT` in `partest.parparser`** (60 seconds, the same default as
+  `partest.openapi.resolve_swagger`) and a `timeout=` keyword on
+  `OpenAPIParser.load_swagger_yaml` and `SwaggerSettings`. Fetching a specification over
+  HTTP had no timeout at all, so an unreachable stand could hold the import of every suite
+  that loads a spec. The keyword is optional and defaults to the constant, so nothing that
+  worked before changes. It is a per-operation limit, not a deadline for the whole load: a
+  redirect chain gets it again on each hop, and reading the body and parsing the YAML are
+  outside it.
+- **`pytest-xdist` in `extras_require["dev"]`.** The package still treats xdist as an
+  optional integration — the plugin detects a parallel run through
+  `hasattr(config, "workerinput")` and never imports it — but the test suite runs a real
+  `-n 2` session, and that case now skips instead of erroring when xdist is absent.
+
+### Changed
+
+- **`INVALID_BEARER` is now `"invalid.invalid.invalid"`.** It was a base64url blob that
+  looked like a real credential to a reader and to a secret scanner. The new value keeps the
+  three dot-separated segments, so anything that splits on dots still sees a compact JWS, and
+  carries nothing else.
+
+  **This changes where a server rejects it.** The old value decoded into a valid JOSE header
+  (`{"alg":"HS256"}`), so a server got as far as verifying the signature; the new one does not
+  decode into JOSE JSON at all and is refused as unparsable. Both are rejections, but a gateway
+  may answer them with different statuses or bodies. If your `unauth` cell asserts on anything
+  narrower than "not authenticated", re-check it. `access_cases` is unaffected: its `unauth`
+  cell sends no `Authorization` header at all.
+
+- **Dependency floors raised in `requirements.txt`** after `pip-audit` could finally resolve
+  the file: `idna` 3.15, `requests` 2.33.0, `urllib3` 2.7.0, `pytest` 9.0.3 (11 advisories in
+  4 packages). `install_requires` still declares `pytest>=8.0.0`; the suite was verified
+  against 9.0.3 in a separate environment. `swagger-parser` was removed from
+  `requirements.txt`: nothing in the repository imports it, it was never in `install_requires`,
+  and it was the requirement that made the file unresolvable — which is why the audit had been
+  answering "could not look" instead of reporting these.
 
 ### Note for the methodology
 
 `classify_endpoint` and `p1_test_cases` in `partest.methodology` now have a second consumer in
 another repository. They are no longer internal: changing their signatures is a cross-package
-change, and the release order is `partest` first, then the generator's dependency floor.
+change, and the release order is `partest` first, then the generator's dependency floor. The move
+into `api/` is exactly that kind of change — the generator imports the deep paths, so its floor has
+to be raised in the same wave, and it must not be published before this release is on PyPI.
+
+### Breaking
+
+- **The methodology submodules moved into `partest/methodology/api/`.** There are two areas now,
+  `api` and `ui`, with the same shape; the existing modules are the `api` half and moved unchanged.
+
+  | Was | Now |
+  |---|---|
+  | `partest.methodology.subtypes` | `partest.methodology.api.subtypes` |
+  | `partest.methodology.matrix` | `partest.methodology.api.matrix` |
+  | `partest.methodology.classifier` | `partest.methodology.api.classifier` |
+  | `partest.methodology.inference` | `partest.methodology.api.inference` |
+  | `partest.methodology.overrides` | `partest.methodology.api.overrides` |
+  | `partest.methodology.steps` | `partest.methodology.api.steps` |
+
+  **Nothing inside them was renamed.** Every class, function and enum member keeps its name and
+  its meaning, so the fix at a consumer is a mechanical edit of the import line and nothing else.
+  `from partest.methodology import …` is unaffected: the package re-exports every name it exported
+  before, plus the new UI ones.
+
+  **There are no shims on the old paths, and that is the decision rather than an oversight.**
+  `import partest.methodology.matrix` raises `ModuleNotFoundError`. Two live spellings of one
+  module outlive the migration that justified them, and a major release is the moment a move is
+  allowed to be visible; the table above is what replaces them. A package that reads these
+  functions — the scaffold generator does — must raise its dependency floor to this release in the
+  same change, because with an older partest the new paths do not exist at all.
+
+- **TLS certificates are verified by default.** The HTTP clients — `ApiClient`, `SecHttp`,
+  `TokenManager`, `TrackingApiClient` — and the browser context of `capture_baselines` used
+  to default to `verify=False`. A consumer who wrote `ApiClient(domain)` ran the whole suite
+  without certificate validation and had no way of knowing: nothing in the signature, the
+  output or the report said so.
+
+  **For the two specification loaders the change goes the other way, and that matters.**
+  `partest.openapi.resolve_swagger` declared `verify: bool = True`, and
+  `partest.parparser.OpenAPIParser.load_swagger_yaml` relied on the `requests` default —
+  both verified, unconditionally, and neither could be told not to. They now follow the same
+  switch as everything else, which makes them **weaker** by one step: a project that sets
+  `tls_verify = False` for a self-signed stand now also stops verifying the host that serves
+  the specification, and that is frequently a different host. If the two need different
+  answers, pass `verify=` to `resolve_swagger` explicitly — the argument still wins.
+
+  Its default changed from `True` to `None` ("not specified"), which is a behaviour change at
+  an unchanged signature. A caller that relied on the documented `True` must now say so.
+
+  The error a rejected certificate produces now names the switch, the release and the host
+  instead of arriving as "Network/request error", and it is no longer retried: a certificate
+  failure is not transient, and retrying multiplied one wrong setting across every test.
+
+  **This is breaking.** A stand with a self-signed certificate will now fail with a TLS error
+  where it used to pass. That is deliberate — the point is that the choice becomes visible —
+  and turning it back off is one line, not an edit of every call site:
+
+  ```bash
+  PARTEST_TLS_VERIFY=0                     # environment, wins over confpartest
+  ```
+  ```python
+  tls_verify = False                       # confpartest.py
+  tls_verify = "/etc/ssl/corp.pem"         # or keep verification on with a private CA
+  ```
+
+  The decision lives in one place, `partest.tls`. Disabling it warns once per process
+  (`partest.tls.TLSVerificationDisabled`) — a project that means it can silence exactly that
+  category. An explicit `verify=False` at a call site is honoured and warns too: the warning
+  is about the run being unverified, not about how it got that way. A run that went out
+  unverified also says so in the report, as `meta.tlsVerified`: a warning does not survive
+  the session, an artefact does.
+
+  `verify=` now accepts a CA bundle path, so **`client.verify` is no longer always a `bool`**
+  — an assertion like `client.verify is False` has to change. A path is converted to an
+  `ssl.SSLContext` for the `httpx` clients, because `httpx` deprecated the string form; for
+  the `requests` road the path is passed through. The browser context takes neither: Playwright
+  offers only on/off and checks the OS trust store, so a bundle leaves verification on there
+  and says that it was not applied.
+
+### Changed — coverage metadata
+
+- **The pytest plugin's run metadata no longer depends on the Allure switch.**
+  `pytest_plugin = False` / `PARTEST_PYTEST_PLUGIN=0` turned off four hooks at once: two that
+  write into Allure, and two that record which tests the run actually selected. The flag was
+  introduced against double Allure titles and attachments — and the documentation only ever
+  gave that reason — but consumers who followed the advice silently lost `meta.selection`.
+
+  That loss is worst exactly where the signal matters: a marker-filtered run over a full
+  suite still touches every endpoint, so the unseen ratio stays near zero and nothing in the
+  numbers reveals that half the suite did not run. Comparing such a run against a full one
+  then reports every dropped cell as a regression.
+
+  Recording the selection attaches nothing and prints nothing, so it has nothing to collide
+  with. It is now behind its own switch, on by default: `PARTEST_RUN_METADATA=0` or
+  `run_metadata = False` in `confpartest`. `plugin_enabled()` keeps its meaning — the Allure
+  half — and its documentation now says so.
+
+  **The signal now survives `-n`, which is where it was needed most.** Under `pytest-xdist`
+  the controller does not collect, so neither hook fires there, and the shard a worker wrote
+  carried no run metadata at all: a filtered parallel run produced correct counts and no
+  record that it was filtered. The selection now travels with the shard, and the deselected
+  tests travel as node ids rather than as a number — workers deselect *the same* tests, so
+  counts cannot be summed while sets can be merged. Separate deselection rounds still add up,
+  and the state is cleared at session start, so a second `pytest.main()` in one process no
+  longer inherits the first one's filter.
+
+### Removed
+
+- **`setup_project.py` from the repository root.** It imported
+  `partest.project_gen.new_parparser` — a module that does not exist anywhere in the family:
+  during the extraction it became `openapi_load.py` in `partest-gen`. The script therefore
+  could not run at all, and it sat at the root of a public repository looking like a
+  supported entry point. The scaffold has its own command: `pip install partest-gen`, then
+  `partest-gen`. Two reviewers found this independently, which is what a dead file in a
+  visible place earns.
 
 ### Fixed
+
+- **`partest.ui.ignore_https_errors` is public now.** The browser half of the TLS decision
+  was a private helper, and a generated suite could not reach it without importing a private
+  name. The scaffold generator therefore kept emitting `ignore_https_errors=True` — the
+  browser equivalent of the default this release just removed. Same function, same
+  environment-only reading (a UI job must not load `confpartest`); only the name changed.
+
+- **A valid specification no longer looks broken in the log.** `extract_paths_info` treated
+  every key of a path item as an HTTP method, so OpenAPI's own path-level `parameters`
+  produced `expected a mapping …, got list; skipping` on every load. The spec was correct and
+  the operation was parsed correctly — only the message said otherwise, and every consumer
+  saw it. Non-method keys (`parameters`, `summary`, `description`, `servers`, `$ref`) are now
+  skipped silently, and the warning is reserved for a key that really is unknown.
+
+
 
 - Three stale references left over from before this repository went public: `tools/check_all.py`
   and `MANIFEST.in` pointed at `docs/wiki/decisions/pypi-only.md`, which was renamed to
   `distribution.md`, and `check_all.py` still claimed there is no public CI. The docstring of
   `partest/docs/__init__.py` still said the package is distributed through PyPI only.
+
+- **`str(Logger())` raised `NameError`.** `Logger.__str__` returned `logger.info()`, referring
+  to a module-level name that does not exist. Any f-string interpolating a `Logger` died with
+  it. It now returns `Logger(name=…, level=…)`. `repr()` was never affected — the class defines
+  no `__repr__`, and `repr` does not fall back to `__str__`.
+
+- **A note in the released 1.8.1 section was inaccurate and has been corrected in place.** It
+  said that adding `__all__` to `partest.reports.history` makes `dir()` stop presenting `json`,
+  `Path` and `datetime` as API; `__all__` does not affect `dir()` on a module — it governs
+  `from … import *`. The fix itself was correct, only its description was not. Flagged here
+  rather than changed silently: `v1.8.1` is tagged and published, so the wheel on PyPI still
+  carries the old wording.
 
 ## 1.8.1
 
@@ -96,7 +300,8 @@ answer rather than an error.
 - **`prune_snapshots`, `list_snapshots` and `previous_snapshot` were not importable from
   `partest.reports`.** The 1.7.0 notes called them public, but only the full module path
   worked. Re-exported along with `append_snapshot` and `latest_snapshot`; `history` now
-  declares `__all__`, so `dir()` stops presenting `json`, `Path` and `datetime` as API.
+  declares `__all__`, so the module states its public interface and `from … import *`
+  stops pulling in `json`, `Path` and `datetime`.
 
 - **The migration page in the wheel had no 1.8.0 section.** The release's only user-facing
   change — Python 3.10 as the floor — was documented solely in `CHANGELOG.md`, which

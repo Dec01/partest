@@ -1,7 +1,7 @@
 ---
 title: Журнал операций над документацией
 status: current
-verified: 2026-09-07
+verified: 2026-09-13
 sources: []
 audience: maintainer
 ships_in_wheel: false
@@ -12,6 +12,24 @@ allow_version_literals: true
 
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
+
+## 2026-09-13 · update · методология стала двумя областями
+
+`concepts/methodology.md` переписана: раньше страница говорила, что методология про API, теперь
+описывает две области — API и UI — с одинаковой формой из трёх осей и одной осознанной
+асимметрией (у UI нет классификатора, тип поверхности объявляет потребитель). Таблица «было →
+стало» для переехавших модулей — в [[howto/migration]], раздел мажорного релиза; дублировать её
+на странице концепции не стали, чтобы копия не разъехалась.
+
+Затронуто путями модулей (`partest/methodology/*` → `partest/methodology/api/*`): `index`,
+`WIKI`, `backlog-audit`, `status`, `components/overview`, `components/project-gen`,
+`decisions/explicit-type`, `howto/contribute`, `howto/layers`, `howto/ui`, `howto/migration`,
+а также скилл `partest-cover-api`. В `howto/ui` добавлен раздел «какие проверки должен экран» —
+точка входа из UI-практики в методологию.
+
+Исправлено по ходу: страница методологии показывала несуществующий импорт
+(`from partest.methodology import required_p1, priority_of`) — таких имён в коде не было ни
+одного дня. Заменено на реальные `p1_test_cases` / `required_test_cases`.
 
 ## 2026-09-07 · update · 1.8.1 на PyPI
 

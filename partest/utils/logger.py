@@ -124,6 +124,8 @@ class Logger:
          Returns
          -------
          str
-             the logger info
+             the logger name and its effective level, e.g.
+             ``Logger(name=partest.utils.logger, level=WARNING)``
          """
-        return logger.info()
+        level = logging.getLevelName(self.logger.getEffectiveLevel())
+        return f"Logger(name={self.logger.name}, level={level})"

@@ -1,8 +1,8 @@
 ---
 title: Package map — what lives where
 status: current
-verified: 2026-09-07
-sources: [partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py]
+verified: 2026-09-13
+sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/pytest_plugin.py]
 audience: agent
 ships_in_wheel: true
 ---
@@ -29,13 +29,16 @@ partest/
   auth/                TokenManager, JWT decode
   reporting/           check_* helpers, steps, attaches, instrumented requests
   reports/             coverage analyzer, JSON payload, HTML, compare/badge/stubs/history
-  methodology/         subtypes, matrix, classifier, inference, steps  ← methodology SoT
+  methodology/         methodology SoT, two areas:
+    api/               subtypes, matrix, classifier, inference, steps (derived from OpenAPI)
+    ui/                surfaces, checks, matrix, steps (surface type declared by the consumer)
   security/            RiskProfile model, SecHttp raw transport, JWT tampering
   collections/         BaseCollection, CollectionsManager
   ui/                  partest[ui]: BasePage, PageMonitor, Storage, visual, capture_baselines
   project_gen/         deprecated bridge to the separate partest-gen distribution
   redact.py            secret redaction for attaches
   http_retry.py        transport retries
+  tls.py               one place deciding verify= for every client (see below)
   zorro_report.py      zorro() — Allure + simple coverage HTML
   docs/                generated user docs shipped in the wheel (do not hand-edit)
 ```
@@ -45,12 +48,14 @@ partest/
 | Module | Role |
 |---|---|
 | `ApiClient` | the only sanctioned way to make suite HTTP calls — raw httpx calls are invisible to coverage |
+| `tls` | `default_verify()` / `resolve_verify()`: certificates are verified unless the project says otherwise |
 | `TrackingApiClient` / `CreatedRegistry` | record created ids, clean up in LIFO with 409 retry |
 | `TokenManager` | OIDC multi-role token cache; credentials come from an injected provider |
 | `Config` / `HeadersBind` | header and param builders, `apply_token` binding |
 | `reporting` (`import partest.reporting as ah`) | `ah.check_*`, Allure steps and attaches; Allure is a soft dependency |
 | `reports` | `zorro_enhanced`, `coverage.json`, interactive HTML, `python -m partest.reports` CLI |
-| `methodology` | subtypes × matrix × inference — see [[concepts/methodology]] |
+| `methodology.api` | subtypes × matrix × inference, all derived from the specification — see [[concepts/methodology]] |
+| `methodology.ui` | surfaces × checks × depth; no classifier — the surface type is declared, not inferred |
 | `security` | `RiskProfile` model, `SecHttp`, `build_tampered_set`; entity PROFILES stay in the consumer |
 | `ui` | shared UI harness only; page objects stay in the consumer — see [[howto/ui]] |
 | `project_gen` | deprecated bridge to `partest_gen`; the scaffold is its own distribution, `pip install partest-gen` |
@@ -82,6 +87,43 @@ stays project-agnostic so a second project can adopt it without stripping anythi
 
 ## pytest plugin
 
-Auto-loads via the `pytest11` entry point (`partest/pytest_plugin.py`) and enriches Allure titles
-from docstrings. Opt out with `PARTEST_PYTEST_PLUGIN=0`, `pytest_plugin = False` in confpartest,
-or `pytest -p no:partest` — needed when the project already owns Allure hooks.
+Auto-loads via the `pytest11` entry point (`partest/pytest_plugin.py`) and does two unrelated
+things, each behind its own switch.
+
+| Switch | Default | Governs |
+|---|---|---|
+| `PARTEST_PYTEST_PLUGIN=0` / `pytest_plugin = False` | on | Allure display names from docstrings, failure summary attachment |
+| `PARTEST_RUN_METADATA=0` / `run_metadata = False` | on | `run_info["selection"]`: the `-m`/`-k` expression and how many tests were deselected |
+
+`pytest -p no:partest` disables the plugin entirely, both halves.
+
+Turning the Allure half off is normal — a project that owns its Allure hooks would otherwise get
+double titles and double attachments. **It does not turn off the run metadata.** It used to, and
+that was a defect: recording the selection attaches nothing and prints nothing, so it has nothing
+to collide with, while losing it costs the report the only exact signal that a run covered a
+subset of the suite ([[concepts/coverage-honesty]]). The deselected count is a set of node ids,
+so a parallel run merges them: workers deselect the *same* tests, and sets merge where counts
+would double. The same representation makes a second run in one process harmless.
+When the change landed is in [[howto/migration]].
+
+## TLS verification
+
+Every client in the package — `ApiClient`, `SecHttp`, `TokenManager`, `CreatedRegistry.cleanup`,
+`TrackingApiClient`, and the browser context of `capture_baselines` — takes its `verify=` from
+`partest/tls.py` when the caller does not pass one. **Certificates are verified.** They used not
+to be, and `ApiClient(domain)` said nothing about it — see [[howto/migration]] for the release
+that changed it and for the one line that restores the old behaviour.
+
+```bash
+PARTEST_TLS_VERIFY=0                     # a self-signed stand: off for the whole run
+PARTEST_TLS_VERIFY=/etc/ssl/corp-ca.pem  # better: trust the private CA, keep checking
+```
+
+```python
+# confpartest.py — the same decision, in the project instead of the environment
+tls_verify = False
+```
+
+The environment wins over `confpartest`; an explicit `verify=` on a call wins over both. Whenever
+verification ends up off, the run emits one `partest.tls.TLSVerificationDisabled` warning —
+once per process, so it is visible in the pytest summary without being noise per request.

@@ -26,24 +26,37 @@ from partest.reporting.templates import (
 )
 
 
+# Redaction only has something to hide if the fixture looks like a credential, so these
+# have to be long enough to pass ``mask_secret``'s ``keep_prefix`` (8). They are built by
+# repetition instead of written as literals: a fake must be visible as a fake to a
+# reader, a reviewer and a secret scanner alike.
+FAKE_BEARER = "Bearer " + "x" * 24
+FAKE_HEADER_TOKEN = "y" * 16
+FAKE_COOKIE = "sid=" + "z" * 12
+FAKE_PASSWORD = "p" * 11
+FAKE_BODY_TOKEN = "t" * 9
+
+
 def test_mask_and_redact_headers():
-    assert "masked" in mask_secret("Bearer supersecrettokenvalue").lower() or "…" in mask_secret(
-        "Bearer supersecrettokenvalue"
-    )
+    assert "masked" in mask_secret(FAKE_BEARER).lower() or "…" in mask_secret(FAKE_BEARER)
     h = redact_headers(
-        {"Authorization": "Bearer abcdefghijklmnop", "Accept": "application/json"}
+        {"Authorization": "Bearer " + FAKE_HEADER_TOKEN, "Accept": "application/json"}
     )
     assert h["Accept"] == "application/json"
-    assert "abcdefghijklmnop" not in str(h["Authorization"])
-    assert _mask_headers({"Cookie": "sid=xyz12345678"})["Cookie"] != "sid=xyz12345678"
+    assert FAKE_HEADER_TOKEN not in str(h["Authorization"])
+    assert _mask_headers({"Cookie": FAKE_COOKIE})["Cookie"] != FAKE_COOKIE
 
 
 def test_redact_mapping_body():
-    data = {"user": "a", "password": "secret12345", "nested": {"token": "ttttttttt"}}
+    data = {
+        "user": "a",
+        "password": FAKE_PASSWORD,
+        "nested": {"token": FAKE_BODY_TOKEN},
+    }
     out = redact_mapping(data)
     assert out["user"] == "a"
-    assert "secret12345" not in str(out["password"])
-    assert "ttttttttt" not in str(out["nested"]["token"])
+    assert FAKE_PASSWORD not in str(out["password"])
+    assert FAKE_BODY_TOKEN not in str(out["nested"]["token"])
 
 
 def test_storage_dump_merge(tmp_path: Path):

@@ -12,7 +12,26 @@ import os
 import requests
 import yaml
 
+from partest.tls import resolve_verify
+
 logger = logging.getLogger(__name__)
+
+# Seconds a single socket operation may take while fetching a specification over HTTP.
+# Without it an unreachable stand can hold the import of every suite that loads a spec
+# for as long as the OS keeps the connection open. It is a per-operation limit, not a
+# deadline for the whole load: a redirect chain gets it afresh on each hop, and reading
+# the body and parsing the YAML happen outside it. Same default as
+# ``partest.openapi.resolve_swagger``: a specification is a big document and a cold
+# service can take a while. Override per call with ``load_swagger_yaml(timeout=...)``.
+SWAGGER_FETCH_TIMEOUT = 60.0
+
+#: Операции, которые OpenAPI разрешает в path item. Всё остальное методом не является.
+_HTTP_METHODS = frozenset(
+    {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
+)
+#: Законные ключи path item, которые методами не являются. Их пропуск — не повод
+#: сообщать о проблеме: спецификация с ними корректна.
+_PATH_ITEM_KEYS = frozenset({"parameters", "summary", "description", "servers", "$ref"})
 
 
 class Parameter:
@@ -261,12 +280,16 @@ class OpenAPIParser:
         return resolved
 
     @classmethod
-    def load_swagger_yaml(cls, source_type, file_path=None):
+    def load_swagger_yaml(
+        cls, source_type, file_path=None, *, timeout: float = SWAGGER_FETCH_TIMEOUT
+    ):
         """Loads the Swagger YAML file from a local file or a URL.
 
         Args:
             source_type (str): The source type ('local' or 'url').
             file_path (str): The path to the Swagger file.
+            timeout (float): Per-operation timeout for the HTTP fetch, in seconds.
+                Ignored for ``local``. See ``SWAGGER_FETCH_TIMEOUT``.
 
         Returns:
             An instance of the OpenAPIParser class.
@@ -277,7 +300,12 @@ class OpenAPIParser:
                 swagger_dict = yaml.safe_load(file)
             return cls(swagger_dict, base_path)
         elif source_type == 'url':
-            response = requests.get(file_path)
+            # Same package-wide switch as every other client: a self-signed stand is
+            # turned off once, not per call site. `requests` verifies by default, so
+            # without this the one line that disables verification would work
+            # everywhere except loading the specification.
+            response = requests.get(file_path, timeout=timeout,
+                                    verify=resolve_verify(None))
             response.raise_for_status()
             swagger_dict = yaml.safe_load(response.text)
             return cls(swagger_dict)
@@ -295,6 +323,18 @@ class OpenAPIParser:
 
         for path, methods in paths.items():
             for method, details in methods.items():
+                # Ключ в path item — не обязательно метод: OpenAPI разрешает здесь
+                # `parameters`, `summary`, `description`, `servers` и `$ref`. Прежде они
+                # попадали в ту же ветку, что и настоящий метод, и path-level
+                # `parameters` (список) давал предупреждение «expected a mapping …, got
+                # list» — то есть корректная спецификация выглядела битой, и так её видел
+                # каждый потребитель.
+                if method.lower() not in _HTTP_METHODS:
+                    if method.lower() not in _PATH_ITEM_KEYS:
+                        logger.warning(
+                            "unknown key %r in path item %s; expected an HTTP method or "
+                            "one of %s", method, path, ", ".join(sorted(_PATH_ITEM_KEYS)))
+                    continue
                 if isinstance(details, dict):
                     parameters = self.extract_parameters(details)
                     request_body = self.extract_request_body(details)
@@ -452,15 +492,17 @@ class SwaggerSettings:
         paths_info (list): A list of path information.
     """
 
-    def __init__(self, swagger_files):
+    def __init__(self, swagger_files, *, timeout: float = SWAGGER_FETCH_TIMEOUT):
         """Initializes the SwaggerSettings class.
 
         Args:
             swagger_files (dict): A dictionary of Swagger files.
+            timeout (float): Per-operation timeout passed on to every HTTP fetch.
         """
         self.local_files = []
         self.swaggers = []
         self.paths_info = []
+        self.timeout = timeout
         self.swagger_titles = {}  # Словарь для хранения заголовков Swagger
         self.add_swagger(swagger_files)
 
@@ -481,7 +523,9 @@ class SwaggerSettings:
         """
         all_extracted_data = []
         for source_type, path in self.swaggers:
-            parser = OpenAPIParser.load_swagger_yaml(source_type, path)
+            parser = OpenAPIParser.load_swagger_yaml(
+                source_type, path, timeout=self.timeout
+            )
             swagger_title = parser.swagger_dict.get('info', {}).get('title', 'Unknown API')
             self.swagger_titles[swagger_title] = (source_type, path)
             extracted_data = parser.extract_paths_info()

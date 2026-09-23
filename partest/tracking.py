@@ -7,6 +7,7 @@ from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
 import httpx
 
 from partest.client import ApiClient
+from partest.tls import VerifySetting, resolve_verify, verify_for_httpx
 
 IdExtractor = Callable[[Any, str, str], Optional[Tuple[str, Any]]]
 
@@ -146,12 +147,17 @@ class CreatedRegistry:
         delete_builder: Optional[Callable[[str, Any], str]] = None,
         auth_header: str = "Authorization",
         auth_scheme: str = "Bearer",
-        verify: bool = False,
+        verify: Optional[VerifySetting] = None,
         timeout: float = 40.0,
     ) -> None:
-        """DELETE tracked resources LIFO; 409 retries across passes; 404/204 OK."""
+        """DELETE tracked resources LIFO; 409 retries across passes; 404/204 OK.
+
+        ``verify`` follows :mod:`partest.tls`; cleanup carries a bearer token like any
+        other call and has no reason to trust a certificate the suite would not.
+        """
         if not self._items:
             return
+        verify = resolve_verify(verify)
 
         def _url(endpoint: str, rid: Any) -> str:
             if delete_builder:
@@ -162,7 +168,7 @@ class CreatedRegistry:
         pending = list(reversed(self._items))
         async with httpx.AsyncClient(
             base_url=domain,
-            verify=verify,
+            verify=verify_for_httpx(verify),
             timeout=timeout,
             follow_redirects=True,
         ) as client:
@@ -196,7 +202,7 @@ class TrackingApiClient:
         client: Optional[ApiClient] = None,
         id_extractors: Optional[Sequence[IdExtractor]] = None,
         instrument: bool = True,
-        verify: bool = False,
+        verify: Optional[VerifySetting] = None,
         follow_redirects: bool = True,
         track_before_validate: bool = True,
     ):

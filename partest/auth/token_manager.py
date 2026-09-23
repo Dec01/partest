@@ -9,6 +9,7 @@ from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple
 import httpx
 
 from partest.auth.jwt_decode import decode_jwt_payload
+from partest.tls import VerifySetting, resolve_verify, verify_for_httpx
 
 CredentialsProvider = Callable[[str], Tuple[str, str]]
 logger = logging.getLogger("partest.auth")
@@ -24,6 +25,8 @@ class TokenManager:
     - ``known_roles`` optional validation set
     - Keycloak URL / realm / client_id
     - ``verbose=False`` (default): refresh only at logger.debug; True → info
+    - ``verify=None`` (default): certificates are checked; :mod:`partest.tls` decides.
+      Credentials travel over this connection, so it is the last one to leave unverified
     """
 
     def __init__(
@@ -37,7 +40,7 @@ class TokenManager:
         default_role: str = "admin",
         safety_margin_sec: int = 45,
         default_lifetime_sec: int = 300,
-        verify: bool = False,
+        verify: Optional[VerifySetting] = None,
         timeout: float = 30.0,
         domain: Optional[str] = None,
         client_secret: Optional[str] = None,
@@ -53,7 +56,7 @@ class TokenManager:
         self.default_role = default_role
         self._safety_margin_sec = max(int(safety_margin_sec), 0)
         self._default_lifetime_sec = max(int(default_lifetime_sec), 15)
-        self.verify = verify
+        self.verify = resolve_verify(verify)
         self.timeout = timeout
         self.verbose = bool(verbose)
         # role -> (access_token, expires_at_unix)
@@ -148,7 +151,9 @@ class TokenManager:
         if self.client_secret:
             data["client_secret"] = self.client_secret
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        async with httpx.AsyncClient(timeout=self.timeout, verify=self.verify) as client:
+        async with httpx.AsyncClient(
+            timeout=self.timeout, verify=verify_for_httpx(self.verify)
+        ) as client:
             try:
                 response = await client.post(url, headers=headers, data=data)
                 if response.status_code != 200:

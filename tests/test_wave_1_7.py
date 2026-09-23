@@ -29,22 +29,31 @@ def clean_storage():
 # --- LIB-XDIST: merge contract --------------------------------------------
 
 
+# Synthetic shard names must never collide with a real ``worker_id()`` — that is
+# ``gw<N>`` under xdist and ``master`` otherwise. ``merge_shards`` skips the shard
+# named after the current worker, so a fixture called ``gw0.json`` silently deletes
+# its own input as soon as the test itself happens to run on ``gw0``.
+SHARD_A = "shard-a"
+SHARD_B = "shard-b"
+
+
 def _shard(tmp_path, name, payload):
     directory = tmp_path / "shards"
     directory.mkdir(exist_ok=True)
+    assert name != cs.worker_id(), "a fixture shard must not shadow the real worker"
     (directory / f"{name}.json").write_text(json.dumps(payload), encoding="utf-8")
     return directory
 
 
 def test_merge_sums_calls_and_unions_types(tmp_path):
     """Acceptance from the spec: two workers, one shared endpoint and one unique."""
-    gw0 = {
+    first = {
         "call_count": {"GET\t/a\t": 2},
         "call_type": {"GET\t/a\t": ["request_default"]},
         "call_meta": {},
         "endpoint_subtype": {},
     }
-    gw1 = {
+    second = {
         "call_count": {"GET\t/a\t": 3, "POST\t/b\t": 1},
         "call_type": {
             "GET\t/a\t": ["request_permissions"],
@@ -53,8 +62,8 @@ def test_merge_sums_calls_and_unions_types(tmp_path):
         "call_meta": {},
         "endpoint_subtype": {},
     }
-    directory = _shard(tmp_path, "gw0", gw0)
-    _shard(tmp_path, "gw1", gw1)
+    directory = _shard(tmp_path, SHARD_A, first)
+    _shard(tmp_path, SHARD_B, second)
 
     cs.merge_shards(directory)
 
@@ -78,8 +87,10 @@ def test_merge_does_not_reload_own_shard(tmp_path):
 
 
 def test_merge_survives_a_corrupt_shard(tmp_path):
-    directory = _shard(tmp_path, "gw0", {"call_count": {"GET\t/a\t": 1}, "call_type": {}})
-    (directory / "gw1.json").write_text("{not json", encoding="utf-8")
+    directory = _shard(
+        tmp_path, SHARD_A, {"call_count": {"GET\t/a\t": 1}, "call_type": {}}
+    )
+    (directory / f"{SHARD_B}.json").write_text("{not json", encoding="utf-8")
 
     cs.merge_shards(directory)
 
@@ -109,7 +120,7 @@ def test_serial_run_is_unchanged(tmp_path):
 
 
 def test_clear_shards_removes_previous_run(tmp_path):
-    directory = _shard(tmp_path, "gw0", {"call_count": {}, "call_type": {}})
+    directory = _shard(tmp_path, SHARD_A, {"call_count": {}, "call_type": {}})
     assert cs.read_shards(directory)
     cs.clear_shards(directory)
     assert cs.read_shards(directory) == []
@@ -239,6 +250,14 @@ def test_parallel_run_sees_every_endpoint(tmp_path, parallel):
     import subprocess
     import sys
 
+    if parallel:
+        # xdist is an optional integration for the package — the plugin detects it via
+        # ``hasattr(config, "workerinput")`` and never imports it — so a clean
+        # environment must skip here rather than fail on "unrecognized arguments: -n".
+        pytest.importorskip(
+            "xdist", reason="pytest-xdist not installed; see extras_require['dev']"
+        )
+
     project = tmp_path / "suite"
     project.mkdir()
     (project / "test_suite.py").write_text(XDIST_SUITE, encoding="utf-8")
@@ -276,7 +295,7 @@ def test_parallel_run_sees_every_endpoint(tmp_path, parallel):
 
 @pytest.fixture
 def no_overrides():
-    from partest.methodology.overrides import clear_subtype_overrides
+    from partest.methodology.api.overrides import clear_subtype_overrides
 
     clear_subtype_overrides()
     yield
@@ -284,9 +303,9 @@ def no_overrides():
 
 
 def test_override_beats_the_heuristic(no_overrides):
-    from partest.methodology.classifier import classify_endpoint
-    from partest.methodology.overrides import set_subtype_overrides
-    from partest.methodology.subtypes import MethodSubtype
+    from partest.methodology.api.classifier import classify_endpoint
+    from partest.methodology.api.overrides import set_subtype_overrides
+    from partest.methodology.api.subtypes import MethodSubtype
 
     assert classify_endpoint("POST", "/orders/{id}/lines", "") is (
         MethodSubtype.POST_CREATE_TO_OBJECT
@@ -297,9 +316,9 @@ def test_override_beats_the_heuristic(no_overrides):
 
 def test_override_matches_by_route_shape_not_parameter_name(no_overrides):
     """A project should not have to spell the spec's parameter names exactly."""
-    from partest.methodology.classifier import classify_endpoint
-    from partest.methodology.overrides import set_subtype_overrides
-    from partest.methodology.subtypes import MethodSubtype
+    from partest.methodology.api.classifier import classify_endpoint
+    from partest.methodology.api.overrides import set_subtype_overrides
+    from partest.methodology.api.subtypes import MethodSubtype
 
     set_subtype_overrides({"GET /orders/{id}/lines": "get_static_object"})
     assert classify_endpoint("GET", "/orders/{orderId}/lines", "") is (
@@ -314,8 +333,8 @@ def test_override_reaches_the_coverage_decorator(no_overrides):
     project configuration is read, so patching the module attribute would not be seen.
     """
     from partest.coverage import classify_endpoint as coverage_view
-    from partest.methodology.overrides import set_subtype_overrides
-    from partest.methodology.subtypes import MethodSubtype
+    from partest.methodology.api.overrides import set_subtype_overrides
+    from partest.methodology.api.subtypes import MethodSubtype
 
     set_subtype_overrides({"GET /items": "get_by_self"})
     assert coverage_view("GET", "/items", "") is MethodSubtype.GET_BY_SELF
@@ -323,7 +342,7 @@ def test_override_reaches_the_coverage_decorator(no_overrides):
 
 def test_bad_override_is_rejected_loudly(no_overrides):
     """A silently dropped override looks exactly like the bug it was meant to fix."""
-    from partest.methodology.overrides import set_subtype_overrides
+    from partest.methodology.api.overrides import set_subtype_overrides
 
     with pytest.raises(ValueError, match="unknown subtype"):
         set_subtype_overrides({"GET /a": "not_a_subtype"})
@@ -332,9 +351,9 @@ def test_bad_override_is_rejected_loudly(no_overrides):
 
 
 def test_overrides_load_from_yaml(tmp_path, no_overrides):
-    from partest.methodology.classifier import classify_endpoint
-    from partest.methodology.overrides import load_subtype_overrides
-    from partest.methodology.subtypes import MethodSubtype
+    from partest.methodology.api.classifier import classify_endpoint
+    from partest.methodology.api.overrides import load_subtype_overrides
+    from partest.methodology.api.subtypes import MethodSubtype
 
     path = tmp_path / "subtypes.yaml"
     path.write_text('"POST /jobs/{id}/lines": action\n', encoding="utf-8")
@@ -344,7 +363,7 @@ def test_overrides_load_from_yaml(tmp_path, no_overrides):
 
 
 def test_missing_override_file_is_an_error(tmp_path, no_overrides):
-    from partest.methodology.overrides import load_subtype_overrides
+    from partest.methodology.api.overrides import load_subtype_overrides
 
     with pytest.raises(FileNotFoundError):
         load_subtype_overrides(tmp_path / "nope.yaml")

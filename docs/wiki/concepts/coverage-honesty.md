@@ -1,7 +1,7 @@
 ---
 title: Coverage honesty — when the number lies
 status: current
-verified: 2026-09-07
+verified: 2026-09-08
 sources: [partest/call_storage.py, partest/coverage.py, partest/reports/analyzer.py, partest/reports/compare.py, partest/reports/payload.py, partest/pytest_plugin.py]
 audience: agent
 ships_in_wheel: true
@@ -72,7 +72,11 @@ Two things now prevent that:
 
 - **The selection is recorded.** The pytest plugin writes `meta.selection` — the `-m` / `-k`
   expression and how many tests were deselected. Exact, and it comes from the only place that
-  knows: the invocation.
+  knows: the invocation. This is `PARTEST_RUN_METADATA` / `run_metadata`, on by default and
+  **separate from `PARTEST_PYTEST_PLUGIN`**: the Allure switch is the one projects turn off to
+  keep their own hooks, and it used to take this signal down with it. The deselected figure is
+  a count of distinct node ids, so merging the shards of a parallel run does not double it —
+  every worker deselects the same tests.
 - **A call-volume collapse is caught even without it.** `compare` warns when a run made less
   than half the calls of the one before it while the share of never-called endpoints barely
   moved. That signature is what a cell-level filter looks like, and it reads from the endpoints

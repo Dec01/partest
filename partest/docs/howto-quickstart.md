@@ -29,8 +29,18 @@ swagger_files = {
     "api": ["local", "docs/openapi.yaml"],  # or ["url", "https://…/openapi.json"]
 }
 test_types_exception = ["health"]
-# pytest_plugin = False   # if you already own Allure hooks
+# pytest_plugin = False   # if you already own Allure hooks — Allure only, see below
+# tls_verify = False      # if the stand serves a self-signed certificate
 ```
+
+Two switches worth knowing before the first run:
+
+- `pytest_plugin = False` turns off what the plugin adds **to Allure** and nothing else. What
+  the run selected (`-m`/`-k`, deselected count) is still recorded — that is `run_metadata`,
+  on by default, and the report needs it to know a run was partial.
+- TLS certificates are verified. A stand with a self-signed certificate fails until you say
+  `tls_verify = False` (or `PARTEST_TLS_VERIFY=0`, or point `PARTEST_TLS_VERIFY` at the CA
+  bundle, which is better). Disabling it warns once per run rather than passing quietly.
 
 **conftest.py**
 
@@ -161,13 +171,30 @@ python -m partest.ui.capture_baselines --scenes scenes.json --dry-run
 
 | Mechanism | Effect |
 |-----------|--------|
-| `PARTEST_PYTEST_PLUGIN=0` | disable partest Allure hooks |
+| `PARTEST_PYTEST_PLUGIN=0` | disable partest Allure hooks — **titles and attachments only** |
 | `pytest_plugin = False` in confpartest | same |
-| `pytest -p no:partest` | hard unload entry point |
+| `PARTEST_RUN_METADATA=0` / `run_metadata = False` | stop recording what the run selected (`meta.selection`); rarely what you want |
+| `pytest -p no:partest` | hard unload entry point — both of the above |
+
+The first two are for projects that own their Allure hooks. They no longer take the run
+metadata with them: see [Coverage honesty — when the number lies](concepts-coverage-honesty.md) for what that signal is worth.
+
+## 9. TLS
+
+Certificates are verified. For a stand with a self-signed certificate:
+
+| Mechanism | Effect |
+|-----------|--------|
+| `PARTEST_TLS_VERIFY=0` | off for the run (wins over confpartest) |
+| `tls_verify = False` in confpartest | off for the project |
+| `PARTEST_TLS_VERIFY=/path/ca.pem` | keep verifying, trust a private CA |
+| `ApiClient(domain, verify=False)` | off for this client only |
+
+Whichever you use, the run says once that it is unverified.
 
 ## Next
 
 - [Migration between partest versions](howto-migration.md) — upgrading from 0.3 / earlier 1.x
 - [UI quickstart (partest[ui])](howto-ui.md) — `partest[ui]` sync BasePage
 - [Package map — what lives where](components-overview.md) — full module map
-- [Coverage methodology — three axes](concepts-methodology.md) — what "covered" actually means
+- [Coverage methodology — two areas, three axes each](concepts-methodology.md) — what "covered" actually means

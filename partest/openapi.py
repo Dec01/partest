@@ -9,6 +9,14 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union
 import httpx
 import yaml
 
+from partest.tls import (
+    VerifySetting,
+    certificate_error,
+    is_certificate_error,
+    resolve_verify,
+    verify_for_httpx,
+)
+
 SpecSource = Union[str, Path, Tuple[str, str], Sequence[str]]
 
 
@@ -38,7 +46,10 @@ def resolve_swagger(
     *,
     project_root: Optional[Union[str, Path]] = None,
     timeout: float = 60.0,
-    verify: bool = True,
+    # ``None`` means "caller did not say" and defers to the package-wide switch, so a
+    # stand with a self-signed certificate is turned off in one place instead of here
+    # separately. An explicit value still wins.
+    verify: Optional[VerifySetting] = None,
     headers: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
     """Load OpenAPI dict from local file, URL, or confpartest entry.
@@ -63,12 +74,21 @@ def resolve_swagger(
         return _parse_spec_text(path.read_text(encoding="utf-8"), hint=str(path))
 
     if kind == "url":
+        settled = resolve_verify(verify)
         try:
-            with httpx.Client(timeout=timeout, verify=verify, follow_redirects=True) as client:
+            with httpx.Client(timeout=timeout, verify=verify_for_httpx(settled),
+                              follow_redirects=True) as client:
                 resp = client.get(location, headers=dict(headers or {}))
                 resp.raise_for_status()
                 return _parse_spec_text(resp.text, hint=location)
         except httpx.HTTPError as e:
+            if is_certificate_error(e):
+                # A specification usually lives on a different host from the stand, and
+                # this failure happens while tests are being collected, not while one
+                # runs — so the message has to carry the whole answer on its own.
+                raise OpenApiResolveError(
+                    str(certificate_error(e, url=location, verify=settled))
+                ) from e
             raise OpenApiResolveError(f"Failed to fetch OpenAPI URL {location}: {e}") from e
 
     raise OpenApiResolveError(f"Unknown OpenAPI source kind {kind!r}")

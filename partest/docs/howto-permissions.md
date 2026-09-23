@@ -75,7 +75,7 @@ Two ways to be unauthenticated, and they take different code paths:
 
 ```python
 anonymous_headers()        # no Authorization header at all
-invalid_bearer_headers()   # syntactically valid, unusable token
+invalid_bearer_headers()   # a token shaped like a JWS, refused while parsing
 ```
 
 ## The `inactive` cell
@@ -115,4 +115,4 @@ Unauthenticated access deserves at least a list, an item, and a write — not on
 a collection. Where a cell does not apply, say so in the suite rather than omitting it,
 so the next reader can tell "not applicable" from "nobody wrote it".
 
-Related: [Coverage methodology — three axes](concepts-methodology.md) · [Security cookbook — SecHttp, JWT, RiskProfile](howto-security.md) · [Recipes — consumer-side adapters](howto-recipes.md)
+Related: [Coverage methodology — two areas, three axes each](concepts-methodology.md) · [Security cookbook — SecHttp, JWT, RiskProfile](howto-security.md) · [Recipes — consumer-side adapters](howto-recipes.md)

@@ -14,6 +14,9 @@ pip install 'partest[ui]'     # + Playwright and Pillow for UI suites
   expectations, GraphQL, and rich status-mismatch errors.
 - **Coverage by methodology** — every operation is classified into a method subtype, and each
   subtype has a required set of test cases. The report tells you which cases are *missing*.
+- **A UI methodology too** — surface types (list, form, card, shell, dialog, report), the check
+  families each one owes, and the depth each check has to reach. The surface type is declared by
+  your page object: nothing guesses it from markup.
 - **A scaffold, if you want one** — [partest-gen](https://pypi.org/project/partest-gen/) is a
   separate package that writes a runnable suite straight from an OpenAPI file.
 - **Reporting** — `check_*` helpers, Allure steps and attaches (Allure is a soft dependency),

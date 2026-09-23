@@ -18,48 +18,78 @@ Enable explicitly after disable::
     PARTEST_PYTEST_PLUGIN=1
     # or confpartest: pytest_plugin = True
     # or pytest_plugins = ["partest.pytest_plugin"]
+
+``PARTEST_PYTEST_PLUGIN`` governs the **Allure** side only. Recording what the run
+selected (``-m``/``-k``, deselected count) is a separate switch, on by default, because
+it writes nothing to Allure and cannot collide with anybody's hooks::
+
+    PARTEST_RUN_METADATA=0        # or confpartest: run_metadata = False
+
+Turning that one off costs the report its only exact signal that the run covered a
+subset of the suite — see :func:`_record_selection`.
 """
 
 from __future__ import annotations
 
 import os
-from typing import Any, List, Optional
+from typing import Any, Iterable, List, Optional
+
+from partest.flags import coerce_bool, env_bool
 
 
 def _env_flag(name: str) -> Optional[bool]:
-    raw = (os.getenv(name) or "").strip().lower()
-    if not raw:
-        return None
-    if raw in {"0", "false", "off", "no", "disable", "disabled"}:
-        return False
-    if raw in {"1", "true", "on", "yes", "enable", "enabled"}:
-        return True
-    return None
+    return env_bool(name)
+
+
+def _conf_flag(name: str) -> Optional[bool]:
+    """Read a boolean-ish attribute from the consumer ``confpartest``.
+
+    One reading for both halves of the switch, and the same one the TLS switch uses
+    (:mod:`partest.flags`). The two used to differ: ``PARTEST_PYTEST_PLUGIN=disabled``
+    turned the plugin off while ``pytest_plugin = "disabled"`` was not recognised and read
+    as *on*. ``confpartest`` is reached through :func:`partest.conf.conf_attr`, so a
+    project whose file is there but broken hears about it instead of quietly getting the
+    library's defaults.
+    """
+    from partest.conf import conf_attr
+
+    return coerce_bool(conf_attr(name))
+
+
+def _switch(env_name: str, conf_name: str, *, default: bool) -> bool:
+    """Env wins over confpartest; neither set means *default*."""
+    env = _env_flag(env_name)
+    if env is not None:
+        return env
+    conf = _conf_flag(conf_name)
+    if conf is not None:
+        return conf
+    return default
 
 
 def plugin_enabled() -> bool:
-    """Whether hooks should run (env wins over confpartest)."""
-    env = _env_flag("PARTEST_PYTEST_PLUGIN")
-    if env is not None:
-        return env
-    try:
-        import confpartest  # type: ignore
+    """Whether the Allure-side hooks run (env wins over confpartest).
 
-        flag = getattr(confpartest, "pytest_plugin", None)
-        if flag is None:
-            pass
-        elif isinstance(flag, str):
-            low = flag.strip().lower()
-            if low in {"0", "false", "off", "no"}:
-                return False
-            if low in {"1", "true", "on", "yes"}:
-                return True
-        else:
-            return bool(flag)
-    except ImportError:
-        pass
+    This is the switch for what the plugin *adds to Allure*: display names and the
+    failure summary. It is off in projects that own their own Allure hooks. Run
+    metadata is deliberately not behind it — see :func:`run_metadata_enabled`.
+    """
     # Default ON so greenfield gets titles; consumers with dual hooks opt out.
-    return True
+    return _switch("PARTEST_PYTEST_PLUGIN", "pytest_plugin", default=True)
+
+
+def run_metadata_enabled() -> bool:
+    """Whether the run records how it was selected (env wins over confpartest).
+
+    Separate from :func:`plugin_enabled` because the two answer different questions.
+    The Allure hooks are turned off to avoid double attachments; recording the
+    selection attaches nothing, writes no file and prints nothing — it only fills
+    ``partest.call_storage.run_info``, so there is nothing for it to collide with.
+    Sharing one flag meant that every project which followed the advice to disable the
+    plugin also lost the one signal that its run was partial, and only found out when a
+    filtered run was later compared against a full one.
+    """
+    return _switch("PARTEST_RUN_METADATA", "run_metadata", default=True)
 
 
 def _humanize_test_name(name: str) -> str:
@@ -168,7 +198,21 @@ def pytest_runtest_makereport(item, call):
 # --- What this run actually selected --------------------------------------
 
 
-def _record_selection(config, deselected: int = 0) -> None:
+def _reset_selection_state() -> None:
+    """Forget how this process was selected (see :func:`pytest_sessionstart`)."""
+    try:
+        from partest.call_storage import reset_selection
+
+        reset_selection()
+    except Exception:
+        pass
+
+
+def _node_ids(items: Iterable[Any]) -> List[str]:
+    return [str(getattr(item, "nodeid", None) or item) for item in items]
+
+
+def _record_selection(config, deselected: Optional[Iterable[str]] = None) -> None:
     """Note that the run covered a subset, so the report can say so.
 
     Coverage is scored per test case, but "never called" is a property of an endpoint.
@@ -177,9 +221,13 @@ def _record_selection(config, deselected: int = 0) -> None:
     suite did not run. Comparing such a run against a full one then presents every
     dropped cell as a regression. The selection expression is the one exact signal, and
     it is only available here.
+
+    *deselected* is the node ids removed, not their number: they are kept as a set in
+    :data:`partest.call_storage.deselected_nodes` so that a parallel run, where every
+    worker deselects the same tests, reports the filter once instead of once per worker.
     """
     try:
-        from partest.call_storage import run_info
+        from partest.call_storage import record_deselected, run_info
     except Exception:
         return
     option = getattr(config, "option", None)
@@ -191,22 +239,22 @@ def _record_selection(config, deselected: int = 0) -> None:
         if value:
             selection[key] = value
     if deselected:
-        selection["deselected"] = int(selection.get("deselected", 0)) + int(deselected)
+        record_deselected(deselected)
 
 
 def pytest_collection_modifyitems(config, items) -> None:
-    if not plugin_enabled():
+    if not run_metadata_enabled():
         return
     _record_selection(config)
 
 
 def pytest_deselected(items) -> None:
     """``-m`` and ``-k`` come through here; ``--deselect`` and plugins do too."""
-    if not plugin_enabled() or not items:
+    if not run_metadata_enabled() or not items:
         return
     config = getattr(items[0], "config", None)
     if config is not None:
-        _record_selection(config, deselected=len(items))
+        _record_selection(config, deselected=_node_ids(items))
 
 
 # --- Coverage under pytest-xdist ------------------------------------------
@@ -223,7 +271,14 @@ def _is_xdist_worker(config) -> bool:
 
 
 def pytest_sessionstart(session) -> None:
-    """Drop shards from a previous run so stale workers cannot inflate this one."""
+    """Start from a clean slate: this run's selection, then last run's shards.
+
+    Both halves are about a second run inheriting the first one's facts. The selection is
+    per process, so it matters to anyone calling ``pytest.main()`` twice in one
+    interpreter — the second, unfiltered run would otherwise report the first run's
+    deselected tests and a marker expression it never got.
+    """
+    _reset_selection_state()
     if not _xdist_merge_enabled() or _is_xdist_worker(session.config):
         return
     try:
@@ -259,6 +314,12 @@ def pytest_sessionfinish(session, exitstatus) -> None:
         merge_shards()
     except Exception:
         return
+
+    if run_metadata_enabled():
+        # The controller never collects under xdist, so its `-m` / `-k` reached no hook.
+        # `config.option` still has them, and this is the last chance to read it. The
+        # deselected ids came in with the shards above.
+        _record_selection(session.config)
 
     if run_info.get("workers", 1) > 1 and not run_info.get("merged"):
         if _env_flag("PARTEST_COVERAGE_REQUIRE_MERGE"):

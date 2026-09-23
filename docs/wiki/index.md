@@ -1,7 +1,7 @@
 ---
 title: Каталог документации partest
 status: current
-verified: 2026-09-07
+verified: 2026-09-13
 sources: []
 audience: agent
 ships_in_wheel: false
@@ -19,14 +19,14 @@ ships_in_wheel: false
 | Что из внешнего бэклога реально сделано в коде | [[backlog-audit]] |
 | Идеи развития сверх бэклога | [[proposals]] |
 | Что вообще есть в пакете и где лежит | [[components/overview]] |
-| Что значит «покрыто» в этой методологии | [[concepts/methodology]] |
+| Что значит «покрыто» — для API и для UI | [[concepts/methodology]] |
 | Почему цифра покрытия может врать | [[concepts/coverage-honesty]] |
 
 ## concepts — почему так
 
 | Страница | О чём |
 |---|---|
-| [[concepts/methodology]] | три оси покрытия: подтип метода × тип TC × глубина проверки |
+| [[concepts/methodology]] | две области: API (подтип × тип TC × глубина) и UI (поверхность × проверка × глубина) |
 | [[concepts/coverage-honesty]] | xdist, unseen vs empty, unmatched пути — когда проценту нельзя верить |
 
 ## components — что есть

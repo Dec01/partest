@@ -85,8 +85,8 @@ Two consequences for work in this repository:
 
 | Question | Source of truth |
 |---|---|
-| Which TC types are required for a subtype | `partest/methodology/matrix.py` |
-| What a subtype is | `partest/methodology/subtypes.py` |
+| Which TC types are required for a subtype | `partest/methodology/api/matrix.py` |
+| What a subtype is | `partest/methodology/api/subtypes.py` |
 | What the generator emits | the `partest-gen` repository, not this one |
 | What version we are on | `partest/__init__.py` |
 | What ships to PyPI users | `ships_in_wheel: true` frontmatter |

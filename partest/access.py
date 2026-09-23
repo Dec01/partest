@@ -19,9 +19,12 @@ from typing import Any, Dict, Mapping, NamedTuple, Optional, Sequence, Union
 
 from partest.test_types import PERMISSION_CELLS, TypesTestCases, permission_cell_label
 
-# A deliberately malformed compact JWS: three segments, valid characters, garbage
-# payload. Enough for a server to reject it as unparsable without any key material.
-INVALID_BEARER = "eyJhbGciOiJIUzI1NiJ9.bm90LWEtcmVhbC1wYXlsb2Fk.bm90LWEtc2lnbmF0dXJl"
+# Three dot-separated segments keep the compact-JWS shape for anything that splits on
+# dots, and that is all it keeps: no entropy, and the value says out loud what it is,
+# so neither a reader nor a secret scanner mistakes it for a credential. The leading
+# segment does not decode into JOSE JSON, so a server rejects the token while parsing
+# it — before any signature check, and without needing key material.
+INVALID_BEARER = "invalid.invalid.invalid"
 
 
 def anonymous_headers(extra: Optional[Mapping[str, str]] = None) -> Dict[str, str]:
@@ -39,7 +42,11 @@ def invalid_bearer_headers(
     token: str = INVALID_BEARER,
     scheme: str = "Bearer",
 ) -> Dict[str, str]:
-    """Headers carrying a syntactically valid but unusable token.
+    """Headers carrying a token shaped like a bearer credential but not usable as one.
+
+    The default :data:`INVALID_BEARER` only has the three dot-separated segments of a
+    compact JWS; its header segment is not JOSE JSON, so the server refuses it while
+    parsing rather than while verifying a signature.
 
     Distinct from :func:`anonymous_headers`: a missing header and a broken token can
     take different code paths, and only one of them is usually tested.

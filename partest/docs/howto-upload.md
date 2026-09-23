@@ -120,4 +120,4 @@ from partest.files import (
 )
 ```
 
-Related: [Permissions — four cells, not one 401](howto-permissions.md) · [Recipes — consumer-side adapters](howto-recipes.md) · [Coverage methodology — three axes](concepts-methodology.md)
+Related: [Permissions — four cells, not one 401](howto-permissions.md) · [Recipes — consumer-side adapters](howto-recipes.md) · [Coverage methodology — two areas, three axes each](concepts-methodology.md)

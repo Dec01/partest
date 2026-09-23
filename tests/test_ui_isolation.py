@@ -39,6 +39,48 @@ def test_import_ui_source_has_no_conf_or_swagger():
         assert "swagger_files" not in text
 
 
+def test_calling_the_ui_branch_does_not_reach_confpartest(monkeypatch):
+    """Source-grepping is not enough: the reach can be one module away.
+
+    This guard exists because the check above passed while isolation was broken.
+    `capture_baselines` asked `partest.tls` for the TLS default, and that helper reads
+    project configuration — so a UI job loaded it through a module whose name says nothing
+    about it, and the grep above found no `import confpartest` to object to. The rule is
+    about what a UI run *loads*, so this has to call, not read.
+
+    It asserts on `sys.modules` rather than on a spy over ``builtins.__import__``: the
+    loader goes through ``importlib.import_module``, which never touches the builtin. A
+    spy there reports "clean" no matter what — the first version of this test did exactly
+    that and passed against code that was provably broken.
+    """
+    from partest.ui.capture_baselines import ignore_https_errors
+
+    monkeypatch.delitem(sys.modules, "confpartest", raising=False)
+
+    for value in (None, True, False):
+        ignore_https_errors(value)
+
+    assert "confpartest" not in sys.modules, (
+        "partest.ui loaded project configuration — red line 8"
+    )
+
+
+def test_importing_ui_does_not_load_confpartest_by_any_mechanism(monkeypatch):
+    """The same blind spot as above, for the import of the package itself.
+
+    `test_import_ui_does_not_need_confpartest` guards the import with a spy over
+    ``builtins.__import__``; an `importlib.import_module` call walks past it untouched.
+    """
+    for key in list(sys.modules):
+        if key == "partest.ui" or key.startswith("partest.ui."):
+            monkeypatch.delitem(sys.modules, key, raising=False)
+    monkeypatch.delitem(sys.modules, "confpartest", raising=False)
+
+    import partest.ui  # noqa: F401
+
+    assert "confpartest" not in sys.modules
+
+
 def test_page_monitor_configurable_ignore():
     from partest.ui.page_monitor import PageMonitor
 

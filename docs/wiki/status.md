@@ -1,7 +1,7 @@
 ---
 title: Статус, версии и что дальше
 status: current
-verified: 2026-09-07
+verified: 2026-09-13
 sources: [partest/__init__.py, CHANGELOG.md]
 audience: maintainer
 ships_in_wheel: false
@@ -15,7 +15,7 @@ allow_version_literals: true
 
 | | |
 |---|---|
-| **Дата актуализации** | 2026-09-07 |
+| **Дата актуализации** | 2026-09-13 |
 | **Текущий релиз** | **1.8.1** (PyPI, 2026-09-07) — пять фиксов по отчёту консьюмера, §6. Минимальный Python — 3.10 |
 | **Дистрибуция** | PyPI — пакет, GitHub — исходники и история; см. [[decisions/distribution]] |
 | **Соседний пакет** | `partest-gen` выделен из `partest.project_gen` 2026-09-07; см. §5 |
@@ -41,6 +41,7 @@ allow_version_literals: true
 | Доки внутри колеса (`partest.docs`) | 1.4 |
 | Coverage extras: `zorro_enhanced`, CLI, `ServiceMap`, badge/stubs | 1.5.0 |
 | IncorrectBody helper, freeze CSS sync, `compare_images(name=)` | 1.5.0 |
+| Методология UI: поверхности × проверки × глубина, матрица применимости | 2.0.0 (в `Unreleased`) |
 
 ## 2. Волны — закрыты
 
@@ -67,7 +68,7 @@ allow_version_literals: true
 
 | ID | Задача | Где |
 |---|---|---|
-| **LIB-CLASSIFY-TOKEN** | `me`/`self`/`my` по границе слова и по сегментам; `media` не крадёт `media-types` | `partest/methodology/classifier.py` |
+| **LIB-CLASSIFY-TOKEN** | `me`/`self`/`my` по границе слова и по сегментам; `media` не крадёт `media-types` | `partest/methodology/api/classifier.py` |
 | **LIB-CLASSIFY-ACTION** | глагол в последнем сегменте → ACTION раньше POST TO OBJECT | там же |
 | **LIB-PATH-RESOLVE** | конкретный URL → шаблон OpenAPI: сегментное сопоставление, самый длинный литеральный префикс | `partest/path_match.py`, `partest/coverage.py` |
 | **LIB-TRACK-VALIDATE** | id регистрируется при 2xx **до** `validate_model` через хук ответа | `partest/client.py`, `partest/tracking.py` |
@@ -147,11 +148,17 @@ i18n шаблонов reporting · `LIB-PERM-QUAD` labels · `LIB-REC-CLEANUP` h
 | Репозиторий | https://github.com/Dec01/partest-gen |
 | Версия | 1.0.0, ещё не на PyPI |
 | Требует | `partest>=1.8.0` |
-| Что читает отсюда | `partest.methodology.{classifier,matrix,subtypes}`, `partest.test_types`, `partest.tools.generate_init` |
+| Что читает отсюда | `partest.methodology.api.{classifier,matrix,subtypes}`, `partest.test_types`, `partest.tools.generate_init` |
 
 **Следствие для планирования релизов.** У `classify_endpoint` и `p1_test_cases` теперь второй
 потребитель, и он в другом репозитории. Менять их сигнатуры как приватные нельзя; порядок —
 сначала релиз `partest`, потом поднятие нижней границы в `partest-gen`.
+
+**Переезд методологии в `api/` (2026-09-13) — ровно такой случай.** Генератор импортирует глубокие
+пути, а заглушек на старых нет: три строки в `partest_gen/ir.py` и нижняя граница в его `setup.py`
+правятся тем же прогоном. Публиковать `partest-gen` можно **только после** выхода мажорной версии
+`partest`: до неё новых путей не существует ни в одном установленном колесе. Потребительский
+проект прибит к текущему патчу с PyPI и переключается уже после релиза, не раньше.
 
 **Незакрытый хвост.** Мост `partest.project_gen` снимается в мажорной версии `partest`.
 Ломающее изменение уже накоплено — консоль-скрипт `partest-gen` из этого дистрибутива убран, —

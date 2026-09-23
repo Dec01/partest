@@ -65,9 +65,14 @@ setup(
         "gen": [
             "partest-gen>=1.0.0",
         ],
+        # pytest-xdist is not a runtime dependency: the plugin detects a parallel run
+        # through ``hasattr(config, "workerinput")`` and never imports it. The test
+        # suite does need it — one case runs a real ``-n 2`` session — so it is
+        # declared here, where CI and a contributor both look.
         "dev": [
             "pytest>=8.0.0",
             "pytest-asyncio>=0.23.7",
+            "pytest-xdist>=3.0.0",
         ],
     },
     entry_points={

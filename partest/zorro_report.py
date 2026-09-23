@@ -9,7 +9,7 @@ import allure
 
 from partest.allure_graph import create_chart
 from partest.call_storage import call_count
-from partest.methodology.matrix import CoveragePriority
+from partest.methodology.api.matrix import CoveragePriority
 from partest.reports.analyzer import CoverageReport, analyze_coverage
 from partest.reports.html_coverage import write_html_report
 from partest.test_types import TYPE_LABELS

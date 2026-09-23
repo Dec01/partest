@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Union
 
-from partest.methodology.matrix import CoveragePriority
+from partest.methodology.api.matrix import CoveragePriority
 from partest.reports.analyzer import CoverageReport
 from partest.reports.interactive_html import render_html
 from partest.reports.payload import build_payload

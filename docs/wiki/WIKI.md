@@ -48,7 +48,7 @@ docs/wiki/
 title: Coverage matrix (subtype × TC)
 status: current            # current | draft | stale | archived
 verified: 2026-09-04       # дата последней сверки с кодом
-sources: [partest/methodology/matrix.py]   # файлы кода, от которых зависит страница
+sources: [partest/methodology/api/matrix.py]   # файлы кода, от которых зависит страница
 audience: agent            # user | maintainer | agent
 ships_in_wheel: false      # true → страница уезжает в PyPI-колесо
 ---

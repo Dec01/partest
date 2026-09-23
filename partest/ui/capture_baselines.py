@@ -25,6 +25,7 @@ import asyncio
 import json
 import os
 import sys
+import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
@@ -38,6 +39,48 @@ from partest.ui.visual import (
 )
 
 SceneLike = Union[VisualScene, Dict[str, Any]]
+
+
+def ignore_https_errors(value: Optional[bool] = None) -> bool:
+    """Browser side of the decision :mod:`partest.tls` makes for the API clients.
+
+    Capture used to accept any certificate unconditionally, which is the same silent
+    default the HTTP clients had. ``None`` means "whatever the project decided" — and on
+    this road that is **the environment only**: a UI job must never load ``confpartest``
+    (AGENTS.md red line 8, ``tests/test_ui_isolation.py``), so ``PARTEST_TLS_VERIFY=0``
+    covers a self-signed dev frontend while ``tls_verify = False`` in the project file does
+    not reach the browser. The UI page says so.
+
+    Turning it off warns here as well. It used to go through ``default_verify`` and stayed
+    silent, so a UI run was the one place where an unverified run announced nothing.
+
+    A CA bundle path cannot be honoured: a Playwright context takes ``ignore_https_errors``
+    and nothing else, and checks against the OS trust store. Verification stays on — the
+    honest reading — and says that the bundle was not applied, because the alternative is a
+    corporate certificate rejected by a switch the project believes it set.
+    """
+    from partest.tls import VERIFY_ENV, resolve_verify
+
+    if value is not None:
+        if value:
+            # Explicit ``ignore_https_errors=True`` is the same decision as verify=False,
+            # and worth the same one-line warning.
+            resolve_verify(False)
+        return bool(value)
+
+    setting = resolve_verify(None, env_only=True)
+    if setting is False:
+        return True
+    if isinstance(setting, str):
+        warnings.warn(
+            f"partest: {VERIFY_ENV}={setting!r} cannot be given to a browser — a "
+            "Playwright context has no CA bundle option and trusts the OS store. "
+            "Certificate checking stays on for capture; install the CA into the system "
+            "store, or pass ignore_https_errors=True for this capture.",
+            UserWarning,
+            stacklevel=2,
+        )
+    return False
 
 
 def load_scenes(source: Union[str, Path, Sequence[SceneLike], None]) -> List[VisualScene]:
@@ -114,7 +157,7 @@ async def capture_baselines(
     hide_selectors: Sequence[str] = (),
     only: Optional[Sequence[str]] = None,
     locale: str = "en-US",
-    ignore_https_errors: bool = True,
+    ignore_https_errors: Optional[bool] = None,
 ) -> List[Dict[str, Any]]:
     """Async Playwright capture. ``login`` is ``async (page) -> None``."""
     try:
@@ -138,7 +181,7 @@ async def capture_baselines(
         context = await browser.new_context(
             viewport={"width": int(viewport[0]), "height": int(viewport[1])},
             locale=locale,
-            ignore_https_errors=ignore_https_errors,
+            ignore_https_errors=ignore_https_errors(ignore_https_errors),
             device_scale_factor=1,
         )
         page = await context.new_page()
@@ -188,7 +231,7 @@ def capture_baselines_sync(
     hide_selectors: Sequence[str] = (),
     only: Optional[Sequence[str]] = None,
     locale: str = "en-US",
-    ignore_https_errors: bool = True,
+    ignore_https_errors: Optional[bool] = None,
 ) -> List[Dict[str, Any]]:
     """Sync Playwright capture. ``login`` is ``(page) -> None``."""
     try:
@@ -212,7 +255,7 @@ def capture_baselines_sync(
         context = browser.new_context(
             viewport={"width": int(viewport[0]), "height": int(viewport[1])},
             locale=locale,
-            ignore_https_errors=ignore_https_errors,
+            ignore_https_errors=ignore_https_errors(ignore_https_errors),
             device_scale_factor=1,
         )
         page = context.new_page()

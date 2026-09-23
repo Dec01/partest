@@ -31,7 +31,7 @@ ships_in_wheel: false
 |---|---|---|
 | Мост `partest.project_gen` | `partest/project_gen/__init__.py` | старые импорты продолжают работать |
 | Экстра `partest[gen]` | `setup.py` | `pip install 'partest[gen]'` ставит оба пакета |
-| Методология, которую читает генератор | `partest/methodology/*` | подтипы, матрица P1, классификатор |
+| Методология, которую читает генератор | `partest/methodology/api/*` | подтипы, матрица P1, классификатор |
 | `partest.tools.generate_init` | `partest/tools/generate_init.py` | утилита общего назначения, у неё свой публичный вход |
 
 Команда `partest-gen` объявлена только в `partest-gen`. Два дистрибутива не могут владеть
