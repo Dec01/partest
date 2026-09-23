@@ -12,7 +12,13 @@ structural difference that is not an oversight:
 Names re-exported here are flat and unprefixed for the API half (they predate the split
 and did not move) and ``ui``/``Ui``-prefixed for the UI half. The submodules moved in
 2.0.0: ``partest.methodology.subtypes`` is now ``partest.methodology.api.subtypes``, and
-so on — the table of old and new paths is in the migration guide.
+so on — the table of old and new paths is in the migration guide. The old paths still
+import, resolving to the same module objects and warning once each; they are removed in
+3.0.0. See ``partest/methodology/_moved.py``.
+
+``active_overrides`` joined this list in 2.0.0. It was public and called by suites from
+the day overrides existed, but only ever through a deep import, so a consumer had no
+spelling of it that survived a move of the module underneath.
 """
 
 from partest.methodology.api import (
@@ -22,6 +28,7 @@ from partest.methodology.api import (
     STEPS_BY_GROUP,
     SUBTYPE_LABELS,
     TestStep,
+    active_overrides,
     applicable_test_cases,
     classify_endpoint,
     classify_path_object,
@@ -68,6 +75,7 @@ __all__ = [
     "infer_test_type",
     "TestStep",
     "STEPS_BY_GROUP",
+    "active_overrides",
     # --- UI methodology ---
     "SurfaceType",
     "SURFACE_LABELS",

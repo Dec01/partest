@@ -14,9 +14,12 @@ There are **two areas**, and they are separate packages with the same shape:
 | UI | `partest.methodology.ui` | surface type | check family | visible → value → survives reload → baseline |
 
 `partest.methodology` re-exports both, so `from partest.methodology import …` keeps working for
-every name it ever exported. The submodules moved, though — `partest.methodology.subtypes` is now
-`partest.methodology.api.subtypes`, and the rest with it. Old and new paths side by side:
-[Migration between partest versions](howto-migration.md).
+every name it ever exported — and `active_overrides`, which it did not export before the split
+although the function was public all along. The submodules moved, though —
+`partest.methodology.subtypes` is now `partest.methodology.api.subtypes`, and the rest with it.
+The old paths still import until the next major release: each warns once and resolves to the
+same module object, so nothing about the two spellings differs except the warning. Old and new
+side by side: [Migration between partest versions](howto-migration.md).
 
 **One difference between the areas is structural, not a gap.** The API half derives axis A from
 the OpenAPI specification, so it has a classifier and type inference. No project ships a
