@@ -1,7 +1,7 @@
 ---
 title: ADR — как распространяется partest
 status: current
-verified: 2026-09-07
+verified: 2026-09-23
 sources: [setup.py, MANIFEST.in]
 audience: maintainer
 ships_in_wheel: false

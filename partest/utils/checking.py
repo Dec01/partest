@@ -73,7 +73,7 @@ class ErrorDesc:
             body = f'Response (non-JSON): {responseBody.text}\n'
         finally:
             desc = (f"\n\n---->\nОшибка! Пришел некорректный статус код!\n"
-                    f"Ожидали код: {codeExpected} <\> Получили код: {codeActual}\n"
+                    f"Ожидали код: {codeExpected} <\\> Получили код: {codeActual}\n"
                     f"{body}\n<----\n\n")
         return desc
 
@@ -143,7 +143,7 @@ class ErrorDesc:
                 _req_body = ""
         finally:
             desc = (f"\n\n---->\nОшибка! Получили не то значение элемента что ожидали!\n"
-                    f"Ожидали значение: {payloadElement} <\> Получили значение: {dataElement}\n"
+                    f"Ожидали значение: {payloadElement} <\\> Получили значение: {dataElement}\n"
                     f"{_resp_body}\n{_req_body}\n<----\n\n")
         return desc
 

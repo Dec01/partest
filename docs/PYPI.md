@@ -96,9 +96,15 @@ print(read_doc("concepts-methodology.md"))
 
 ## Requirements
 
-Python 3.10+. Core dependencies: `httpx`, `pydantic`, `pyyaml`, `pytest`, `pytest-asyncio`,
+Python 3.10+, with the suite run on 3.10 and 3.14. Core dependencies: `httpx`, `pydantic`, `pyyaml`, `pytest`, `pytest-asyncio`,
 `allure-pytest`, `requests`, `python-dotenv`, `Faker`, `matplotlib`. The `ui` extra adds
 `playwright` and `Pillow`.
+
+**pytest 9 is required from 2.1.0 on** (`pytest>=9.0.3,<10`). The advisory that raised the
+floor, `PYSEC-2026-1845`, has no fix in any 8.x release, so pytest 8 is not supported rather
+than deprecated — stay on `partest 2.0.1` if you cannot move yet. The ceiling is there
+because `partest` is a pytest plugin and loads in every session: it says pytest 9 was run
+and pytest 10 was not, and it is lifted by a patch release once the suite passes on 10.
 
 The bundled pytest plugin loads automatically and enriches Allure titles. Turn it off with
 `PARTEST_PYTEST_PLUGIN=0`, `pytest_plugin = False` in `confpartest.py`, or `pytest -p no:partest`
