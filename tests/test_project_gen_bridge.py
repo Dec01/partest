@@ -14,8 +14,19 @@ import warnings
 
 import pytest
 
-partest_gen = pytest.importorskip(
-    "partest_gen", reason="partest-gen is an optional dependency (partest[gen])"
+try:
+    import partest_gen
+except ImportError:  # the distribution is optional for a library-only install
+    partest_gen = None
+
+#: A module-level ``importorskip`` used to take the whole file with it, including the
+#: cases that only read ``setup.py`` — so an environment without the generator reported
+#: "1 skipped" and the release's central promise was never checked. The skip is now
+#: narrowed to the cases that really need the other distribution, and
+#: ``test_the_dev_extra_declares_the_generator`` states that a development install has it.
+needs_generator = pytest.mark.skipif(
+    partest_gen is None,
+    reason="partest-gen is not installed; `pip install -e .[dev]` brings it in",
 )
 
 
@@ -31,6 +42,7 @@ def bridge():
     return module
 
 
+@needs_generator
 def test_importing_the_old_path_warns(bridge):
     """A deprecation nobody sees never expires."""
     assert any(
@@ -39,11 +51,13 @@ def test_importing_the_old_path_warns(bridge):
     ), [str(w.message) for w in bridge._warnings_seen]
 
 
+@needs_generator
 def test_the_old_public_names_still_resolve(bridge):
     for name in bridge.__all__:
         assert getattr(bridge, name) is getattr(partest_gen, name), name
 
 
+@needs_generator
 def test_submodules_redirect_to_the_same_object(bridge):
     """Not a copy: a second execution would give two classes with one name."""
     old = importlib.import_module("partest.project_gen.skeleton")
@@ -55,6 +69,7 @@ def test_submodules_redirect_to_the_same_object(bridge):
     assert deep_old is deep_new
 
 
+@needs_generator
 def test_from_import_through_the_bridge_works(bridge):
     from partest.project_gen.cli import main as bridged
     from partest_gen.cli import main as direct
@@ -78,6 +93,32 @@ def test_missing_distribution_says_what_to_install():
 
     assert result.returncode != 0
     assert "pip install partest-gen" in result.stderr, result.stderr
+
+
+def _extras_require():
+    """``extras_require`` as written in setup.py, read without running it."""
+    import ast
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[1] / "setup.py").read_text(encoding="utf-8")
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "setup":
+            for keyword in node.keywords:
+                if keyword.arg == "extras_require":
+                    return ast.literal_eval(keyword.value)
+    raise AssertionError("setup(extras_require=...) not found in setup.py")
+
+
+def test_the_dev_extra_declares_the_generator():
+    """A development install must be able to run the cases above, not skip them.
+
+    The bridge is this release's promise to every consumer who upgrades without touching
+    their imports, and while the distribution went undeclared here nothing in a green
+    gate had ever executed it: the whole file skipped itself and reported one skip.
+    """
+    dev = _extras_require()["dev"]
+
+    assert any(req.split(">")[0].split("=")[0].strip() == "partest-gen" for req in dev), dev
 
 
 def test_the_console_script_is_not_declared_here():

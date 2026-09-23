@@ -1,7 +1,7 @@
 ---
 title: Coverage methodology — two areas, three axes each
 status: current
-verified: 2026-09-13
+verified: 2026-09-23
 sources: [partest/methodology/__init__.py, partest/methodology/api/subtypes.py, partest/methodology/api/matrix.py, partest/methodology/api/steps.py, partest/methodology/api/inference.py, partest/methodology/api/classifier.py, partest/test_types.py, partest/methodology/ui/surfaces.py, partest/methodology/ui/checks.py, partest/methodology/ui/matrix.py, partest/methodology/ui/steps.py]
 audience: agent
 ships_in_wheel: true
@@ -190,8 +190,10 @@ same surface, so the missing family was the defect.
 
 ## Axis A × B — the UI matrix
 
-`partest/methodology/ui/matrix.py`, the same `CoveragePriority` values as the API side. The rule for
-filling it is the opposite of completeness:
+`partest/methodology/ui/matrix.py`, the same `CoveragePriority` as the API side — the same object,
+re-exported from `partest.methodology.ui` as well, because P1 means "implement first" in both areas
+and two enums with identical members would only make a report pick one at random. The rule for
+filling this table is the opposite of completeness:
 
 > a cell nobody can justify is `NA`, not "probably P2".
 

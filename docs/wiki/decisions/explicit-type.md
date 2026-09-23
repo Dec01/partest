@@ -1,7 +1,7 @@
 ---
 title: ADR — явный type= вместо автоинференса
 status: current
-verified: 2026-09-04
+verified: 2026-09-23
 sources: [partest/methodology/api/inference.py, partest/test_types.py, partest/client.py]
 audience: maintainer
 ships_in_wheel: false

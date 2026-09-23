@@ -7,6 +7,12 @@ screens, so the surface type is declared by the consumer. ``tests/test_methodolo
 asserts that absence, so that a later "small helper" cannot drift back into guessing.
 """
 
+# Shared with the API half on purpose: P1 means "implement first" in both areas, and two
+# enums with identical members would only make a report pick one at random. Re-exported
+# here because it is the return type of ``priority_of`` and the default of
+# ``required_checks`` — a consumer of this area should not have to import from ``api`` to
+# read an answer this area gave it.
+from partest.methodology.api.matrix import CoveragePriority
 from partest.methodology.ui.surfaces import (
     SurfaceType,
     SURFACE_LABELS,
@@ -37,6 +43,7 @@ from partest.methodology.ui.steps import (
 )
 
 __all__ = [
+    "CoveragePriority",
     "SurfaceType",
     "SURFACE_LABELS",
     "SURFACE_DESCRIPTIONS",

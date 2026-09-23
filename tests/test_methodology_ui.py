@@ -12,7 +12,13 @@ import pytest
 
 from partest.methodology import CoveragePriority
 from partest.methodology.ui import matrix as ui_matrix
-from partest.methodology.ui.checks import UI_CORE_CHECKS, UI_TYPE_LABELS, ui_check_label
+from partest.methodology.ui import steps as ui_steps
+from partest.methodology.ui.checks import (
+    UI_CHECK_DESCRIPTIONS,
+    UI_CORE_CHECKS,
+    UI_TYPE_LABELS,
+    ui_check_label,
+)
 from partest.methodology.ui.checks import UiTestCases as U
 from partest.methodology.ui.matrix import (
     applicable_checks,
@@ -92,6 +98,54 @@ def test_every_check_has_a_label_and_an_unknown_one_raises():
     assert ui_check_label("screen-render") == "ScreenRender"
     with pytest.raises(ValueError):
         ui_check_label("screen_rendering")
+
+
+def test_axis_b_is_enumerated_the_same_way_everywhere():
+    """The eleven names are written out in four places; a gap in any one is a defect.
+
+    `_MINIMUM_DEPTH` is the expensive one: a family present in the matrix but missing
+    from the depth table answers "unknown UI check" for a check the methodology itself
+    requires. `UI_CHECK_DESCRIPTIONS` is the cheap one — a family with no description is
+    a legend with a hole in it — and neither was checked by anything before.
+    """
+    expected = set(UI_CORE_CHECKS)
+
+    assert {c.strip() for c in expected} == expected, "a name with whitespace in it"
+    assert len(UI_CORE_CHECKS) == len(expected), "a name is listed twice in axis B"
+    assert expected == {
+        value
+        for name, value in vars(U).items()
+        if not name.startswith("_") and isinstance(value, str)
+    }, "UiTestCases and UI_CORE_CHECKS disagree about the vocabulary"
+
+    for name, table in (
+        ("UI_TYPE_LABELS", UI_TYPE_LABELS),
+        ("UI_CHECK_DESCRIPTIONS", UI_CHECK_DESCRIPTIONS),
+        ("_MINIMUM_DEPTH", ui_steps._MINIMUM_DEPTH),
+    ):
+        assert set(table) == expected, (
+            f"{name} is out of step with axis B: "
+            f"missing {sorted(expected - set(table))}, extra {sorted(set(table) - expected)}"
+        )
+
+
+def test_every_check_answers_the_three_questions_asked_of_it():
+    """The dictionaries above are reachable through the functions that read them."""
+    for check in UI_CORE_CHECKS:
+        assert ui_check_label(check)
+        assert UI_CHECK_DESCRIPTIONS[check].strip()
+        assert minimum_depth(check) in UiStep
+        for surface in SurfaceType:
+            assert priority_of(surface, check) in CoveragePriority
+
+
+def test_a_check_name_is_canonicalised_the_same_way_on_every_road():
+    """Three copies of one expression is how two roads start disagreeing."""
+    spelling = "  Screen-State_Persistence  "
+
+    assert ui_check_label(spelling) == "ScreenStatePersistence"
+    assert priority_of(SurfaceType.LIST_TABLE, spelling) == CoveragePriority.P1
+    assert minimum_depth(spelling) is UiStep.SURVIVES_RELOAD
 
 
 # --- Axis A × B -----------------------------------------------------------
@@ -262,6 +316,19 @@ def test_the_facade_exports_both_areas_and_keeps_the_api_names():
         assert hasattr(m, name), f"the move dropped {name} from the facade"
     for name in ("SurfaceType", "UiTestCases", "UiStep", "required_checks", "priority_of"):
         assert hasattr(m, name)
+
+
+def test_the_ui_area_exports_the_priority_it_answers_with():
+    """``priority_of`` returns one and ``required_checks`` defaults to one.
+
+    A consumer of the UI area had to import it from ``methodology.api`` to name the type
+    of a value this area handed it — which reads as though the vocabulary were borrowed
+    rather than shared.
+    """
+    import partest.methodology.ui as ui_pkg
+
+    assert "CoveragePriority" in ui_pkg.__all__
+    assert ui_pkg.CoveragePriority is CoveragePriority
 
 
 def test_no_compatibility_shims_on_the_old_paths():

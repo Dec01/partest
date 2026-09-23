@@ -65,14 +65,23 @@ setup(
         "gen": [
             "partest-gen>=1.0.0",
         ],
-        # pytest-xdist is not a runtime dependency: the plugin detects a parallel run
-        # through ``hasattr(config, "workerinput")`` and never imports it. The test
-        # suite does need it — one case runs a real ``-n 2`` session — so it is
-        # declared here, where CI and a contributor both look.
+        # What the test suite needs beyond the runtime dependencies. Neither of the last
+        # two is imported by the package itself:
+        #
+        # * pytest-xdist — the plugin detects a parallel run through
+        #   ``hasattr(config, "workerinput")`` and never imports it, but one case runs a
+        #   real ``-n 2`` session;
+        # * partest-gen — ``tests/test_project_gen_bridge.py`` checks that the old
+        #   ``partest.project_gen`` imports still resolve, and to the *same* module
+        #   objects. Without the distribution those cases skip, and the release's central
+        #   promise then goes unchecked in a gate that still reports green. Same floor as
+        #   the ``gen`` extra. Working on both repositories at once, install the sibling
+        #   checkout instead: ``pip install -e ../partest_gen --no-deps``.
         "dev": [
             "pytest>=8.0.0",
             "pytest-asyncio>=0.23.7",
             "pytest-xdist>=3.0.0",
+            "partest-gen>=1.0.0",
         ],
     },
     entry_points={

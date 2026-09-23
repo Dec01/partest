@@ -277,6 +277,69 @@ def test_the_run_artifact_remembers_an_unverified_run(monkeypatch):
     assert run_info["tlsVerified"] is False
 
 
+def _context_that_checks_nothing() -> ssl.SSLContext:
+    """The context form of ``verify=False``; ``VerifySetting`` accepts it publicly."""
+    context = ssl.create_default_context()
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    return context
+
+
+def test_a_context_that_verifies_nothing_counts_as_unverified():
+    """``meta.tlsVerified`` is the field that must not be able to say ``true`` wrongly.
+
+    ``verify=False`` is not the only spelling: a context with ``verify_mode=CERT_NONE``
+    accepts any certificate just the same, and it used to pass through with no warning,
+    no record, and ``"tlsVerified": true`` in the artefact.
+    """
+    from partest.call_storage import run_info
+
+    context = _context_that_checks_nothing()
+
+    with pytest.warns(tls.TLSVerificationDisabled):
+        assert tls.resolve_verify(context) is context
+
+    assert run_info["tlsVerified"] is False
+
+
+def test_a_client_given_such_a_context_says_so(recwarn):
+    from partest import ApiClient
+    from partest.call_storage import run_info
+
+    with pytest.warns(tls.TLSVerificationDisabled):
+        client = ApiClient("https://example.invalid", verify=_context_that_checks_nothing())
+
+    assert isinstance(client.verify, ssl.SSLContext)
+    assert run_info["tlsVerified"] is False
+
+
+def test_a_verifying_context_is_left_alone(recwarn):
+    """A real context must not be dragged into the same bucket by association."""
+    from partest.call_storage import run_info
+
+    context = ssl.create_default_context()
+
+    assert tls.resolve_verify(context) is context
+    assert run_info["tlsVerified"] is True
+    assert [w for w in recwarn if issubclass(w.category, tls.TLSVerificationDisabled)] == []
+
+
+def test_a_context_with_hostname_checking_off_is_not_called_unverified(recwarn):
+    """Weakened is not off: the chain is still built to a trusted root.
+
+    Calling this one unverified would make the flag lie in the other direction, and the
+    flag is only worth having while it means one thing.
+    """
+    from partest.call_storage import run_info
+
+    context = ssl.create_default_context()
+    context.check_hostname = False
+
+    assert tls.resolve_verify(context) is context
+    assert run_info["tlsVerified"] is True
+    assert [w for w in recwarn if issubclass(w.category, tls.TLSVerificationDisabled)] == []
+
+
 # --- the failure a consumer actually meets --------------------------------
 
 
@@ -289,10 +352,50 @@ def _rejected_certificate() -> httpx.ConnectError:
     return error
 
 
+def _dropped_connection(error: BaseException) -> httpx.ConnectError:
+    """A transport failure of the TLS layer, wrapped the way httpx wraps one."""
+    wrapper = httpx.ConnectError(str(error))
+    wrapper.__cause__ = error
+    return wrapper
+
+
+#: ``ssl.SSLError`` and the subclasses of it that are not about a certificate at all:
+#: the peer went away mid-handshake or mid-stream, or the failure is unclassified.
+_TRANSPORT_SSL_ERRORS = [
+    ssl.SSLEOFError("EOF occurred in violation of protocol"),
+    ssl.SSLZeroReturnError("TLS/SSL connection has been closed"),
+    ssl.SSLSyscallError("underlying socket failed"),
+    ssl.SSLError("raw"),
+]
+
+
 def test_a_certificate_failure_is_recognised_through_the_wrapper():
     assert tls.is_certificate_error(_rejected_certificate()) is True
     assert tls.is_certificate_error(httpx.ConnectError("connection refused")) is False
-    assert tls.is_certificate_error(ssl.SSLError("raw")) is True
+
+
+@pytest.mark.parametrize(
+    "error", _TRANSPORT_SSL_ERRORS, ids=lambda e: type(e).__name__
+)
+def test_a_dropped_tls_connection_is_not_a_certificate_failure(error):
+    """``ssl.SSLError`` is the base class of the whole TLS layer, not of certificates.
+
+    Reading the base class as "the certificate was rejected" costs twice: a connection
+    that died mid-handshake stops being retried — and it is the one kind of failure a
+    retry is for — and the consumer is told to switch certificate verification off
+    because the peer hung up.
+    """
+    assert tls.is_certificate_error(error) is False, type(error).__name__
+    assert tls.is_certificate_error(_dropped_connection(error)) is False
+
+
+def test_a_foreign_ssl_error_is_still_matched_by_name():
+    """``requests`` and ``urllib3`` define their own ``SSLError``, outside ``ssl``."""
+
+    class SSLError(Exception):  # what urllib3 raises; not an ssl.SSLError at all
+        pass
+
+    assert tls.is_certificate_error(_dropped_connection(SSLError("verify failed"))) is True
 
 
 def test_a_certificate_failure_is_not_retried():
@@ -308,6 +411,37 @@ def test_a_certificate_failure_is_not_retried():
     assert policy.should_retry_network(0) is True, "the old signature still answers"
     assert policy.should_retry_network(0, httpx.ConnectError("refused")) is True
     assert policy.should_retry_network(0, _rejected_certificate()) is False
+
+
+@pytest.mark.parametrize(
+    "error", _TRANSPORT_SSL_ERRORS, ids=lambda e: type(e).__name__
+)
+def test_a_dropped_tls_connection_is_still_retried(error):
+    """The half of the defect a consumer feels: a flaky stand stopped being retried."""
+    from partest.http_retry import RetryPolicy
+
+    policy = RetryPolicy(max_retries=3)
+
+    assert policy.should_retry_network(0, error) is True, type(error).__name__
+    assert policy.should_retry_network(0, _dropped_connection(error)) is True
+
+
+def test_the_release_the_message_names_actually_exists():
+    """``VERIFIED_SINCE`` is quoted at consumers; it must not name an unreleased version.
+
+    The message says "certificates are verified from partest X on". While ``__version__``
+    was behind X, every consumer who met a certificate error was pointed at a release
+    that did not exist.
+    """
+    import partest
+
+    def parts(version: str):
+        return tuple(int(piece) for piece in version.split(".")[:3])
+
+    assert parts(tls.VERIFIED_SINCE) <= parts(partest.__version__), (
+        f"the certificate message names partest {tls.VERIFIED_SINCE}, "
+        f"but this is {partest.__version__}"
+    )
 
 
 def test_the_message_names_the_switch_and_keeps_the_type():

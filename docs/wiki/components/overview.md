@@ -1,7 +1,7 @@
 ---
 title: Package map — what lives where
 status: current
-verified: 2026-09-13
+verified: 2026-09-23
 sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/pytest_plugin.py]
 audience: agent
 ships_in_wheel: true
@@ -38,6 +38,7 @@ partest/
   project_gen/         deprecated bridge to the separate partest-gen distribution
   redact.py            secret redaction for attaches
   http_retry.py        transport retries
+  flags.py             coerce_bool/env_bool — one reading of every on/off switch
   tls.py               one place deciding verify= for every client (see below)
   zorro_report.py      zorro() — Allure + simple coverage HTML
   docs/                generated user docs shipped in the wheel (do not hand-edit)
@@ -126,4 +127,7 @@ tls_verify = False
 
 The environment wins over `confpartest`; an explicit `verify=` on a call wins over both. Whenever
 verification ends up off, the run emits one `partest.tls.TLSVerificationDisabled` warning —
-once per process, so it is visible in the pytest summary without being noise per request.
+once per process, so it is visible in the pytest summary without being noise per request — and
+the report carries `meta.tlsVerified: false`, because a warning does not survive the session.
+"Off" includes an `ssl.SSLContext` built with `verify_mode = ssl.CERT_NONE`: it accepts any
+certificate, so it is recorded like `verify=False` rather than passing for verification.

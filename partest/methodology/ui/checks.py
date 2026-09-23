@@ -102,6 +102,16 @@ UI_CHECK_DESCRIPTIONS: Dict[str, str] = {
 }
 
 
+def _canonical(check: str) -> str:
+    """How this area spells a check name: trimmed, lower case, dashes as underscores.
+
+    One function rather than one copy per module. ``screen-render`` reaching the matrix
+    and ``screen-render`` reaching the depth table have to become the same string, and
+    three private copies of the same expression is how they stop doing that.
+    """
+    return (check or "").strip().lower().replace("-", "_")
+
+
 def ui_check_label(check: str) -> str:
     """Human label for a UI check name; raises on an unknown name.
 
@@ -109,7 +119,7 @@ def ui_check_label(check: str) -> str:
     degrades a percentage, here it would silently read as "not applicable" and remove a
     required check from the plan.
     """
-    key = (check or "").strip().lower().replace("-", "_")
+    key = _canonical(check)
     if key not in UI_TYPE_LABELS:
         raise ValueError(
             f"unknown UI check {check!r}; expected one of {sorted(UI_CHECK_SET)}"

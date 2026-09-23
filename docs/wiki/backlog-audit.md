@@ -1,7 +1,7 @@
 ---
 title: Аудит внешнего бэклога и готовность к переезду
 status: current
-verified: 2026-09-07
+verified: 2026-09-23
 sources: [partest/tracking.py, partest/coverage.py, partest/methodology/api/classifier.py, partest/payloads.py, partest/call_storage.py, partest/reports/payload.py, partest/reports/analyzer.py, partest/pytest_plugin.py]
 audience: maintainer
 ships_in_wheel: false
