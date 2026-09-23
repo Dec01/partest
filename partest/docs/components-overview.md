@@ -26,6 +26,7 @@ partest/
   methodology/         methodology SoT, two areas:
     api/               subtypes, matrix, classifier, inference, steps (derived from OpenAPI)
     ui/                surfaces, checks, matrix, steps (surface type declared by the consumer)
+    <name>.py          deprecated aliases for the pre-2.0.0 paths, same objects, gone in 3.0.0
   security/            RiskProfile model, SecHttp raw transport, JWT tampering
   collections/         BaseCollection, CollectionsManager
   ui/                  partest[ui]: BasePage, PageMonitor, Storage, visual, capture_baselines

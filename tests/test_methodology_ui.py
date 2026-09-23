@@ -331,24 +331,11 @@ def test_the_ui_area_exports_the_priority_it_answers_with():
     assert ui_pkg.CoveragePriority is CoveragePriority
 
 
-def test_no_compatibility_shims_on_the_old_paths():
-    """A 2.0.0 decision: the old module paths are gone, not silently aliased.
-
-    Two working spellings of one module is a cost of its own; the migration table in the
-    guide is what replaces them.
-    """
-    import importlib
-
-    for old in (
-        "partest.methodology.subtypes",
-        "partest.methodology.matrix",
-        "partest.methodology.classifier",
-        "partest.methodology.inference",
-        "partest.methodology.overrides",
-        "partest.methodology.steps",
-    ):
-        with pytest.raises(ImportError):
-            importlib.import_module(old)
+# The old ``partest.methodology.<name>`` paths were removed outright while 2.0.0 was being
+# prepared, and a test here asserted the ``ImportError``. The decision was reversed before
+# publication — see ``tests/test_methodology_aliases.py``, which now owns that question, and
+# the reasoning in ``CHANGELOG.md``. The API half's compatibility does not belong in the UI
+# file either way.
 
 
 def test_the_ui_methodology_carries_no_product_domain():

@@ -5,7 +5,9 @@
 Three breaking changes, any one of which alone would make this a major release. The scaffold
 generator left this package — see `Removed`. The methodology submodules moved under
 `partest/methodology/api/` to make room for a second area, UI — see `Breaking`, where the old and
-new import paths sit side by side. And **TLS certificates are now verified by default**, which is
+new import paths sit side by side, and `Deprecated`, because the old paths keep working with a
+warning until 3.0.0 rather than disappearing here. And **TLS certificates are now verified by
+default**, which is
 the one that will reach a running suite first: also `Breaking`. If you are here because a prior
 green run started failing on certificates, that section is the answer.
 
@@ -34,6 +36,34 @@ green run started failing on certificates, that section is the answer.
   visible place earns.
 
 ### Deprecated
+
+- **The old methodology module paths — `partest.methodology.subtypes` and the five beside it.**
+  They import, they resolve to the *same* module objects as `partest.methodology.api.*` rather
+  than second copies, and each warns once with the path to use instead. They are removed in
+  3.0.0. The table of old and new is in `Breaking`.
+
+  **They were removed outright first; this reverses that before publication**, because the
+  removal was tried on a live consumer and cost more than expected:
+
+  - the upgrade stopped being divisible. New paths do not exist on 1.8.x and old ones did not
+    exist here, so the consumer had to move its version and rewrite its import lines in one
+    commit, with no green state in between and nothing to bisect if the run went red.
+  - the failure surfaced nowhere near the import. `confpartest.py` is imported from inside the
+    pytest plugin, so a stale `from partest.methodology.subtypes import …` came back as an
+    `INTERNALERROR` with a pluggy traceback during collection of the **whole** tree — including
+    tests that have nothing to do with the methodology — instead of as an `ImportError` on the
+    line that was wrong.
+  - and there was a silent shape of it. With the versions the other way round the consumer's
+    `confpartest` failed to import, `active_overrides()` came back empty, and coverage went on
+    counting subtypes against the wrong required sets **without a message**. A number that is
+    quietly wrong is worse than a red run.
+
+  A major release is still the moment a move is allowed to be visible; what it is not is a
+  reason to make the move undiagnosable. `partest.project_gen` is deprecated the same way in
+  this release, which is now one technique across the whole thing rather than two.
+
+  A package that reads these functions — the scaffold generator does — should still raise its
+  dependency floor to this release and use the new paths, rather than lean on the alias.
 
 - **`partest.project_gen`** is now a bridge to `partest_gen`, kept until the major release
   after this one. Old imports work — including submodules, and resolving to the *same* module
@@ -72,7 +102,24 @@ green run started failing on certificates, that section is the answer.
   should not have to import from the `api` one to name a value this one handed it. It is
   the same object in both places, deliberately — P1 means "implement first" in both areas.
 
+- **`active_overrides` is re-exported from `partest.methodology` and `partest.methodology.api`.**
+  It reports the subtype overrides a run is actually using, which is what a suite asserts on to
+  prove its `subtype_overrides` reached the library — and until now the only way to reach it was
+  `from partest.methodology.api.overrides import active_overrides`, a deep import into a module
+  that had just moved. A public function with no package-level spelling has no path that
+  survives a reorganisation; this gives it one.
+
+  The rest of `partest.methodology.api.overrides` stays where it is on purpose:
+  `set_subtype_overrides`, `load_subtype_overrides`, `load_from_confpartest`,
+  `clear_subtype_overrides` and `lookup` are called by the harness while it reads the project's
+  configuration. A suite that calls them is overruling its own `confpartest.py` from inside a
+  test, and that should read as the unusual thing it is.
+
 - **`partest[gen]` extra**, so `pip install 'partest[gen]'` still gets you both packages.
+- `tests/test_methodology_aliases.py`: that each old methodology path resolves to the same module
+  object as the new one, that `isinstance` and the override registry survive the alias, that the
+  warning fires once per module and names the replacement, and that `partest.methodology` itself
+  stays quiet.
 - `tests/test_project_gen_bridge.py`: that the bridge warns, that submodules resolve to the
   same objects, that the error names the fix when the distribution is missing, and that this
   `setup.py` does not declare the console script.
@@ -196,12 +243,9 @@ to be raised in the same wave, and it must not be published before this release 
   `from partest.methodology import …` is unaffected: the package re-exports every name it exported
   before, plus the new UI ones.
 
-  **There are no shims on the old paths, and that is the decision rather than an oversight.**
-  `import partest.methodology.matrix` raises `ModuleNotFoundError`. Two live spellings of one
-  module outlive the migration that justified them, and a major release is the moment a move is
-  allowed to be visible; the table above is what replaces them. A package that reads these
-  functions — the scaffold generator does — must raise its dependency floor to this release in the
-  same change, because with an older partest the new paths do not exist at all.
+  **The old paths still import, and warn** — see `Deprecated`. They are removed in 3.0.0. The move
+  is listed as breaking because that is the release in which the deep import has to be rewritten,
+  not because the upgrade to this one breaks it.
 
 - **TLS certificates are verified by default.** The HTTP clients — `ApiClient`, `SecHttp`,
   `TokenManager`, `TrackingApiClient` — `CreatedRegistry.cleanup`, which deletes tracked

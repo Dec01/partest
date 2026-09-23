@@ -2,7 +2,7 @@
 title: Migration between partest versions
 status: current
 verified: 2026-09-23
-sources: [partest/test_types.py, partest/__init__.py, partest/conf.py, partest/tls.py, partest/pytest_plugin.py, partest/methodology/__init__.py, partest/methodology/api/__init__.py, partest/methodology/ui/__init__.py]
+sources: [partest/test_types.py, partest/__init__.py, partest/conf.py, partest/tls.py, partest/pytest_plugin.py, partest/methodology/__init__.py, partest/methodology/_moved.py, partest/methodology/api/__init__.py, partest/methodology/api/overrides.py, partest/methodology/ui/__init__.py]
 audience: user
 ships_in_wheel: true
 allow_version_literals: true
@@ -20,12 +20,12 @@ pip install -U 'partest[ui]'   # UI suites
 
 ## 2.0.0 — the methodology moved into `api/` and `ui/`, TLS is verified, and the plugin flag stopped hiding the run metadata
 
-### The methodology submodules moved — a deep import has to be edited
+### The methodology submodules moved — a deep import has to be edited, but not today
 
 The methodology is now two areas, `partest.methodology.api` and `partest.methodology.ui`, because
 a second one arrived: UI. The existing modules moved into `api/` unchanged — **nothing inside them
 was renamed**, so every class, function and enum member keeps its name and its meaning. The import
-path is the only thing that broke.
+path is the only thing that changed.
 
 | Was | Now |
 |---|---|
@@ -40,21 +40,58 @@ path is the only thing that broke.
 name it exported before — `MethodSubtype`, `SUBTYPE_LABELS`, `CoveragePriority`,
 `applicable_test_cases`, `required_test_cases`, `p1_test_cases`, `p2_test_cases`,
 `classify_endpoint`, `classify_path_object`, `InferResult`, `infer_test_type`, `TestStep`,
-`STEPS_BY_GROUP` — plus the new UI names alongside them.
+`STEPS_BY_GROUP` — plus `active_overrides`, new here, and the new UI names alongside them.
 
-```bash
-# a deep import is a one-line mechanical fix
-grep -rn "partest\.methodology\.\(subtypes\|matrix\|classifier\|inference\|overrides\|steps\)" .
+**The old paths keep working until 3.0.0.** `import partest.methodology.matrix` imports, warns
+once with the path to use instead, and gives you the *same module object* as
+`partest.methodology.api.matrix` — so `isinstance` holds across the two spellings, and an
+override set through one is visible through the other. There is one registry, one enum, one of
+everything, spelled two ways.
+
+#### Upgrade in two steps, in this order
+
+This is the point of the alias, and the order is not interchangeable:
+
+1. **Raise the version first, change nothing else.** `pip install -U partest`, run the suite.
+   Old imports still work; the run should be green except for whatever the TLS section below
+   costs you.
+2. **Then rewrite the imports, driven by the warnings.** Run once with deprecations visible and
+   fix what it names:
+
+   ```bash
+   python -m pytest -W "always::DeprecationWarning" -q 2>&1 | grep "partest.methodology"
+   grep -rn "partest\.methodology\.\(subtypes\|matrix\|classifier\|inference\|overrides\|steps\)" .
+   ```
+
+   Each line is a one-token edit: insert `api.` after `methodology.`.
+
+Doing it the other way round — new imports first, version after — does not work, because
+`partest.methodology.api` does not exist on 1.8.x. That was the whole problem: without the
+alias the two edits had to land in one commit, with no green state in between.
+
+**Where the failure shows up if you skip this.** A stale methodology import inside
+`confpartest.py` is not reported at the import line. `confpartest` is loaded from inside the
+pytest plugin, so on a version that lacks the path you get an `INTERNALERROR` with a pluggy
+traceback while **the whole tree** is being collected, including tests that never touch the
+methodology. And in the quiet shape of it — new paths on an old partest — `confpartest` simply
+fails to load, `active_overrides()` returns empty, and coverage counts subtypes against the
+wrong required sets with no message at all. If a coverage number moved after an upgrade and
+nothing went red, check that first.
+
+If a package of yours reads these functions — the scaffold generator does — raise its floor to
+this release and move to the new paths rather than leaning on the alias: it is removed in 3.0.0.
+
+#### `active_overrides` has a stable home now
+
+```python
+from partest.methodology import active_overrides    # 2.0.0 and later
 ```
 
-**There are no shims on the old paths, deliberately.** `import partest.methodology.matrix` raises
-`ModuleNotFoundError` rather than importing something that works: two live spellings of one module
-is a cost that outlives the migration, and a major release is the moment such a move is allowed to
-be visible. The table above is what replaces them.
-
-If a package of yours reads these functions — the scaffold generator does — raise its floor to this
-release in the same change. With an older partest installed the new paths do not exist at all, and
-the failure arrives as an `ImportError` at collection.
+A suite that asserts its `subtype_overrides` arrived had only the deep import
+`from partest.methodology.api.overrides import active_overrides` to do it with — a public
+function whose only spelling pointed into a module that moved. It is on the package now, and on
+`partest.methodology.api`. The setters are not, deliberately: they are the harness's side of
+reading your `confpartest.py`.
 
 ### A second methodology: UI
 
@@ -393,8 +430,9 @@ Releases go to **PyPI**; the source and its history live at `github.com/Dec01/pa
 
 - [ ] `pip install -U partest` (add `[ui]` for UI suites), then **confirm the version moved** —
       on Python 3.9 pip silently keeps you on the last release that supported it
-- [ ] Grep for deep methodology imports (`partest.methodology.subtypes` and friends) and move them
-      under `api/`; imports from `partest.methodology` itself need nothing
+- [ ] **After** the version moved, not before: run once with `-W "always::DeprecationWarning"`,
+      then move the deep methodology imports it names (`partest.methodology.subtypes` and
+      friends) under `api/`; imports from `partest.methodology` itself need nothing
 - [ ] If POM used async `BasePage` from 1.3.x: switch to `AsyncBasePage` **or** drop `await`
 - [ ] Replace local page_monitor / health / storage with `partest.ui`
 - [ ] Optional: `zorro_enhanced()` instead of a local coverage HTML
