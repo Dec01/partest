@@ -14,6 +14,13 @@ include CHANGELOG.md
 #   docs/       — the wiki, raw consumer snapshots and the archive are internal
 prune tests
 prune docs
+# `prune docs` выбрасывает и `docs/PYPI.md`, который `setup.py` читает
+# безусловно для long_description. В выпусках partest 2.0.0 и partest-gen 1.0.0
+# из-за этого sdist не собирался вовсе: `pip install --no-binary :all:` падал
+# с FileNotFoundError на первой же строке сборки. Колесо работало, поэтому
+# обычная установка ничего не замечала, а закрытый контур без колёс — замечал.
+# Порядок важен: `include` после `prune`, иначе его отменит.
+include docs/PYPI.md
 prune src
 prune tools
 prune .claude
