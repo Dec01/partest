@@ -14,6 +14,7 @@ from partest.reports.html_coverage import write_html_report
 from partest.reports.payload import build_payload
 from partest.reports.services import ServiceMap, ServiceRef, resolve_service
 from partest.reports.stubs import generate_stubs
+from partest.reports.validate import Problem, Severity, validate_coverage_payload
 from partest.reports.writer import write_enhanced_report, zorro_enhanced
 
 __all__ = [
@@ -24,6 +25,9 @@ __all__ = [
     "write_enhanced_report",
     "zorro_enhanced",
     "build_payload",
+    "validate_coverage_payload",
+    "Problem",
+    "Severity",
     "compare_payloads",
     "append_snapshot",
     "list_snapshots",

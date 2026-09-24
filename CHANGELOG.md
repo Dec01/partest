@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.4.0 — 2026-09-24
+
+### Added
+
+- **`validate_coverage_payload(doc)` — a consumer that writes `coverage.json` can now check
+  itself against it.** The payload is an observable interface, and some consumers produce it
+  as well as read it: a fixture generator, a demonstration set, an importer that synthesises
+  a run. Such a producer imitates the format by hand, had nothing to verify itself with, and
+  one of them drifted silently — it copied `status` into `kind`, so endpoints nobody had
+  called were filed as `empty` and that run's `unseenRatio` came out `0.0`. Not a measured
+  zero: a zero produced by the wrong label, in the one field that exists to report absence,
+  and arriving from the opposite direction to the defect 2.3.0 had just fixed. Run against
+  that artefact as it stood, the function names all seven endpoints and the share that
+  disagrees with them.
+  Beyond keys and types it checks the agreements a hand-written producer gets wrong:
+  `unseenRatio` is `float | null` and `null` belongs to exactly one state, `kind` must agree
+  with `calls` (no call in this run is `unseen`, never `empty`), `callsTotal` and
+  `summary.endpoints` must agree with the rows beneath them, and a `bool` is refused where a
+  count belongs — `True == 1` in Python, so a naive `isinstance(x, int)` would pass a flag
+  written into a counter.
+  **A key that is absent is reported apart from a key that is wrong.** `Severity.DATED` says
+  the document predates a field — internally consistent, simply older; artefacts outlive
+  releases, and a check that fails on last month's file is a check people switch off. Nothing
+  is raised and nothing is printed: what a divergence costs is the caller's decision.
+  Also public: `Problem`, `Severity`. See [[howto/coverage-html]].
+
 ## 2.3.0 — 2026-09-24
 
 ### Added

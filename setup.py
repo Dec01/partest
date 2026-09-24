@@ -135,7 +135,7 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         # 3.14 is claimed because the suite was run there, not because it looked likely.
-        # Last re-earned for 2.3.0: 477 passed, 2 skipped — identical to 3.10, down to the
+        # Last re-earned for 2.4.0: 493 passed, 2 skipped — identical to 3.10, down to the
         # same two skips for the same reason. Say which release, not just "it was run":
         # CI covers 3.10 and 3.13 only, so this line is the claim nobody else checks, and a
         # claim that cannot be dated is one that goes stale without anyone noticing. Re-run
