@@ -208,6 +208,50 @@ def _reset_selection_state() -> None:
         pass
 
 
+def _reset_not_measured_state() -> None:
+    """Forget what the previous session could not measure (see :mod:`partest.reporting`)."""
+    try:
+        from partest.reporting.measured import reset_not_measured
+
+        reset_not_measured()
+    except Exception:
+        pass
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus=0, config=None) -> None:
+    """Say out loud which assertions were never made.
+
+    A run where half the checks had no data to read still ends with ``passed``, and the
+    Allure evidence is one click away from a reader who has no reason to look. This
+    section is the cheap part of the same signal: it costs nothing when the ledger is
+    empty, which is every run that never used :func:`~partest.reporting.check_measured`.
+    """
+    try:
+        from partest.reporting.measured import not_measured_records
+
+        records = not_measured_records()
+    except Exception:
+        return
+    if not records:
+        return
+    counted: "dict[tuple, int]" = {}
+    for rec in records:
+        key = (rec.what, rec.reason)
+        counted[key] = counted.get(key, 0) + 1
+    try:
+        terminalreporter.write_sep("-", "partest: NOT MEASURED assertions")
+        for (what, reason), times in list(counted.items())[:20]:
+            suffix = f" (x{times})" if times > 1 else ""
+            terminalreporter.write_line(f"  {what}{suffix}: {reason}")
+        if len(counted) > 20:
+            terminalreporter.write_line(f"  ... and {len(counted) - 20} more")
+        terminalreporter.write_line(
+            "  these assertions never ran: green here means unknown, not verified"
+        )
+    except Exception:
+        pass
+
+
 def _node_ids(items: Iterable[Any]) -> List[str]:
     return [str(getattr(item, "nodeid", None) or item) for item in items]
 
@@ -279,6 +323,7 @@ def pytest_sessionstart(session) -> None:
     deselected tests and a marker expression it never got.
     """
     _reset_selection_state()
+    _reset_not_measured_state()
     if not _xdist_merge_enabled() or _is_xdist_worker(session.config):
         return
     try:

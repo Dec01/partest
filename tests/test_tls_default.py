@@ -598,6 +598,8 @@ def test_the_module_declares_what_is_public():
         "verify_for_httpx",
         "is_certificate_error",
         "certificate_error",
+        "note_unverified_host",
+        "note_unknown_tls_host",
     ]
     assert not hasattr(tls, "reset_warning_state")
     assert not hasattr(tls, "warn_once")

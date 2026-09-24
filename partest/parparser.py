@@ -12,7 +12,7 @@ import os
 import requests
 import yaml
 
-from partest.tls import resolve_verify
+from partest.tls import note_unverified_host, resolve_verify
 
 logger = logging.getLogger(__name__)
 
@@ -304,8 +304,13 @@ class OpenAPIParser:
             # turned off once, not per call site. `requests` verifies by default, so
             # without this the one line that disables verification would work
             # everywhere except loading the specification.
-            response = requests.get(file_path, timeout=timeout,
-                                    verify=resolve_verify(None))
+            settled = resolve_verify(None)
+            # The one road out of the package that is not httpx, so the factory's request
+            # hook cannot name this host: it is named here instead. A specification
+            # usually lives on a host of its own, and that is exactly the difference the
+            # list is for.
+            note_unverified_host(file_path, settled)
+            response = requests.get(file_path, timeout=timeout, verify=settled)
             response.raise_for_status()
             swagger_dict = yaml.safe_load(response.text)
             return cls(swagger_dict)

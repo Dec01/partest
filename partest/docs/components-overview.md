@@ -21,7 +21,7 @@ partest/
   env/                 project root, .env loading, require_env
   http/                Config, HeadersBind, httpx_client/httpx_async_client factory
   auth/                TokenManager, JWT decode
-  reporting/           check_* helpers, steps, attaches, instrumented requests
+  reporting/           check_* helpers, «not measured» third outcome, steps, attaches, instrumented requests
   reports/             coverage analyzer, JSON payload, HTML, compare/badge/stubs/history
   methodology/         methodology SoT, two areas:
     api/               subtypes, matrix, classifier, inference, steps (derived from OpenAPI)
@@ -49,7 +49,7 @@ partest/
 | `TokenManager` | OIDC multi-role token cache; credentials come from an injected provider |
 | `Config` / `HeadersBind` | header and param builders, `apply_token` binding |
 | `httpx_client` / `httpx_async_client` | a client of your own **inside** the TLS policy — no retries, no coverage |
-| `reporting` (`import partest.reporting as ah`) | `ah.check_*`, Allure steps and attaches; Allure is a soft dependency |
+| `reporting` (`import partest.reporting as ah`) | `ah.check_*`, Allure steps and attaches; `check_measured` adds a third outcome, «not measured»; Allure is a soft dependency |
 | `reports` | `zorro_enhanced`, `coverage.json`, interactive HTML, `python -m partest.reports` CLI |
 | `methodology.api` | subtypes × matrix × inference, all derived from the specification — see [Coverage methodology — two areas, three axes each](concepts-methodology.md) |
 | `methodology.ui` | surfaces × checks × depth; no classifier — the surface type is declared, not inferred |
@@ -132,11 +132,48 @@ Need a client of your own? `partest.http.httpx_client` / `httpx_async_client` bu
 the same decision applied, so a fixture fetching a live specification no longer has to leave
 the policy to accept a self-signed stand — see [Enterprise notes — shared client, retries, redaction, xdist](howto-enterprise.md). Inside the package these
 two are the **only** place that calls httpx's constructors; a test in `tests/test_tls_factory.py`
-fails if a module grows a raw one again.
+fails if a module grows a raw one again. Both take `env_only=True` to stop at the environment
+and not read `confpartest`, the way `default_verify` and `partest.ui.ignore_https_errors` do.
 
-`meta.tlsVerified: true` therefore means "no client partest built for this run skipped
-verification". It cannot mean more than that: a consumer may still construct an httpx client
-by hand, and an injected `client=` decided its TLS before partest saw it. Ways to make that gap
-visible in the artifact — a third value, or a strict mode that fails the run — cost either the
-artifact contract or the behaviour of suites that knowingly run unverified, and neither has been
-taken.
+`meta.tlsVerified: true` means "no client partest built for this run skipped verification". It
+cannot mean more than that: a consumer may still construct an httpx client by hand, and an
+injected `client=` decided its TLS before partest saw it.
+
+### Which hosts, not only whether
+
+`tlsVerified` is one bit for a whole run and says that **at least one** connection went
+unchecked — not that every one did. One auxiliary service is enough to switch it off. Measured
+on a consumer: a plugin of theirs sits in `addopts` and signs into an auxiliary service with a
+self-signed certificate while pytest is still configuring itself, so every run of that project —
+including runs that never call the API — went unverified by that one connection. The flag went `false` honestly and always, and "the suite ran
+unverified throughout" stopped being distinguishable from "one service host was accepted, the
+stand was verified from the first call to the last".
+
+Two lists stand next to the flag and never instead of it:
+
+```json
+"meta": {
+  "tlsVerified": false,
+  "tlsUnverifiedHosts": ["admin.stand.invalid:9443"],
+  "tlsUnknownHosts": []
+}
+```
+
+- **`tlsUnverifiedHosts`** — hosts this run actually sent a request to while verification was
+  off, `host` or `host:port` (a default port is dropped; credentials in a URL never reach the
+  artifact). The host is taken **per request**, not from `base_url`: `base_url` says what a
+  client was pointed at, a redirect leaves it behind, and `ApiClient` — the road the system
+  under test travels — passes no `base_url` at all. A client built unverified and never used
+  contributes nothing, because nothing was accepted.
+- **`tlsUnknownHosts`** — hosts whose TLS partest did not decide and cannot read: today that is
+  `ApiClient(domain, client=hx)`, which sets `self.verify = None` because the injected client
+  settled `verify=` out of sight. That case used to be reported as a verified run. It is *not*
+  the same claim as the first list and is kept apart from it: "not ours to check" is not
+  "unchecked".
+
+Both lists are sorted, deduplicated and unioned across xdist workers, and both are present even
+when empty — so "nothing was accepted unverified" stays distinguishable from "an artifact
+written by an older partest". Neither changes the type or the meaning of `tlsVerified`: adding a
+key to `meta` is compatible for `partest-atlas`, `partest-load` and the map, changing the type
+of one is not. The remaining option once considered here — a strict mode that fails the run
+outright — is still untaken.

@@ -1,8 +1,8 @@
 ---
 title: Reporting cookbook — checks, steps, attaches
 status: current
-verified: 2026-09-04
-sources: [partest/reporting/__init__.py, partest/reporting/checks.py, partest/reporting/steps.py, partest/reporting/attach.py, partest/reporting/instrument.py]
+verified: 2026-09-24
+sources: [partest/reporting/__init__.py, partest/reporting/checks.py, partest/reporting/measured.py, partest/reporting/steps.py, partest/reporting/attach.py, partest/reporting/instrument.py]
 audience: user
 ships_in_wheel: true
 ---
@@ -36,6 +36,75 @@ All checks attach `check:field` JSON when Allure is available and raise
 ```python
 ah.check_eq(body["name"], "Acme", field="name")
 ah.check_status_in(response_status, (200, 201), field="status")
+```
+
+## The third outcome: «not measured»
+
+Those seventeen checks have two outcomes, and two outcomes are enough only while there is
+something to measure. When the data the assertion reads was never collected — the file is
+absent, the broker is unreachable, the sample is empty — the comparison still runs and
+still passes, and the report shows a green nobody earned. Aggregates are the sharp case: a
+difference, a share or a mean over an empty sample is `0` or `1` **by construction**, so
+the check guarding it cannot fail even in principle.
+
+`check_measured` runs an assertion **only** under a stated premise of measurability, and
+otherwise records that the assertion was not made and why.
+
+```python
+ah.check_measured(
+    ah.measurable(samples, what="latency samples"),   # premise: positional, required
+    lambda: ah.check_lt(mean(samples), 200, field="mean latency"),
+    what="mean latency under the budget",
+)
+```
+
+An aggregate over two samples needs both, and premises combine with `&`:
+
+```python
+ah.check_measured(
+    ah.measurable(before, what="baseline") & ah.measurable(after, what="current"),
+    lambda: ah.check_eq(sum(after.values()) - sum(before.values()), 0, field="growth"),
+    what="growth against the baseline",
+)
+```
+
+A plain boolean works too, and then the reason is **mandatory** — the third outcome
+without a reason reads like a pass:
+
+```python
+ah.check_measured(
+    bundle_path.exists(),
+    lambda: ah.check_not_in("http://", bundle_path.read_text(), field="offline bundle"),
+    what="the bundle is self-contained",
+    reason="the bundle was not built in this environment — there was nothing to scan",
+)
+```
+
+| Helper | Purpose |
+|--------|---------|
+| `check_measured(premise, assertion, *, what, reason="")` | assert under a premise; returns `True` when the assertion actually ran |
+| `measurable(sample, *, what, min_size=1)` | premise «the sample exists and is big enough»; `None` and «too few» get different reasons |
+| `Premise(ok, reason, what)` | a premise by hand; one that does **not** hold cannot be built without a reason |
+| `mark_not_measured(*, what, reason)` | the third outcome with no assertion to run at all |
+| `not_measured_records()` / `reset_not_measured()` | the run's ledger of assertions never made |
+| `NotMeasuredWarning` | the warning category raised for each of them |
+
+How the three outcomes look apart:
+
+| Outcome | Allure step | Attachment | Elsewhere |
+|---|---|---|---|
+| measured, passed | `Measured: <what>` (green) | `check:<field>` with `passed: true` | — |
+| measured, failed | `Measured: <what>` (red) | `check:<field>` with `passed: false`, `failure_details` | the test fails |
+| **not measured** | `NOT MEASURED: <what> — <reason>` | `not_measured:<what>` with `passed: null` | test tagged `not-measured`, `NotMeasuredWarning`, a `NOT MEASURED` section in the pytest summary |
+
+It is **not** `pytest.skip`: the test goes on, the other assertions in it are made as
+usual, and only the unmeasurable one is set aside. It does not fail the run either — an
+absent sample is not a defect of the service under test. A project that wants the stricter
+reading asks for it:
+
+```ini
+[pytest]
+filterwarnings = error::partest.reporting.NotMeasuredWarning
 ```
 
 ## Steps & templates

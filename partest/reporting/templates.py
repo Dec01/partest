@@ -222,6 +222,15 @@ class ErrorTemplates:
     def contains_secret(*, fields: Sequence[str]) -> str:
         return "Sensitive fields found in response:\n  " + ", ".join(fields)
 
+    @staticmethod
+    def not_measured(*, what: str, reason: str) -> str:
+        """The third outcome: the assertion was never made. Not a pass, not a failure."""
+        return (
+            f"NOT MEASURED: «{what}».\n"
+            f"  Reason: {reason}\n"
+            f"  Nothing was verified here — this outcome is not a pass."
+        )
+
 
 class StepTemplates:
     @staticmethod
@@ -264,6 +273,15 @@ class StepTemplates:
     @staticmethod
     def business(rule: str) -> str:
         return f"Business rule: {rule}"
+
+    @staticmethod
+    def measured(what: str) -> str:
+        return f"Measured: {what}"
+
+    @staticmethod
+    def not_measured(what: str, reason: str = "") -> str:
+        tail = f" — {reason}" if reason else ""
+        return f"NOT MEASURED: {what}{tail}"
 
 
 class DescriptionTemplates:

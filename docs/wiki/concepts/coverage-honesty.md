@@ -1,7 +1,7 @@
 ---
 title: Coverage honesty — when the number lies
 status: current
-verified: 2026-09-08
+verified: 2026-09-24
 sources: [partest/call_storage.py, partest/coverage.py, partest/reports/analyzer.py, partest/reports/compare.py, partest/reports/payload.py, partest/pytest_plugin.py]
 audience: agent
 ships_in_wheel: true
@@ -56,6 +56,23 @@ the endpoints went untouched, when workers were not merged, or when the run sele
 of the suite in the first place.
 
 That last one is not measurable from the numbers, and the reason is worth understanding.
+
+### A run with no endpoints measured nothing, and says so
+
+`unseenRatio` is a share over the endpoints of the run, so a run that collected none has no
+denominator: a fixture that failed before the specification was read, a worker shard that was
+never merged, an empty specification. The field is **`null`** there, not `0.0` — a zero would
+read as "not one endpoint went untouched", the most reassuring number in the artifact coming
+out of the least informative run. A measured zero is still `0.0`, and the key is always
+present, so `null` ("not measured") stays distinguishable from a missing key ("an artifact
+older than the field"). Anything that multiplies or compares the value checks for `null`
+first.
+
+`partialRun` stays a bool and stays `false` for such a run. It answers a different question —
+"did this run cover less of the suite than it should", with three measurable reasons — and
+every message built on it says "some endpoints were never called", which is false, not true,
+when there are no endpoints. Deciding whether a run that measured nothing may be compared at
+all is the reader's call, and `unseenRatio: null` is the field that gives it the fact.
 
 ### A filter removes cells, not endpoints
 

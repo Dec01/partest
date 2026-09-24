@@ -102,7 +102,11 @@ def test_shard_roundtrip_is_written_atomically(tmp_path):
     path = cs.write_shard(tmp_path / "shards")
 
     assert path.name.endswith(".json")
-    assert not list((tmp_path / "shards").glob(".*tmp")), "no temp file left behind"
+    # "No temp file left behind" is a statement about a directory listing, so the listing
+    # has to be of the directory that was written to: the shard itself must be in it.
+    left_behind = sorted((tmp_path / "shards").iterdir())
+    assert path in left_behind, f"the shard is not in {tmp_path / 'shards'}: {left_behind}"
+    assert not [p for p in left_behind if p.match(".*tmp")], "no temp file left behind"
 
     cs.reset_storage()
     cs.load_storage_file(path)

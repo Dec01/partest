@@ -31,6 +31,7 @@ import os
 import threading
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from urllib.parse import urlsplit
 
 Key = Tuple[str, str, str]
 
@@ -45,13 +46,35 @@ endpoint_subtype: Dict[Tuple[str, str], str] = {}
 #: How this run was produced. Read by the report so the numbers can be labelled
 #: honestly: ``merged=False`` with ``workers > 1`` means they are one worker's slice,
 #: a non-empty ``selection`` means the run covered a chosen subset of the suite, and
-#: ``tlsVerified=False`` means no response in it was authenticated by a certificate.
+#: ``tlsVerified=False`` means **at least one** connection in it went without checking a
+#: certificate — not that every one did. The two readings are far apart: one auxiliary
+#: host accepted unverified turns the flag off for a run in which the system under test
+#: was checked throughout, and that is the ordinary case, not the exotic one. Which hosts
+#: those were is in :data:`unverified_hosts`.
 run_info: Dict[str, Any] = {
     "workers": 1,
     "merged": False,
     "selection": {},
     "tlsVerified": True,
 }
+
+#: Hosts this run reached with certificate verification off, and hosts whose TLS partest
+#: did not decide and cannot read (an injected ``client=``). **Sets**, like
+#: :data:`deselected_nodes` and for the same reason: a host is either in the run or not,
+#: and two workers that both reached it must report it once.
+#:
+#: They exist because ``tlsVerified`` is one bit for a whole run and a single auxiliary
+#: service switches it off for everything. A measured case: on one consumer a plugin signs
+#: into an auxiliary service with a self-signed certificate during ``pytest_configure``, so
+#: every run of that project — including runs that never touch the API — reported
+#: ``tlsVerified: false``, and "the suite skipped verification entirely" became
+#: indistinguishable from "one service host was accepted, the stand was verified".
+unverified_hosts: Set[str] = set()
+unknown_tls_hosts: Set[str] = set()
+
+#: Ports that add nothing to a host name; anything else is part of what was reached,
+#: because two services on one machine are two different certificates.
+_DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443}
 
 #: Node ids this process saw deselected. A **set**, and the thing that crosses a shard:
 #: under ``-n`` every worker collects the whole suite and deselects the same tests, so
@@ -73,7 +96,9 @@ def reset_storage() -> None:
         # `selection` deliberately survives: it describes the pytest invocation, is known
         # at collection time — before the session fixture that calls this — and cannot be
         # recovered afterwards. Clearing it here would silently disarm the partial-run flag.
-        # `tlsVerified` survives for the same reason: the clients are built before this.
+        # `tlsVerified` survives for the same reason: the clients are built before this,
+        # and so are the hosts already recorded next to it — the measured case that put
+        # them there happens during `pytest_configure`.
         run_info.update({"workers": 1, "merged": False})
 
 
@@ -83,6 +108,50 @@ def record_deselected(node_ids: Iterable[str]) -> None:
         deselected_nodes.update(str(n) for n in node_ids)
         if deselected_nodes:
             run_info.setdefault("selection", {})["deselected"] = len(deselected_nodes)
+
+
+def host_of(url: Any) -> str:
+    """``host`` or ``host:port`` of *url*; ``""`` when it names no host.
+
+    Credentials are dropped, not merely unused: ``https://svc:token@stand/`` is a URL a
+    consumer can build, and the run artifact is a file people attach to tickets. The port
+    is kept unless it is the scheme's default — a stand on ``:443`` and an admin console
+    on ``:9443`` are two certificates, and collapsing them would undo the point of the list.
+    """
+    try:
+        parts = urlsplit(str(url))
+        host = parts.hostname
+        port = parts.port
+    except ValueError:  # a malformed URL must not take the report down
+        return ""
+    if not host:
+        return ""
+    if port is not None and port != _DEFAULT_PORTS.get(parts.scheme.lower()):
+        return f"{host}:{port}"
+    return host
+
+
+def record_unverified_host(url: Any) -> None:
+    """Remember that this run reached *url*'s host without checking its certificate."""
+    host = host_of(url)
+    if not host:
+        return
+    with _lock:
+        unverified_hosts.add(host)
+
+
+def record_unknown_tls_host(url: Any) -> None:
+    """Remember a host whose TLS this run did not decide and cannot read.
+
+    Saying nothing here is what made ``tlsVerified: true`` an overstatement: partest
+    *knows* that an injected client settled its own ``verify=`` out of sight, and used to
+    report the run as verified anyway.
+    """
+    host = host_of(url)
+    if not host:
+        return
+    with _lock:
+        unknown_tls_hosts.add(host)
 
 
 def reset_selection() -> None:
@@ -136,6 +205,8 @@ def dump_storage() -> Dict[str, Any]:
             },
             "deselected_nodes": sorted(deselected_nodes),
             "tls_verified": bool(run_info.get("tlsVerified", True)),
+            "tls_unverified_hosts": sorted(unverified_hosts),
+            "tls_unknown_hosts": sorted(unknown_tls_hosts),
         }
 
 
@@ -157,6 +228,10 @@ def load_storage(data: Dict[str, Any], *, merge: bool = True) -> None:
         if data.get("tls_verified") is False:
             # One worker running unverified is enough to taint the whole run.
             run_info["tlsVerified"] = False
+        # Unioned, not summed: every worker reaches the same hosts, and the question the
+        # list answers is "which", not "how many times".
+        unverified_hosts.update(str(h) for h in (data.get("tls_unverified_hosts") or []))
+        unknown_tls_hosts.update(str(h) for h in (data.get("tls_unknown_hosts") or []))
         for ks, n in (data.get("call_count") or {}).items():
             key = _key_parse(ks)
             call_count[key] = call_count.get(key, 0) + int(n)

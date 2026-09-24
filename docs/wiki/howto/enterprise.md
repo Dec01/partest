@@ -28,6 +28,11 @@ passed to `httpx.AsyncClient(...)` is what the requests use; `partest/tls.py`, t
 `httpx` client does not expose the setting after construction, so there is nothing to read.
 `ApiClient.verify` reports `None` here rather than a value it does not control.
 
+The run artifact now says the same thing instead of quietly counting the run as verified: the
+domain lands in `meta.tlsUnknownHosts`, which reads "partest did not decide this one" and is
+deliberately not the same list as `meta.tlsUnverifiedHosts` ("this one went unchecked") — see
+[[components/overview]]. `meta.tlsVerified` is untouched by it and keeps its two values.
+
 If you need verification off for an injected client, say so where you build it
 (`httpx.AsyncClient(verify=False)`) and know that it is invisible to everything else. The
 example above deliberately no longer does: it used to, and it taught the one pattern that
@@ -55,10 +60,27 @@ async with httpx_async_client(base_url=domain, headers=auth) as http:
 
 It is a **factory, not a second `ApiClient`**: no retries, no coverage tracking, no steps or
 attaches. Everything you pass — `base_url`, `timeout`, `headers`, `http2`, `auth`, a
-`transport` — reaches httpx unchanged. Only `verify=` takes a detour through `partest/tls.py`:
-an explicit `verify=False` warns once and lands in `meta.tlsVerified` exactly like the
-project-wide switch does, and a CA bundle path arrives as the `ssl.SSLContext` that httpx 0.28
-asks for instead of the string it deprecates.
+`transport` — reaches httpx unchanged, and what you get back is a plain `httpx.Client`. Only
+`verify=` takes a detour through `partest/tls.py`: an explicit `verify=False` warns once and
+lands in `meta.tlsVerified` exactly like the project-wide switch does, and a CA bundle path
+arrives as the `ssl.SSLContext` that httpx 0.28 asks for instead of the string it deprecates.
+
+While verification is off, such a client also records **which host** each request went to, in
+`meta.tlsUnverifiedHosts` — the answer to "did the whole suite run unchecked, or one service
+host?" ([[components/overview]]). That is the one thing added to what you passed: a request
+event hook, appended after your own `event_hooks`, and only on a client whose verification is
+off. A verifying client is built exactly as you asked for it.
+
+```python
+# reads PARTEST_TLS_VERIFY and stops there — confpartest is not imported
+with httpx_client(base_url=domain, env_only=True) as http:
+    ...
+```
+
+`env_only=True` is the road the browser side takes (`partest.ui.ignore_https_errors`), and it
+is here so that a job which must not load `confpartest` — or a caller who wants exactly the
+environment's answer — does not have to compute `verify=` by hand with
+`partest.tls.default_verify(env_only=True)` and pass the result back in.
 
 **A call made through such a client is still invisible to coverage.** The factory removes the
 reason to leave the TLS policy, not the reason to use `ApiClient`: whatever has to count as

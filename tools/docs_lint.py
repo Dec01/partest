@@ -240,6 +240,14 @@ def main() -> int:
     slugs = {p.slug: p for p in pages}
     f = Findings()
 
+    # A linter that collected no page reports no finding, prints "clean" and exits 0 — the
+    # loudest possible pass over nothing. The wiki has an entry point and a status page by
+    # its own conventions (docs/wiki/WIKI.md), so their absence means the walk, not the wiki.
+    for required in ("index", "status"):
+        if required not in slugs:
+            f.add("ERROR", "docs/wiki", f"no '{required}.md' among the {len(pages)} page(s) "
+                                        "found — the wiki was not read, so nothing was linted")
+
     for page in pages:
         check_frontmatter(page, f)
         if not page.meta:

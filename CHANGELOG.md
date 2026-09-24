@@ -1,5 +1,98 @@
 # Changelog
 
+## 2.3.0 — 2026-09-24
+
+### Added
+
+- **`meta.tlsUnverifiedHosts` and `meta.tlsUnknownHosts` — which hosts, not only whether.**
+  `meta.tlsVerified` is one bit for a whole run and means "at least one connection went
+  unchecked". One auxiliary service is enough to switch it off, and on a real consumer it did
+  so on **every** run: a plugin of theirs sits in `addopts` and signs into an auxiliary
+  service with a self-signed certificate while pytest is still configuring itself, so even a
+  run that never calls the API reports `false`. The flag was honest and stopped being informative — "the suite ran
+  unverified throughout" read the same as "one service host was accepted, the stand was
+  verified from the first call to the last". Two sorted lists now stand next to the flag:
+  `tlsUnverifiedHosts` names the hosts a request actually went to while verification was off,
+  and `tlsUnknownHosts` names the hosts partest did not decide and cannot read — today
+  `ApiClient(domain, client=hx)`, which sets `self.verify = None` because the injected client
+  settled `verify=` out of sight and whose run used to be reported as verified. The two are
+  kept apart on purpose: "not ours to check" is not "unchecked". The host is taken **per
+  request**, through an event hook that a client carries only while its verification is off —
+  `base_url` says what a client was pointed at, a redirect leaves it behind, and `ApiClient`
+  passes no `base_url` at all. A default port is dropped, a non-default one is kept (two
+  services on one machine are two certificates), and credentials in a URL never reach the
+  artifact. Both lists are unioned across xdist workers and are present even when empty.
+  `tlsVerified` keeps its type, its two values and its meaning — adding a key to `meta` is
+  compatible for `partest-atlas`, `partest-load` and the map; changing the type of one would
+  not be. Also public: `partest.tls.note_unverified_host`, `partest.tls.note_unknown_tls_host`,
+  `partest.call_storage.record_unverified_host`, `record_unknown_tls_host`, `host_of`,
+  `unverified_hosts`, `unknown_tls_hosts`. See [[components/overview]].
+
+- **`env_only=` on `httpx_client()` / `httpx_async_client()`.** `resolve_verify` and
+  `partest.ui.ignore_https_errors` had it, the factory did not — so a consumer who needed the
+  environment-only answer wrote three functions whose whole job was to call
+  `partest.tls.default_verify(env_only=True)` and hand the result back in as `verify=`. It is
+  passed straight through to `resolve_verify`; the default is unchanged.
+
+- **A third outcome for checks: «not measured».** The seventeen `ah.check_*` helpers have two
+  outcomes, and two are enough only while there is something to measure. When the data an
+  assertion reads was never collected, the comparison still runs and still passes: a
+  dependency audit that read the wrong file reported «passed» over 24 vulnerabilities and
+  over two dependencies it never saw at all; a check for outbound URLs searched a bundle that
+  this environment had never built, and stayed green on an empty file for two months; a
+  «dead-letter queues did not grow» assertion was a difference of two dictionaries that are
+  both empty when the broker is unreachable — zero equals zero by construction. Four such
+  cases in one day, all green. `partest/reporting/measured.py` adds
+  `check_measured(premise, assertion, *, what, reason="")`, which makes the assertion
+  **only** under a stated premise of measurability and otherwise records what was not
+  measured and why. The premise is positional and required, so it cannot be left to the
+  caller's judgement; a reason is required with it, because the third outcome without one
+  reads like a pass. `measurable(sample, *, what, min_size=1)` builds the premise aggregates
+  need — `None` («never collected») and an empty sample («an aggregate over it is fixed by
+  construction») get different reasons, and premises combine with `&` for a difference of two
+  samples. In the report the three outcomes are told apart without reading: the step is
+  `Measured: …` or `NOT MEASURED: … — reason`, the attachment is `not_measured:<what>` with
+  `passed: null` instead of `check:<field>` with `passed: true`, the test carries the
+  `not-measured` tag, a `NotMeasuredWarning` is raised, and the pytest run ends with a
+  `NOT MEASURED` section listing what never ran. It is not `pytest.skip`: the test continues
+  and its other assertions are made as usual. It does not fail the run either — a missing
+  sample is not a defect of the service under test — but a project that wants it strict sets
+  `filterwarnings = error::partest.reporting.NotMeasuredWarning`. Also public:
+  `mark_not_measured`, `not_measured_records`, `reset_not_measured`, `Premise`, `NotMeasured`
+  and `attach_not_measured`. The existing seventeen checks are untouched. See
+  [[howto/reporting]].
+
+### Changed
+
+- **`meta.unseenRatio` in `coverage.json` is `null` when the run collected no endpoints.**
+  It is a share over the endpoints of the run, and a run that has none — a fixture that
+  failed before the specification was read, a worker shard that was never merged, an empty
+  specification — has no denominator. The field used to be `0.0` there, which reads as "not
+  one endpoint went untouched": the most reassuring number in the artifact, produced by the
+  least informative run, and indistinguishable from a full run that called everything. The
+  type of the field widens from `float` to `float | null`; a measured zero is still `0.0`,
+  and the key is always present, so "not measured" stays distinguishable from an artifact
+  written before the field existed. **Readers that do arithmetic on it must check for `null`
+  first** — inside the package both already did. `meta.partialRun` is unchanged: it stays a
+  bool, it stays `false` for a run with no endpoints, and every phrasing built on it ("some
+  endpoints were never called") remains true where it fires. The claim about a run that
+  measured nothing belongs to `unseenRatio: null`, which cannot be mistaken for a count.
+  See [[concepts/coverage-honesty]].
+
+### Fixed
+
+- **`tools/docs_lint.py` printed "clean" and exited 0 when it had read no page at all.** A
+  linter that collects nothing finds nothing, and the loudest possible pass is the one made
+  over an empty walk — the same shape as the three green checks this release adds
+  `check_measured` for. It now fails if `index.md` or `status.md` is missing from what it
+  collected: the wiki has both by its own conventions, so their absence is a broken walk, not
+  a broken wiki. This is a repository gate; nothing in the installed package changes.
+
+- **The comment over `run_info` said the opposite of what the code does.** It described
+  `tlsVerified=False` as "no response in this run was authenticated by a certificate" — i.e.
+  *none*, where the implementation means *at least one*. The two readings differ by the whole
+  ordinary case: one service host accepted unverified in a run that checked everything else.
+
 ## 2.2.0 — 2026-09-24
 
 ### Added

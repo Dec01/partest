@@ -123,6 +123,75 @@ def _shipped_files():
     return [f for f in files if f.is_file() and "__pycache__" not in f.parts]
 
 
+def _published_packages() -> set:
+    """Every package inside `partest`, asked of the import system rather than of a glob.
+
+    An expectation for the walk above, produced by a different mechanism and from a
+    different starting point: `pkgutil.iter_modules` goes through the path finders (and
+    imports nothing), beginning at the package Python actually loaded rather than at a path
+    written out here — so a walk whose root moved is measured against a tree that did not.
+    """
+    import pkgutil
+
+    import partest
+
+    def walk(directory, name):
+        found = {name}
+        for info in pkgutil.iter_modules([str(directory)]):
+            if info.ispkg:
+                found |= walk(directory / info.name, f"{name}.{info.name}")
+        return found
+
+    return walk(Path(partest.__file__).resolve().parent, "partest")
+
+
+def _wheel_doc_names() -> set:
+    """Files `partest/docs` must hold — the wiki pages marked `ships_in_wheel`.
+
+    Read off the generated wiki index rather than off the directory being checked: asking
+    `partest/docs` what is in `partest/docs` cannot tell an empty directory from a complete
+    one, and that is the whole failure this premise exists to catch.
+    """
+    import json
+
+    index = json.loads((REPO_ROOT / "docs" / "wiki" / "index.json").read_text(encoding="utf-8"))
+    return {
+        page["slug"].replace("/", "-") + ".md"
+        for page in index["pages"]
+        if page.get("ships_in_wheel")
+    }
+
+
+def _assert_the_walk_found_everything_that_ships(files) -> None:
+    """Premise for every check below: the corpus is the published tree, not a fragment of it.
+
+    A guard of the form "collect files, assert no offender among them" reports success on an
+    empty collection — a root that moved, a mask that narrowed, a generator that never ran.
+    So the corpus is measured against a named expectation before anything is asserted about
+    its content: every package that ships is represented, every shipped doc is there, and the
+    changelog — the one file outside the package — was picked up too.
+    """
+    expected_packages = _published_packages()
+    expected_docs = _wheel_doc_names()
+    assert len(expected_packages) > 1 and expected_docs, (
+        f"the expectation itself is empty: the package tree is {sorted(expected_packages)} "
+        f"and the wiki index marks {len(expected_docs)} page(s) as shipping"
+    )
+
+    found_packages = {
+        ".".join(f.relative_to(REPO_ROOT).parent.parts) for f in files if f.suffix == ".py"
+    }
+    assert not expected_packages - found_packages, (
+        f"the walk read no module of {sorted(expected_packages - found_packages)} — a check "
+        "over this corpus would report «no offenders» for files it never opened"
+    )
+    found_docs = {f.name for f in files if f.suffix == ".md" and f.parent.name == "docs"}
+    assert found_docs == expected_docs, (
+        "the shipped documentation on disk is not the set the wiki marks as shipping"
+    )
+    assert REPO_ROOT / "CHANGELOG.md" in files, "the changelog is published and must be read"
+
+
 # The test-data marker defaults to "AQA", the ordinary abbreviation for automated QA.
 # It is a deliberate neutral default, not a project name, and cleanup depends on it —
 # so this file is expected to contain it and is checked separately below.
@@ -130,8 +199,11 @@ _MARKER_DEFAULT_FILES = {"partest/data_marker.py"}
 
 
 def test_nothing_published_names_the_consumer_project():
+    files = _shipped_files()
+    _assert_the_walk_found_everything_that_ships(files)
+
     offenders = {}
-    for path in _shipped_files():
+    for path in files:
         rel = path.relative_to(REPO_ROOT).as_posix()
         if rel in _MARKER_DEFAULT_FILES:
             continue
@@ -179,7 +251,18 @@ def test_shipped_docs_do_not_point_at_repository_paths():
     """A user has no docs/wiki or tools/ to follow."""
     import re
 
-    for path in sorted((REPO_ROOT / "partest" / "docs").glob("*.md")):
+    shipped = sorted((REPO_ROOT / "partest" / "docs").glob("*.md"))
+    expected = _wheel_doc_names()
+    # The premise: these are the pages the wiki says ship, all of them. `partest/docs` is
+    # generated — before it is generated the glob is empty, and a loop over nothing passes
+    # this check while the package ships no documentation at all.
+    assert expected, "the wiki index marks no page as shipping — there is nothing to check"
+    assert {p.name for p in shipped} == expected, (
+        f"partest/docs is not what the wiki ships: missing {sorted(expected - {p.name for p in shipped})}, "
+        f"stray {sorted({p.name for p in shipped} - expected)}"
+    )
+
+    for path in shipped:
         text = path.read_text(encoding="utf-8")
         stray = re.findall(r"docs/wiki/[\w/-]+|tools/[\w]+\.py|\.claude/skills", text)
         assert not stray, f"{path.name} points at repo-only paths: {sorted(set(stray))}"

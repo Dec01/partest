@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from typing import Any, Iterable, Optional, Sequence
 
-from partest.call_storage import run_info
+from partest.call_storage import run_info, unknown_tls_hosts, unverified_hosts
 from partest.reports.analyzer import CoverageReport, EndpointCoverage
 from partest.reports.services import ServiceMap
 from partest.test_types import TYPE_LABELS
@@ -327,7 +327,12 @@ def build_payload(
     merged = bool(run_info.get("merged", False))
     calls_total = sum(int(e.get("calls") or 0) for e in endpoints)
     unseen = sum(1 for e in endpoints if e.get("kind") == "unseen")
-    unseen_ratio = round(unseen / len(endpoints), 4) if endpoints else 0.0
+    # A run that collected no endpoints at all — a failed fixture, an unmerged worker
+    # shard, an empty specification — measured nothing. `0.0` would ship "none of the
+    # endpoints went untouched" into the artifact, which is the most reassuring reading
+    # of the least informative run. `null` is the value that cannot be mistaken for a
+    # measurement.
+    unseen_ratio = round(unseen / len(endpoints), 4) if endpoints else None
     selection = dict(run_info.get("selection") or {})
     # Three ways this run fails to describe the suite: a lot of endpoints went untouched,
     # parallel workers were never merged, or the run selected a subset in the first place.
@@ -335,8 +340,13 @@ def build_payload(
     # endpoint is still called and `unseen_ratio` stays near zero while half the suite
     # never ran. Without this, such a run compared against a full one reports every
     # dropped cell as a regression, and calls the comparison sound.
+    #
+    # An unmeasured ratio is not a fourth reason. `partialRun` is a bool and every reader
+    # of it phrases the same claim — "some endpoints were never called" — which is false,
+    # not true, for a run that has no endpoints to call. That claim now belongs to
+    # `unseenRatio: null`, which says "not measured" without pretending to be a count.
     partial_run = (
-        unseen_ratio >= 0.2
+        (unseen_ratio is not None and unseen_ratio >= 0.2)
         or (workers > 1 and not merged)
         or bool(selection.get("markexpr") or selection.get("keyword"))
     )
@@ -363,6 +373,16 @@ def build_payload(
             # touch `comparable` — an unverified run is still a valid measurement of
             # coverage.
             "tlsVerified": bool(run_info.get("tlsVerified", True)),
+            # Which hosts, not only whether. `tlsVerified` is one bit for the run and a
+            # single auxiliary service switches it off — a self-signed certificate reached
+            # while a plugin configures itself made every run of one project report
+            # `false`, including the runs that never called the API. These two lists are
+            # added next to the flag and never instead of it: reading them is optional,
+            # and a consumer that knows only `tlsVerified` reads exactly what it did
+            # before. Empty lists are emitted rather than omitted, so "nothing was
+            # accepted unverified" and "an older artifact" stay distinguishable.
+            "tlsUnverifiedHosts": sorted(unverified_hosts),
+            "tlsUnknownHosts": sorted(unknown_tls_hosts),
             **({"selection": selection} if selection else {}),
         },
         **({"timing": run_timing} if run_timing else {}),
