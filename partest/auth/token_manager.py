@@ -9,7 +9,8 @@ from typing import Callable, Dict, Iterable, Optional, Sequence, Tuple
 import httpx
 
 from partest.auth.jwt_decode import decode_jwt_payload
-from partest.tls import VerifySetting, resolve_verify, verify_for_httpx
+from partest.http.client import httpx_async_client
+from partest.tls import VerifySetting, resolve_verify
 
 CredentialsProvider = Callable[[str], Tuple[str, str]]
 logger = logging.getLogger("partest.auth")
@@ -151,8 +152,8 @@ class TokenManager:
         if self.client_secret:
             data["client_secret"] = self.client_secret
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        async with httpx.AsyncClient(
-            timeout=self.timeout, verify=verify_for_httpx(self.verify)
+        async with httpx_async_client(
+            timeout=self.timeout, verify=self.verify
         ) as client:
             try:
                 response = await client.post(url, headers=headers, data=data)

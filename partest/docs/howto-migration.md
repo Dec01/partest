@@ -11,6 +11,34 @@ pip install -U partest
 pip install -U 'partest[ui]'   # UI suites
 ```
 
+## Unreleased — your own httpx clients can stay inside the TLS policy
+
+Nothing here breaks. This is the upgrade a suite makes on purpose, and it is worth making if
+`grep -rn "httpx.Client(\|httpx.AsyncClient(" tests/` finds anything: every hit is a client
+that ignores `PARTEST_TLS_VERIFY`, ignores `confpartest.tls_verify`, warns about nothing and
+leaves `meta.tlsVerified: true` in the report even when it accepts any certificate.
+
+```python
+# before — outside the policy, whatever the project configured
+async with httpx.AsyncClient(verify=False) as http:
+    spec = (await http.get(swagger_url)).json()
+
+# after — the project's decision, in one place, for this client too
+from partest import httpx_async_client
+
+async with httpx_async_client() as http:
+    spec = (await http.get(swagger_url)).json()
+```
+
+Drop the `verify=False` while you are there: if the stand really needs it, `PARTEST_TLS_VERIFY=0`
+(or a CA bundle path, which is better) says so once for the whole run, and the report then says
+so too. Keeping `verify=False` in the call also works and is honestly recorded — the factory
+routes an explicit value through the same policy.
+
+The factory gives you TLS and nothing else: no retries, no coverage tracking, no steps. Calls
+made through it are **not** counted as covered — anything that has to be counted still goes
+through `ApiClient.make_request`. Details in [Enterprise notes — shared client, retries, redaction, xdist](howto-enterprise.md).
+
 ## 2.0.0 — the methodology moved into `api/` and `ui/`, TLS is verified, and the plugin flag stopped hiding the run metadata
 
 ### The methodology submodules moved — a deep import has to be edited, but not today

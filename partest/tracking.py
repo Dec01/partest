@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
 
-import httpx
-
 from partest.client import ApiClient
-from partest.tls import VerifySetting, resolve_verify, verify_for_httpx
+from partest.http.client import httpx_async_client
+from partest.tls import VerifySetting, resolve_verify
 
 IdExtractor = Callable[[Any, str, str], Optional[Tuple[str, Any]]]
 
@@ -166,9 +165,9 @@ class CreatedRegistry:
 
         headers = {auth_header: f"{auth_scheme} {token}".strip()}
         pending = list(reversed(self._items))
-        async with httpx.AsyncClient(
+        async with httpx_async_client(
             base_url=domain,
-            verify=verify_for_httpx(verify),
+            verify=verify,
             timeout=timeout,
             follow_redirects=True,
         ) as client:

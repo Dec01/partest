@@ -1,8 +1,8 @@
 ---
 title: Package map — what lives where
 status: current
-verified: 2026-09-23
-sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/pytest_plugin.py]
+verified: 2026-09-24
+sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/http/client.py, partest/pytest_plugin.py]
 audience: agent
 ships_in_wheel: true
 ---
@@ -25,7 +25,7 @@ partest/
   validation/          BaseResponseValidator, ProblemDetail*, raw IncorrectBody cases
   data_marker.py       TEST_MARKER, marked_name/code/short — test-data naming
   env/                 project root, .env loading, require_env
-  http/                Config, HeadersBind
+  http/                Config, HeadersBind, httpx_client/httpx_async_client factory
   auth/                TokenManager, JWT decode
   reporting/           check_* helpers, steps, attaches, instrumented requests
   reports/             coverage analyzer, JSON payload, HTML, compare/badge/stubs/history
@@ -54,6 +54,7 @@ partest/
 | `TrackingApiClient` / `CreatedRegistry` | record created ids, clean up in LIFO with 409 retry |
 | `TokenManager` | OIDC multi-role token cache; credentials come from an injected provider |
 | `Config` / `HeadersBind` | header and param builders, `apply_token` binding |
+| `httpx_client` / `httpx_async_client` | a client of your own **inside** the TLS policy — no retries, no coverage |
 | `reporting` (`import partest.reporting as ah`) | `ah.check_*`, Allure steps and attaches; Allure is a soft dependency |
 | `reports` | `zorro_enhanced`, `coverage.json`, interactive HTML, `python -m partest.reports` CLI |
 | `methodology.api` | subtypes × matrix × inference, all derived from the specification — see [[concepts/methodology]] |
@@ -132,3 +133,16 @@ once per process, so it is visible in the pytest summary without being noise per
 the report carries `meta.tlsVerified: false`, because a warning does not survive the session.
 "Off" includes an `ssl.SSLContext` built with `verify_mode = ssl.CERT_NONE`: it accepts any
 certificate, so it is recorded like `verify=False` rather than passing for verification.
+
+Need a client of your own? `partest.http.httpx_client` / `httpx_async_client` build one with
+the same decision applied, so a fixture fetching a live specification no longer has to leave
+the policy to accept a self-signed stand — see [[howto/enterprise]]. Inside the package these
+two are the **only** place that calls httpx's constructors; a test in `tests/test_tls_factory.py`
+fails if a module grows a raw one again.
+
+`meta.tlsVerified: true` therefore means "no client partest built for this run skipped
+verification". It cannot mean more than that: a consumer may still construct an httpx client
+by hand, and an injected `client=` decided its TLS before partest saw it. Ways to make that gap
+visible in the artifact — a third value, or a strict mode that fails the run — cost either the
+artifact contract or the behaviour of suites that knowingly run unverified, and neither has been
+taken.

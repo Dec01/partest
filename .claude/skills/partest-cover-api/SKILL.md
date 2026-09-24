@@ -22,7 +22,9 @@ description: >
 ## Hard rules
 
 1. **All suite HTTP goes through `ApiClient`.** Raw `httpx` calls are invisible to coverage —
-   they count as no test at all.
+   they count as no test at all. For the calls that are genuinely not suite calls (a fixture
+   fetching the live spec, a warm-up), build the client with `partest.httpx_client` /
+   `httpx_async_client`: still not coverage, but inside the TLS policy instead of outside it.
 2. **Always pass `type=`.** Inference is high-confidence only for 405, 404 and a broken raw body.
    Everything else — permissions, new/update object, elements, extra data, env, benchmark — is
    ambiguous on the wire.

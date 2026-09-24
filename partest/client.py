@@ -10,6 +10,7 @@ from pydantic import BaseModel, RootModel, ValidationError
 
 from partest.allure_step import allure_step as _step
 from partest.coverage import track_api_calls
+from partest.http.client import httpx_async_client
 from partest.http_retry import RetryPolicy
 from partest.redact import redact_headers
 from partest.tls import (
@@ -17,7 +18,6 @@ from partest.tls import (
     certificate_error,
     is_certificate_error,
     resolve_verify,
-    verify_for_httpx,
 )
 from partest.utils import ErrorDesc, Logger, StatusCode
 
@@ -238,8 +238,8 @@ class ApiClient:
 
     async def _ensure_owned_client(self, timeout: float) -> httpx.AsyncClient:
         if self._owned_client is None:
-            self._owned_client = httpx.AsyncClient(
-                verify=verify_for_httpx(self.verify),
+            self._owned_client = httpx_async_client(
+                verify=self.verify,
                 follow_redirects=self.follow_redirects,
                 timeout=timeout,
             )
@@ -518,8 +518,8 @@ class ApiClient:
                 files=files,
                 content=content,
             )
-        async with httpx.AsyncClient(
-            verify=verify_for_httpx(self.verify),
+        async with httpx_async_client(
+            verify=self.verify,
             follow_redirects=self.follow_redirects,
             timeout=timeout,
         ) as client:

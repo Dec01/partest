@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.2.0 — 2026-09-24
+
+### Added
+
+- **`httpx_client()` / `httpx_async_client()` — a client of your own, still inside the TLS
+  policy.** `partest/tls.py` decided `verify=` for the clients the package builds and for
+  nothing else. The moment a suite needed a client of its own — a fixture pulling the live
+  specification, a probe against a second service — it wrote `httpx.Client(verify=False)` and
+  left the policy entirely: `PARTEST_TLS_VERIFY` and `confpartest.tls_verify` unread, no
+  `TLSVerificationDisabled` warning, nothing recorded — and the report of that same run still
+  said `meta.tlsVerified: true` while the specification had come over an unverified
+  connection. One consumer suite carried thirty-odd such call sites. The two factories apply
+  `resolve_verify()` and `verify_for_httpx()` and pass everything else — `base_url`,
+  `timeout`, `headers`, `http2`, `auth`, a `transport` — to httpx untouched; an explicit
+  `verify=False` travels through the same policy, so it warns and is recorded like any other.
+  They are a **factory, not a second `ApiClient`**: no retries, no coverage tracking, no steps
+  or attaches, and a call through such a client stays as invisible to coverage as any other
+  raw httpx call. Exported from `partest` and from `partest.http`.
+
+### Changed
+
+- **The package now builds httpx clients in exactly one place.** `ApiClient` (per-request and
+  shared), `SecHttp`, `TokenManager`, `CreatedRegistry.cleanup` and the OpenAPI URL loader
+  repeated the same `httpx.*Client(verify=verify_for_httpx(...))` pair five times over. The
+  duplication was not the cost — each copy was another place where the TLS decision could be
+  forgotten, and in this package's history it twice had been. All five now call the factory,
+  and `tests/test_tls_factory.py` fails if any module grows a raw `httpx.Client(` again.
+  Observable behaviour is unchanged: each of them still settles `verify=` in its constructor,
+  where the warning belongs, and hands the settled value to the factory.
+
+- **`meta.tlsVerified` keeps its type and its two values, and now says what it means.** `true`
+  means "no client partest built for this run skipped verification" — it never could mean more:
+  a consumer may still construct a client by hand, and an injected `client=` decides its TLS
+  before partest sees it. Making that gap visible in the artifact (a third value, or a strict
+  mode that fails the run) changes either the artifact contract or the behaviour of suites that
+  knowingly run with `verify=False`; both are written up in `docs/wiki/proposals.md` and neither
+  is taken here.
+
 ## 2.1.0 — 2026-09-23
 
 **Support for pytest 8 ends with this release.** `PYSEC-2026-1845` is fixed in pytest 9.0.3

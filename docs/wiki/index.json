@@ -68,7 +68,7 @@
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-09-24",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -82,6 +82,7 @@
         "partest/security/__init__.py",
         "partest/auth/__init__.py",
         "partest/tls.py",
+        "partest/http/client.py",
         "partest/pytest_plugin.py"
       ],
       "headings": [
@@ -114,7 +115,7 @@
           "text": "confpartest.py — the same decision, in the project instead of the environment"
         }
       ],
-      "chars": 7146
+      "chars": 8200
     },
     {
       "slug": "components/project-gen",
@@ -580,7 +581,7 @@
       "path": "docs/wiki/howto/enterprise.md",
       "title": "Enterprise notes — shared client, retries, redaction, xdist",
       "status": "current",
-      "verified": "2026-09-08",
+      "verified": "2026-09-24",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -588,7 +589,8 @@
         "partest/redact.py",
         "partest/call_storage.py",
         "partest/client.py",
-        "partest/tls.py"
+        "partest/tls.py",
+        "partest/http/client.py"
       ],
       "headings": [
         {
@@ -606,6 +608,10 @@
         {
           "level": 1,
           "text": "external client is not closed by ApiClient"
+        },
+        {
+          "level": 2,
+          "text": "A client of your own, still inside the TLS policy"
         },
         {
           "level": 2,
@@ -636,7 +642,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 4151
+      "chars": 5925
     },
     {
       "slug": "howto/layers",
@@ -708,7 +714,7 @@
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-09-24",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -716,6 +722,7 @@
         "partest/__init__.py",
         "partest/conf.py",
         "partest/tls.py",
+        "partest/http/client.py",
         "partest/pytest_plugin.py",
         "partest/methodology/__init__.py",
         "partest/methodology/_moved.py",
@@ -727,6 +734,18 @@
         {
           "level": 1,
           "text": "Migration guide"
+        },
+        {
+          "level": 2,
+          "text": "Unreleased — your own httpx clients can stay inside the TLS policy"
+        },
+        {
+          "level": 1,
+          "text": "before — outside the policy, whatever the project configured"
+        },
+        {
+          "level": 1,
+          "text": "after — the project's decision, in one place, for this client too"
         },
         {
           "level": 2,
@@ -857,7 +876,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 21513
+      "chars": 22915
     },
     {
       "slug": "howto/permissions",
@@ -1567,11 +1586,12 @@
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-09-08",
+      "verified": "2026-09-24",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
         "partest/coverage.py",
+        "partest/http/client.py",
         "partest/tracking.py",
         "partest/pytest_plugin.py",
         "partest/reports/payload.py",
@@ -1685,11 +1705,15 @@
           "text": "C4. Контрактные проверки против живого `$ref`"
         },
         {
+          "level": 3,
+          "text": "C5. `meta.tlsVerified`: что делать с тем, чего библиотека не видит"
+        },
+        {
           "level": 2,
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 14330
+      "chars": 16129
     },
     {
       "slug": "status",
@@ -1873,6 +1897,12 @@
     ],
     "partest/files.py": [
       "howto/upload"
+    ],
+    "partest/http/client.py": [
+      "components/overview",
+      "howto/enterprise",
+      "howto/migration",
+      "proposals"
     ],
     "partest/http/config.py": [
       "howto/recipes"
