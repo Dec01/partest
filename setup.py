@@ -134,9 +134,12 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
-        # 3.14 is claimed because the suite was run there, not because it looked likely:
-        # same result as on 3.10, and every dependency resolves with a cp314 wheel or
-        # without an ABI tag at all.
+        # 3.14 is claimed because the suite was run there, not because it looked likely.
+        # Last re-earned for 2.3.0: 477 passed, 2 skipped — identical to 3.10, down to the
+        # same two skips for the same reason. Say which release, not just "it was run":
+        # CI covers 3.10 and 3.13 only, so this line is the claim nobody else checks, and a
+        # claim that cannot be dated is one that goes stale without anyone noticing. Re-run
+        # the suite on 3.14 before each release that adds code, or drop the classifier.
         "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
