@@ -69,7 +69,7 @@ from partest.validation import (
     assert_raw_incorrect_body,
 )
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"
 
 # Lazy-friendly optional: security / http always available
 from partest.http import (  # noqa: E402

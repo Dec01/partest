@@ -1,7 +1,7 @@
 ---
 title: Developing partest
 status: current
-verified: 2026-09-23
+verified: 2026-09-24
 sources: [partest/__init__.py, setup.py, tests/test_docs.py, tools/docs_lint.py]
 audience: maintainer
 ships_in_wheel: false
@@ -54,6 +54,13 @@ PYTHONPATH=../partest_client python -m pytest tests/test_golden_suite.py -q
 
 `tests/test_ui_isolation.py` guards that `import partest.ui` needs no network, no OpenAPI and no
 confpartest — a monorepo UI job must not pull the API session. Do not weaken it.
+
+A guard that collects files by walking a directory and then asserts that none of them offends
+says the same thing about an empty walk: nothing offends, so it passes. Such a check states its
+corpus first — not merely "more than zero files", but what is expected to be there (every
+package of the tree, every page the wiki ships, the one file that is a known positive) — and the
+statement goes *before* the loop. Verify it the only way that proves anything: break the walk on
+purpose and watch the test turn red.
 
 ## Documentation
 

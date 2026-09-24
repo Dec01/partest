@@ -41,6 +41,7 @@ CORE_SETTINGS = {
     "log_file_format",
     "log_file_date_format",
     "markers",
+    "testpaths",
 }
 
 #: Settings and `addopts` options that only work when a plugin is installed, mapped to the
@@ -166,6 +167,53 @@ def test_no_configured_entry_goes_unreviewed():
     )
 
 
+def _shipped_packages() -> set[str]:
+    """Every package inside `partest`, asked of the import system rather than of a glob.
+
+    `pkgutil.iter_modules` goes through the path finders and imports nothing, and it starts
+    from the *imported* package rather than from a path spelled out here. That is what makes
+    it usable as an expectation for a walk that starts from a path spelled out here: a walk
+    that resolved somewhere else is measured against a tree that did not move with it.
+
+    `setuptools.find_packages` would answer the same question, but setuptools is not a
+    dependency of this package and is absent from a 3.12+ virtual environment — the exact
+    kind of undeclared claim the rest of this file exists to catch.
+    """
+    import pkgutil
+
+    import partest
+
+    def walk(directory: Path, name: str) -> set[str]:
+        found = {name}
+        for info in pkgutil.iter_modules([str(directory)]):
+            if info.ispkg:
+                found |= walk(directory / info.name, f"{name}.{info.name}")
+        return found
+
+    return walk(Path(partest.__file__).resolve().parent, "partest")
+
+
+def _assert_the_walk_covers_the_package(paths) -> None:
+    """Premise for a check that walks the package and reports the files that offend.
+
+    Nothing offends in an empty corpus, so such a check passes loudest when its walk broke:
+    a root that moved, a mask that narrowed, a tree that was never there. The expectation is
+    named rather than counted — every package that ships has to be represented among the
+    files read, which also catches a walk that stopped half way through the tree.
+    """
+    expected = _shipped_packages()
+    assert len(expected) > 1, (
+        f"the expectation itself is empty: {sorted(expected)} is the whole package tree, so "
+        "agreeing with it would prove nothing"
+    )
+
+    found = {".".join(p.relative_to(REPO_ROOT).parent.parts) for p in paths}
+    assert not expected - found, (
+        f"the walk read no module of {sorted(expected - found)}: a check over this corpus "
+        "reports «no offenders» for files it never opened"
+    )
+
+
 def test_the_package_has_no_invalid_escape_sequences():
     """`"\\>"` in a plain string is a warning today and a syntax error in a coming Python.
 
@@ -173,8 +221,11 @@ def test_the_package_has_no_invalid_escape_sequences():
     The whole package is compiled rather than a known file list: the next one would appear
     somewhere else.
     """
+    sources = sorted((REPO_ROOT / "partest").rglob("*.py"))
+    _assert_the_walk_covers_the_package(sources)
+
     offenders = []
-    for path in sorted((REPO_ROOT / "partest").rglob("*.py")):
+    for path in sources:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             compile(path.read_text(encoding="utf-8"), str(path), "exec")

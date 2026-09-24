@@ -38,10 +38,17 @@ def _calls_total(payload: dict) -> int:
     return sum(int(e.get("calls") or 0) for e in (payload.get("endpoints") or []))
 
 
-def _unseen_fraction(payload: dict) -> float:
+def _unseen_fraction(payload: dict) -> float | None:
+    """``None`` when the payload has no endpoints at all.
+
+    A share over an empty set is a constant by construction, and ``0.0`` reads as
+    "nothing went untouched" — the opposite of the truth, which is that nothing was
+    measured. The caller has to decide what an absent measurement means; it cannot be
+    folded into a number.
+    """
     endpoints = payload.get("endpoints") or []
     if not endpoints:
-        return 0.0
+        return None
     return sum(1 for e in endpoints if _kind_of(e) == "unseen") / len(endpoints)
 
 
@@ -163,8 +170,11 @@ def _call_volume_warning(old: dict, new: dict) -> list[str]:
     if old_calls <= 0 or new_calls >= old_calls * _CALL_VOLUME_FLOOR:
         return []
     # A rise in never-called endpoints is already reported through not_run; this warning
-    # is about the drop that leaves no trace there.
-    if _unseen_fraction(new) - _unseen_fraction(old) >= 0.1:
+    # is about the drop that leaves no trace there. A payload with no endpoints measured
+    # no such rise — it explains nothing, so the warning stands rather than being
+    # suppressed by an "unseen share of zero" that was never observed.
+    old_unseen, new_unseen = _unseen_fraction(old), _unseen_fraction(new)
+    if old_unseen is not None and new_unseen is not None and new_unseen - old_unseen >= 0.1:
         return []
     return [
         f"current run made {new_calls} calls against {old_calls} before "

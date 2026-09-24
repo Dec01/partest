@@ -28,11 +28,38 @@ def test_import_ui_does_not_need_confpartest(monkeypatch):
     assert ui.should_ignore_url
 
 
+def _modules_the_import_brought_in(package) -> set:
+    """Files of the submodules importing *package* actually loaded.
+
+    An expectation for a walk over the same directory, produced by a different mechanism:
+    the import system found these files, so a glob that misses one did not read the package.
+    Submodules of nested packages are left out — the walk below does not descend either.
+    """
+    root = Path(package.__file__).resolve().parent
+    return {
+        Path(module.__file__).resolve()
+        for name, module in list(sys.modules.items())
+        if name.startswith(f"{package.__name__}.")
+        and getattr(module, "__file__", None)
+        and Path(module.__file__).resolve().parent == root
+    }
+
+
 def test_import_ui_source_has_no_conf_or_swagger():
     import partest.ui as ui_pkg
 
     root = Path(ui_pkg.__file__).resolve().parent
-    for py in root.glob("*.py"):
+    sources = sorted(root.glob("*.py"))
+    # Without this the check is the same shape as the bug it guards: a loop over an empty
+    # glob asserts nothing and passes. It has already happened here once — see the test
+    # below, which exists because this one was green while isolation was broken.
+    unread = _modules_the_import_brought_in(ui_pkg) - set(sources)
+    assert sources and not unread, (
+        f"the walk over {root} read {len(sources)} file(s) and missed {sorted(unread)}: "
+        "a loop over it proves nothing about partest.ui"
+    )
+
+    for py in sources:
         text = py.read_text(encoding="utf-8")
         # allow word only in comments if needed — require no import usage
         assert "import confpartest" not in text

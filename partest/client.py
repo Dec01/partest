@@ -17,6 +17,7 @@ from partest.tls import (
     VerifySetting,
     certificate_error,
     is_certificate_error,
+    note_unknown_tls_host,
     resolve_verify,
 )
 from partest.utils import ErrorDesc, Logger, StatusCode
@@ -157,7 +158,10 @@ class ApiClient:
     ``self.verify`` is what *this* client decided — and it is ``None`` when ``client=`` was
     given, because then TLS belongs to the client that was handed in and httpx does not
     expose its setting. Claiming ``True`` there would be a guess, and the warning about an
-    unverified run would be both false-positive and false-negative.
+    unverified run would be both false-positive and false-negative. The run artifact says
+    the same thing now instead of quietly reporting the run as verified: the domain lands
+    in ``meta.tlsUnknownHosts``, which is "partest did not decide this one" and not
+    "this one was unverified".
     """
 
     def __init__(
@@ -185,6 +189,12 @@ class ApiClient:
                     stacklevel=2,
                 )
             self.verify: Optional[VerifySetting] = None
+            # "Not our decision" used to be said to the caller and to nobody else: the
+            # artifact of the same run reported `tlsVerified: true`, i.e. verified. The
+            # domain is the right thing to name — every call this client makes is built
+            # from it — and it goes into a list of its own, so a reader can tell "checked"
+            # from "not ours to check" without the flag changing type or meaning.
+            note_unknown_tls_host(domain)
         else:
             self.verify = resolve_verify(verify)
         self.follow_redirects = follow_redirects

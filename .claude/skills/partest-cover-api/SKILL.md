@@ -25,6 +25,8 @@ description: >
    they count as no test at all. For the calls that are genuinely not suite calls (a fixture
    fetching the live spec, a warm-up), build the client with `partest.httpx_client` /
    `httpx_async_client`: still not coverage, but inside the TLS policy instead of outside it.
+   Both take `env_only=True` when only `PARTEST_TLS_VERIFY` should be read, and a client built
+   with verification off names the hosts it reaches in `meta.tlsUnverifiedHosts`.
 2. **Always pass `type=`.** Inference is high-confidence only for 405, 404 and a broken raw body.
    Everything else — permissions, new/update object, elements, extra data, env, benchmark — is
    ambiguous on the wire.
@@ -157,6 +159,9 @@ it with `PARTEST_PYTEST_PLUGIN=0` or `pytest_plugin = False` if the project owns
 - [ ] Status + schema validation on positive cases
 - [ ] Value assertions for Default / Benchmark / Elements where data is deterministic
 - [ ] Created resources cleaned up (tracking registry), test data carries the marker
+- [ ] Any assertion whose data this environment might not have collected goes through
+      `ah.check_measured(premise, assertion, what=…)` — a comparison over an empty sample
+      passes by construction and reads as a covered case that was never checked
 - [ ] `missing_p1` empty for that endpoint in a **serial** run
 
 ## Known limits

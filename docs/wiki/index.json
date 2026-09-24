@@ -6,7 +6,7 @@
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-09-24",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7504
+      "chars": 7548
     },
     {
       "slug": "components/overview",
@@ -83,6 +83,8 @@
         "partest/auth/__init__.py",
         "partest/tls.py",
         "partest/http/client.py",
+        "partest/call_storage.py",
+        "partest/reports/payload.py",
         "partest/pytest_plugin.py"
       ],
       "headings": [
@@ -113,9 +115,13 @@
         {
           "level": 1,
           "text": "confpartest.py — the same decision, in the project instead of the environment"
+        },
+        {
+          "level": 3,
+          "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 8200
+      "chars": 10496
     },
     {
       "slug": "components/project-gen",
@@ -162,7 +168,7 @@
       "path": "docs/wiki/concepts/coverage-honesty.md",
       "title": "Coverage honesty — when the number lies",
       "status": "current",
-      "verified": "2026-09-08",
+      "verified": "2026-09-24",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -188,6 +194,10 @@
         },
         {
           "level": 3,
+          "text": "A run with no endpoints measured nothing, and says so"
+        },
+        {
+          "level": 3,
           "text": "A filter removes cells, not endpoints"
         },
         {
@@ -199,7 +209,7 @@
           "text": "What to trust"
         }
       ],
-      "chars": 6269
+      "chars": 7436
     },
     {
       "slug": "concepts/methodology",
@@ -331,7 +341,7 @@
       "path": "docs/wiki/decisions/docs-architecture.md",
       "title": "ADR — архитектура документации: AGENTS + Skills + Wiki",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-09-24",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -484,7 +494,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-09-24",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -523,7 +533,7 @@
           "text": "Where things are decided"
         }
       ],
-      "chars": 3633
+      "chars": 4145
     },
     {
       "slug": "howto/coverage-html",
@@ -614,6 +624,10 @@
           "text": "A client of your own, still inside the TLS policy"
         },
         {
+          "level": 1,
+          "text": "reads PARTEST_TLS_VERIFY and stops there — confpartest is not imported"
+        },
+        {
           "level": 2,
           "text": "Retries"
         },
@@ -642,7 +656,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 5925
+      "chars": 7267
     },
     {
       "slug": "howto/layers",
@@ -1164,12 +1178,13 @@
       "path": "docs/wiki/howto/reporting.md",
       "title": "Reporting cookbook — checks, steps, attaches",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-09-24",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
         "partest/reporting/__init__.py",
         "partest/reporting/checks.py",
+        "partest/reporting/measured.py",
         "partest/reporting/steps.py",
         "partest/reporting/attach.py",
         "partest/reporting/instrument.py"
@@ -1182,6 +1197,10 @@
         {
           "level": 2,
           "text": "Checks"
+        },
+        {
+          "level": 2,
+          "text": "The third outcome: «not measured»"
         },
         {
           "level": 2,
@@ -1220,7 +1239,7 @@
           "text": "Coverage extras (`partest.reports`)"
         }
       ],
-      "chars": 3392
+      "chars": 6613
     },
     {
       "slug": "howto/security",
@@ -1685,6 +1704,10 @@
           "text": "B4. Точки расширения через entry points"
         },
         {
+          "level": 3,
+          "text": "B5. Публичная проверка формата `coverage.json`"
+        },
+        {
           "level": 2,
           "text": "C. Крупное, требует отдельного решения"
         },
@@ -1713,7 +1736,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 16129
+      "chars": 18600
     },
     {
       "slug": "status",
@@ -1861,6 +1884,7 @@
     ],
     "partest/call_storage.py": [
       "backlog-audit",
+      "components/overview",
       "concepts/coverage-honesty",
       "howto/enterprise"
     ],
@@ -1988,6 +2012,9 @@
     "partest/reporting/instrument.py": [
       "howto/reporting"
     ],
+    "partest/reporting/measured.py": [
+      "howto/reporting"
+    ],
     "partest/reporting/steps.py": [
       "howto/reporting"
     ],
@@ -2010,6 +2037,7 @@
     ],
     "partest/reports/payload.py": [
       "backlog-audit",
+      "components/overview",
       "concepts/coverage-honesty",
       "proposals"
     ],

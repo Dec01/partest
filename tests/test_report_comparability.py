@@ -211,6 +211,150 @@ def test_an_unfiltered_run_carries_no_selection_key():
     assert "selection" not in payload["meta"]
 
 
+# --- A run that measured nothing ------------------------------------------
+#
+# `unseenRatio` is a share over the endpoints of the run. A run that collected none —
+# a fixture that failed before the specification was read, a worker shard that was never
+# merged, an empty specification — has no denominator, and `0.0` reads as "not one
+# endpoint went untouched": the most reassuring number from the least informative run.
+
+
+def _built(kinds, *, selection=None):
+    """A real ``build_payload`` document over a run with endpoints of these ``kind``s."""
+    from partest.call_storage import run_info
+    from partest.methodology.api.subtypes import MethodSubtype
+    from partest.reports.analyzer import CoverageReport, EndpointCoverage
+    from partest.reports.payload import build_payload
+
+    endpoints = [
+        EndpointCoverage(
+            method="GET",
+            path=f"/e{i}",
+            description="",
+            subtype=MethodSubtype.GET_DYNAMIC,
+            subtype_label="GET DYNAMIC OBJECT",
+            calls=0 if kind == "unseen" else 3,
+            executed_types=set(),
+            required_p1=[],
+            required_all=[],
+            missing_p1=[],
+            missing_all=[],
+            present_required=[],
+            coverage_pct=0.0 if kind == "unseen" else 100.0,
+            status="empty" if kind == "unseen" else "full",
+            kind=kind,
+        )
+        for i, kind in enumerate(kinds)
+    ]
+    report = CoverageReport(
+        endpoints=endpoints,
+        average_pct=0.0,
+        total_calls=0,
+        full_count=0,
+        partial_count=0,
+        empty_count=0,
+        exception_count=0,
+        by_subtype={},
+        by_swagger={},
+    )
+    previous = dict(run_info.get("selection") or {})
+    run_info["selection"] = dict(selection or {})
+    try:
+        return build_payload(report)
+    finally:
+        run_info["selection"] = previous
+
+
+def test_a_run_with_untouched_endpoints_reports_the_share():
+    assert _built(["full", "full", "full", "unseen"])["meta"]["unseenRatio"] == 0.25
+
+
+def test_a_run_that_touched_everything_reports_a_measured_zero():
+    ratio = _built(["full", "full"])["meta"]["unseenRatio"]
+
+    assert ratio == 0.0
+    assert isinstance(ratio, float), "a measured zero stays a number"
+
+
+def test_a_run_with_no_endpoints_reports_no_measurement_at_all():
+    """The value `0.0` used to ship here, and it says the opposite of what happened."""
+    import json
+
+    meta = _built([])["meta"]
+
+    assert "unseenRatio" in meta, (
+        "dropping the key would make an unmeasured run look like an artifact written "
+        "before the field existed"
+    )
+    assert meta["unseenRatio"] is None
+    assert '"unseenRatio": null' in json.dumps(meta, indent=1).replace("\n ", " ")
+
+
+def test_an_unmeasured_ratio_does_not_make_the_run_partial():
+    """`partialRun` is a bool, and every reader spells it "some endpoints were never
+    called" — which is false, not true, when the run has no endpoints. The claim about a
+    run that measured nothing is carried by `unseenRatio: null`, which cannot be read as
+    a count. Flipping this to True would also change what an empty payload means to
+    `compare`, and the cost lands on runs that are merely small, not broken."""
+    meta = _built([])["meta"]
+
+    assert meta["partialRun"] is False
+    assert meta["unseenRatio"] is None, "the honesty lives in this field, not in the bool"
+
+
+def test_the_other_reasons_for_partial_still_fire_without_a_ratio():
+    """Dropping the ratio out of the bool must not disarm the two reasons beside it."""
+    assert _built([], selection={"markexpr": "not rbac"})["meta"]["partialRun"] is True
+    assert _built(["unseen", "full", "full", "full"])["meta"]["partialRun"] is True
+
+
+def test_compare_reads_an_unmeasured_ratio_without_inventing_a_percentage():
+    """`compare` formats the ratio with `:.0%`; `null` must not reach that."""
+    old = _payload([_ep("/e0", calls=3, coverage=100.0, kind="full")])
+    new = _payload(
+        [_ep("/e0", calls=3, coverage=100.0, kind="full")],
+        meta={"partialRun": True, "unseenRatio": None},
+    )
+
+    diff = compare_payloads(old, new)
+
+    assert any("looks partial" in w for w in diff["warnings"]), diff["warnings"]
+    assert not any("%" in w for w in diff["warnings"]), (
+        "no share was measured, so none may be quoted"
+    )
+
+
+def test_the_html_reader_guards_the_field_it_prints():
+    """The banner multiplies the ratio by 100; the guard beside it is load-bearing."""
+    from partest.reports.interactive_html import render_html
+
+    payload = _built([])
+    html = render_html(payload, title="demo")
+
+    assert "meta.unseenRatio != null" in html
+    assert '"unseenRatio": null' in html or '"unseenRatio":null' in html
+
+
+def test_an_empty_run_does_not_explain_away_a_collapse_in_calls():
+    """`_unseen_fraction` returning 0.0 for an empty payload was a share nobody measured.
+
+    The suppression below it is for a *measured* rise in never-called endpoints: when
+    `not_run` already explains the drop, one warning is enough. A run with no endpoints
+    measured no rise, so it explains nothing and the warning has to stand.
+    """
+    from partest.reports.compare import _unseen_fraction
+
+    assert _unseen_fraction(_payload([])) is None
+    assert _unseen_fraction(_payload([_ep("/e0", calls=0, coverage=0.0, kind="unseen")])) == 1.0
+
+    old = _payload([_ep(f"/e{i}", calls=60, coverage=100.0, kind="full") for i in range(10)])
+
+    diff = compare_payloads(old, _payload([]))
+
+    assert diff["comparable"] is False
+    assert any("fewer" in w for w in diff["warnings"]), diff["warnings"]
+
+
 # --- Reachability of the public surface -----------------------------------
 
 

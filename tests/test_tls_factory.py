@@ -261,13 +261,27 @@ def test_no_module_in_the_package_builds_a_raw_httpx_client():
 
     root = Path(partest.__file__).resolve().parent
     allowed = root / "http" / "client.py"
+    spellings = ("httpx.Client(", "httpx.AsyncClient(")
+
+    sources = sorted(root.rglob("*.py"))
+    # The premise, before the absence of offenders means anything: this walk read the
+    # package, and the two spellings it looks for are spellings that occur in it. The
+    # factory's own module is the positive control — it is the one file that does build
+    # both clients, so finding it, and finding both spellings inside it, rules out the
+    # readings under which "no offenders" means "nothing was looked at".
+    assert allowed in sources, f"the walk over {root} never reached {allowed}, so it read nothing"
+    control = allowed.read_text(encoding="utf-8")
+    assert all(spelling in control for spelling in spellings), (
+        f"{allowed} no longer contains {spellings} — the search below cannot find in other "
+        "modules what it cannot find in the one module that certainly builds a client"
+    )
 
     offenders = []
-    for path in sorted(root.rglob("*.py")):
+    for path in sources:
         if path == allowed:
             continue
         text = path.read_text(encoding="utf-8")
-        for spelling in ("httpx.Client(", "httpx.AsyncClient("):
+        for spelling in spellings:
             if spelling in text:
                 offenders.append(f"{path.relative_to(root)}: {spelling})")
 

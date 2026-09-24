@@ -34,6 +34,13 @@ Disabling verification warns once per process (:class:`TLSVerificationDisabled`)
 this consequential should be visible in the run output, and once is enough. A warning does
 not survive the session, so the same fact is also recorded in
 ``partest.call_storage.run_info["tlsVerified"]`` and reaches the report's ``meta``.
+
+That flag is one bit for the whole run and says only that **at least one** connection
+went unchecked. One auxiliary service — a self-signed certificate reached while a plugin
+configures itself, before a single test runs — turns it off for a run that verified the
+system under test from the first call to the last. :func:`note_unverified_host` and
+:func:`note_unknown_tls_host` write *which* hosts those were, next to the flag and
+without touching it (``meta.tlsUnverifiedHosts``, ``meta.tlsUnknownHosts``).
 """
 
 from __future__ import annotations
@@ -57,6 +64,8 @@ __all__ = [
     "verify_for_httpx",
     "is_certificate_error",
     "certificate_error",
+    "note_unverified_host",
+    "note_unknown_tls_host",
 ]
 
 #: What a client may be told: on/off, a CA bundle to trust, or a ready SSL context —
@@ -159,6 +168,47 @@ def _record_unverified() -> None:
         from partest.call_storage import run_info
 
         run_info["tlsVerified"] = False
+    except Exception:  # storage is optional for a library-only user
+        pass
+
+
+def note_unverified_host(url: Any, setting: VerifySetting) -> None:
+    """Record *url*'s host when *setting* means its certificate was not checked.
+
+    ``tlsVerified`` is one bit for a whole run, and one auxiliary service is enough to
+    switch it off: on one consumer a plugin signs into an auxiliary service with a
+    self-signed certificate during ``pytest_configure``, so *every* run of that project
+    reported ``false`` — including runs that never called the API at all. The bit stayed honest and stopped being
+    informative. Naming the hosts puts the difference back: "the whole suite ran
+    unverified" and "one service host was accepted, the stand was verified" are again two
+    different artifacts.
+
+    *setting* is re-checked rather than assumed, so a caller cannot record a host under a
+    policy that verifies. Nothing is recorded for a URL without a host.
+    """
+    if not _verification_is_off(setting):
+        return
+    try:
+        from partest.call_storage import record_unverified_host
+
+        record_unverified_host(url)
+    except Exception:  # storage is optional for a library-only user
+        pass
+
+
+def note_unknown_tls_host(url: Any) -> None:
+    """Record a host whose TLS partest did not decide and cannot read.
+
+    The one case the library knows it does not know: ``ApiClient(domain, client=hx)``
+    sets ``self.verify = None`` because the injected client settled ``verify=`` before
+    partest saw it — and the artifact of that same run used to say ``tlsVerified: true``.
+    A separate list rather than a third value of the flag: adding a key to ``meta`` is
+    compatible, changing the type of one is not.
+    """
+    try:
+        from partest.call_storage import record_unknown_tls_host
+
+        record_unknown_tls_host(url)
     except Exception:  # storage is optional for a library-only user
         pass
 

@@ -345,7 +345,15 @@ def test_the_ui_methodology_carries_no_product_domain():
     import partest.methodology.ui as ui_pkg
 
     root = Path(ui_pkg.__file__).resolve().parent
-    for module in sorted(root.glob("*.py")):
+    modules = sorted(root.glob("*.py"))
+    # The premise: the walk read the package and the four modules the UI methodology is made
+    # of — the same four this file imports at the top. Without it an empty glob (a moved
+    # root, a narrowed mask) makes the loop below assert nothing and report no offenders.
+    assert {"__init__", "surfaces", "checks", "matrix", "steps"} <= {m.stem for m in modules}, (
+        f"the walk over {root} found {[m.name for m in modules]}, not the UI methodology"
+    )
+
+    for module in modules:
         text = module.read_text(encoding="utf-8").lower()
         assert "http://" not in text and "https://" not in text, module.name
         for word in ("admin", "manager", "operator"):

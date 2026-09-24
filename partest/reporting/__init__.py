@@ -18,6 +18,16 @@ from partest.reporting.checks import (
     check_status_in,
     check_true,
 )
+from partest.reporting.measured import (
+    NotMeasured,
+    NotMeasuredWarning,
+    Premise,
+    check_measured,
+    mark_not_measured,
+    measurable,
+    not_measured_records,
+    reset_not_measured,
+)
 from partest.reporting.instrument import (
     build_http_step_title,
     instrumented_make_request,
@@ -36,6 +46,7 @@ from partest.reporting.templates import (
 from partest.reporting.attach import (
     attach_check,
     attach_failure,
+    attach_not_measured,
     attach_json,
     attach_request,
     attach_response,
@@ -60,6 +71,7 @@ __all__ = [
     "attach_response",
     "attach_check",
     "attach_failure",
+    "attach_not_measured",
     "step",
     "step_http",
     "step_prepare",
@@ -81,6 +93,14 @@ __all__ = [
     "check_not_startswith",
     "check_between",
     "check_lt",
+    "check_measured",
+    "measurable",
+    "mark_not_measured",
+    "not_measured_records",
+    "reset_not_measured",
+    "Premise",
+    "NotMeasured",
+    "NotMeasuredWarning",
     "testcase",
     "set_description",
     "set_title",

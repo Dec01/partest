@@ -84,6 +84,18 @@ def attach_check(*, field: str, expected: Any, actual: Any, ok: bool) -> None:
     )
 
 
+def attach_not_measured(*, what: str, reason: str) -> None:
+    """The third outcome next to :func:`attach_check`.
+
+    ``passed`` is ``null``, not ``false``: anything scanning attachments for a verdict must
+    see that there was none, instead of reading a missing measurement as a pass.
+    """
+    attach_json(
+        f"not_measured:{what}",
+        {"what": what, "reason": reason, "outcome": "not_measured", "passed": None},
+    )
+
+
 def attach_failure(message: str, exc: Optional[BaseException] = None) -> None:
     text = message
     if exc is not None:
