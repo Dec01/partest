@@ -69,10 +69,15 @@ from partest.validation import (
     assert_raw_incorrect_body,
 )
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 
 # Lazy-friendly optional: security / http always available
-from partest.http import Config, HeadersBind  # noqa: E402
+from partest.http import (  # noqa: E402
+    Config,
+    HeadersBind,
+    httpx_async_client,
+    httpx_client,
+)
 from partest.security import RiskProfile, SecHttp, build_tampered_set  # noqa: E402
 
 __all__ = [
@@ -136,6 +141,8 @@ __all__ = [
     "MethodsList",
     "Config",
     "HeadersBind",
+    "httpx_client",
+    "httpx_async_client",
     "SecHttp",
     "RiskProfile",
     "build_tampered_set",

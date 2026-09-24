@@ -9,12 +9,12 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union
 import httpx
 import yaml
 
+from partest.http.client import httpx_client
 from partest.tls import (
     VerifySetting,
     certificate_error,
     is_certificate_error,
     resolve_verify,
-    verify_for_httpx,
 )
 
 SpecSource = Union[str, Path, Tuple[str, str], Sequence[str]]
@@ -74,9 +74,11 @@ def resolve_swagger(
         return _parse_spec_text(path.read_text(encoding="utf-8"), hint=str(path))
 
     if kind == "url":
+        # Settled here rather than left to the factory only because the failure message
+        # below has to quote the value that was used.
         settled = resolve_verify(verify)
         try:
-            with httpx.Client(timeout=timeout, verify=verify_for_httpx(settled),
+            with httpx_client(timeout=timeout, verify=settled,
                               follow_redirects=True) as client:
                 resp = client.get(location, headers=dict(headers or {}))
                 resp.raise_for_status()

@@ -10,7 +10,8 @@ from partest.client import format_expected_status, status_matches
 from partest.reporting.attach import attach_failure, attach_request, attach_response
 from partest.reporting.steps import step
 from partest.reporting.templates import ErrorTemplates, StepTemplates
-from partest.tls import VerifySetting, resolve_verify, verify_for_httpx
+from partest.http.client import httpx_async_client
+from partest.tls import VerifySetting, resolve_verify
 
 ExpectedStatus = Optional[Union[int, Sequence[int]]]
 
@@ -81,9 +82,9 @@ class SecHttp:
         title = StepTemplates.http(method, path, exp_label)
 
         async def _do() -> httpx.Response:
-            async with httpx.AsyncClient(
+            async with httpx_async_client(
                 base_url=self.base_url,
-                verify=verify_for_httpx(self.verify),
+                verify=self.verify,
                 timeout=self.timeout,
                 follow_redirects=self.follow_redirects,
             ) as client:

@@ -1,8 +1,8 @@
 ---
 title: Enterprise notes — shared client, retries, redaction, xdist
 status: current
-verified: 2026-09-08
-sources: [partest/http_retry.py, partest/redact.py, partest/call_storage.py, partest/client.py, partest/tls.py]
+verified: 2026-09-24
+sources: [partest/http_retry.py, partest/redact.py, partest/call_storage.py, partest/client.py, partest/tls.py, partest/http/client.py]
 audience: user
 ships_in_wheel: true
 ---
@@ -34,6 +34,40 @@ example above deliberately no longer does: it used to, and it taught the one pat
 bypasses the package-wide decision.
 
 Default remains **ephemeral client per request** (backward compatible).
+
+## A client of your own, still inside the TLS policy
+
+Some calls are not suite calls: a fixture that pulls the live specification, a probe against a
+second service, a warm-up before the session. Building those with `httpx.Client(...)` leaves
+partest's TLS decision behind — `PARTEST_TLS_VERIFY` and `confpartest.tls_verify` are never
+read, nothing warns, and `meta.tlsVerified` goes on saying the run verified certificates while
+that client accepted anything. Use the factory instead:
+
+```python
+from partest import httpx_client, httpx_async_client
+
+with httpx_client(base_url=domain, timeout=5.0) as http:
+    spec = http.get("/v3/api-docs").json()
+
+async with httpx_async_client(base_url=domain, headers=auth) as http:
+    await http.post("/warmup")
+```
+
+It is a **factory, not a second `ApiClient`**: no retries, no coverage tracking, no steps or
+attaches. Everything you pass — `base_url`, `timeout`, `headers`, `http2`, `auth`, a
+`transport` — reaches httpx unchanged. Only `verify=` takes a detour through `partest/tls.py`:
+an explicit `verify=False` warns once and lands in `meta.tlsVerified` exactly like the
+project-wide switch does, and a CA bundle path arrives as the `ssl.SSLContext` that httpx 0.28
+asks for instead of the string it deprecates.
+
+**A call made through such a client is still invisible to coverage.** The factory removes the
+reason to leave the TLS policy, not the reason to use `ApiClient`: whatever has to count as
+covered goes through `make_request`.
+
+Injecting a client into `ApiClient` (above) is the opposite case and is unchanged — that client
+decided its TLS before partest saw it. Build it with `httpx_async_client(...)` and it is back
+inside the policy, although `ApiClient.verify` still reports `None`: it is not the one who
+decided.
 
 ## Retries
 
