@@ -1,8 +1,8 @@
 ---
 title: Interactive coverage report and CLI
 status: current
-verified: 2026-09-07
-sources: [partest/reports/__init__.py, partest/reports/interactive_html.py, partest/reports/writer.py, partest/reports/services.py, partest/reports/__main__.py]
+verified: 2026-09-24
+sources: [partest/reports/__init__.py, partest/reports/validate.py, partest/reports/interactive_html.py, partest/reports/writer.py, partest/reports/services.py, partest/reports/__main__.py]
 audience: user
 ships_in_wheel: true
 ---
@@ -87,6 +87,38 @@ The result carries `comparable` and `warnings`. A run made with parallel workers
 merged, or one where a fifth of the endpoints went untouched, is flagged as not comparable;
 `--strict` turns that into exit code 2 so a pipeline does not alarm on a partial run or, worse,
 stay quiet about a real loss hidden behind one.
+
+Related: [[concepts/coverage-honesty]]
+
+## Checking a document against the format
+
+`coverage.json` is an observable interface, and some consumers **write** it as well as read it —
+a fixture generator, a demonstration set, an importer that synthesises a run. Such a producer
+imitates the format by hand, and until now it had nothing to check itself against.
+
+```python
+from partest.reports import Severity, validate_coverage_payload
+
+problems = validate_coverage_payload(json.loads(path.read_text("utf-8")))
+errors = [p for p in problems if p.severity is Severity.ERROR]
+assert not errors, "\n".join(str(p) for p in errors)
+```
+
+It returns findings, raises nothing, and prints nothing: what a divergence costs is the caller's
+decision. Beyond keys and types it checks the agreements a hand-written producer gets wrong —
+`unseenRatio` is `float | null` and `null` belongs to exactly one state, `kind` must agree with
+`calls`, and `callsTotal` must agree with the rows under it.
+
+**`Severity.DATED` is not a small error.** It means the document predates a field: internally
+consistent, simply older. Artefacts outlive releases, and a check that fails on last month's file
+is a check people switch off. Errors and dated notes come back in one list and are separated by
+`Problem.severity`.
+
+The rule it exists for, stated once: `status` is about methodology (all required cells, some,
+none), `kind` is about what *this* run observed, and `unseen` — never called here — is not
+`empty` — called, no required cell executed. A producer that copies one into the other passes
+every type check and lies in the only field that can say "we did not look". That is not a
+hypothetical; it is where this function came from.
 
 Related: [[concepts/coverage-honesty]]
 

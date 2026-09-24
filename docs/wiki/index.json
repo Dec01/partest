@@ -540,11 +540,12 @@
       "path": "docs/wiki/howto/coverage-html.md",
       "title": "Interactive coverage report and CLI",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-09-24",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
         "partest/reports/__init__.py",
+        "partest/reports/validate.py",
         "partest/reports/interactive_html.py",
         "partest/reports/writer.py",
         "partest/reports/services.py",
@@ -581,10 +582,14 @@
         },
         {
           "level": 2,
+          "text": "Checking a document against the format"
+        },
+        {
+          "level": 2,
           "text": "Reading the page honestly"
         }
       ],
-      "chars": 4314
+      "chars": 6021
     },
     {
       "slug": "howto/enterprise",
@@ -2050,6 +2055,9 @@
       "proposals"
     ],
     "partest/reports/services.py": [
+      "howto/coverage-html"
+    ],
+    "partest/reports/validate.py": [
       "howto/coverage-html"
     ],
     "partest/reports/writer.py": [

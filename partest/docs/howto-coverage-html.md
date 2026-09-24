@@ -84,6 +84,38 @@ stay quiet about a real loss hidden behind one.
 
 Related: [Coverage honesty — when the number lies](concepts-coverage-honesty.md)
 
+## Checking a document against the format
+
+`coverage.json` is an observable interface, and some consumers **write** it as well as read it —
+a fixture generator, a demonstration set, an importer that synthesises a run. Such a producer
+imitates the format by hand, and until now it had nothing to check itself against.
+
+```python
+from partest.reports import Severity, validate_coverage_payload
+
+problems = validate_coverage_payload(json.loads(path.read_text("utf-8")))
+errors = [p for p in problems if p.severity is Severity.ERROR]
+assert not errors, "\n".join(str(p) for p in errors)
+```
+
+It returns findings, raises nothing, and prints nothing: what a divergence costs is the caller's
+decision. Beyond keys and types it checks the agreements a hand-written producer gets wrong —
+`unseenRatio` is `float | null` and `null` belongs to exactly one state, `kind` must agree with
+`calls`, and `callsTotal` must agree with the rows under it.
+
+**`Severity.DATED` is not a small error.** It means the document predates a field: internally
+consistent, simply older. Artefacts outlive releases, and a check that fails on last month's file
+is a check people switch off. Errors and dated notes come back in one list and are separated by
+`Problem.severity`.
+
+The rule it exists for, stated once: `status` is about methodology (all required cells, some,
+none), `kind` is about what *this* run observed, and `unseen` — never called here — is not
+`empty` — called, no required cell executed. A producer that copies one into the other passes
+every type check and lies in the only field that can say "we did not look". That is not a
+hypothetical; it is where this function came from.
+
+Related: [Coverage honesty — when the number lies](concepts-coverage-honesty.md)
+
 ## Reading the page honestly
 
 The report opens with a red banner when the run behind it does not describe the whole suite —
