@@ -17,6 +17,22 @@
   not reported stuck. `fetch` and `on_tick` may be plain or async; an exception from `fetch`
   propagates. Also public: `PollTick`. See [[howto/layers]].
 
+- **`partest.rounding` — "this value is that formula of those values", with the tolerance
+  derived from how each was rounded.** `agrees_with_formula(actual, formula, *inputs)` takes
+  every input as `Rounded(value, scale, label)`, i.e. the interval `value ± ½·10^−scale`,
+  evaluates the formula over those intervals (decimal interval arithmetic, rounded outward),
+  widens the result by the output's own half unit and checks the recorded output is inside.
+  `agrees_with_sum(total, parts)` is the sum case: the tolerance is the sum of the half units
+  and nothing more. The `Agreement` it returns is truthy on agreement, prints the whole
+  protocol, serialises with `as_dict()`, and reports **`resolution`** — the accepted
+  interval's half-width relative to the computed value — so a pass at `±4 %` is visibly not
+  the same claim as a pass at `±0.002 %`. Unlike `math.isclose`, no tolerance is chosen by
+  eye: a fixed `rel_tol` passes a real defect where inputs are precise and fails a correct
+  value where the formula amplifies rounding; both cases are in the tests. Comparisons,
+  `round()` and `math.*` on an interval raise `TypeError` rather than picking an end; a
+  divisor interval containing zero raises `ZeroDivisionError`. Also public: `Interval`,
+  `half_unit`. See [[howto/layers]].
+
 ### Fixed
 
 - **`make_request(expected_status_code=(200, 400))` without `type=` raised `TypeError`.**

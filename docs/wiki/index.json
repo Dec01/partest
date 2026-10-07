@@ -86,7 +86,8 @@
         "partest/call_storage.py",
         "partest/reports/payload.py",
         "partest/pytest_plugin.py",
-        "partest/polling.py"
+        "partest/polling.py",
+        "partest/rounding.py"
       ],
       "headings": [
         {
@@ -122,7 +123,7 @@
           "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 10746
+      "chars": 11031
     },
     {
       "slug": "components/project-gen",
@@ -675,6 +676,7 @@
       "sources": [
         "partest/sideeffects.py",
         "partest/polling.py",
+        "partest/rounding.py",
         "partest/test_types.py",
         "partest/methodology/api/matrix.py"
       ],
@@ -725,6 +727,10 @@
         },
         {
           "level": 2,
+          "text": "Checking a computed value against its formula (`L2`)"
+        },
+        {
+          "level": 2,
           "text": "Steps between the HTTP calls"
         },
         {
@@ -732,7 +738,7 @@
           "text": "End to end"
         }
       ],
-      "chars": 8794
+      "chars": 12008
     },
     {
       "slug": "howto/migration",
@@ -2072,6 +2078,10 @@
     ],
     "partest/reports/writer.py": [
       "howto/coverage-html"
+    ],
+    "partest/rounding.py": [
+      "components/overview",
+      "howto/layers"
     ],
     "partest/security/__init__.py": [
       "components/overview",

@@ -2,7 +2,7 @@
 title: Package map — what lives where
 status: current
 verified: 2026-10-07
-sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/http/client.py, partest/call_storage.py, partest/reports/payload.py, partest/pytest_plugin.py, partest/polling.py]
+sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/http/client.py, partest/call_storage.py, partest/reports/payload.py, partest/pytest_plugin.py, partest/polling.py, partest/rounding.py]
 audience: agent
 ships_in_wheel: true
 ---
@@ -22,6 +22,7 @@ partest/
   openapi.py           spec loading and path matching
   tracking.py          TrackingApiClient, CreatedRegistry, id extractors
   polling.py           poll_until / poll_until_sync — wait for a terminal state, keep the path
+  rounding.py          agrees_with_formula / agrees_with_sum — tolerance derived from scales
   payloads.py          BaseRequestBody
   validation/          BaseResponseValidator, ProblemDetail*, raw IncorrectBody cases
   data_marker.py       TEST_MARKER, marked_name/code/short — test-data naming
@@ -54,6 +55,7 @@ partest/
 | `tls` | `default_verify()` / `resolve_verify()`: certificates are verified unless the project says otherwise |
 | `TrackingApiClient` / `CreatedRegistry` | record created ids, clean up in LIFO with 409 retry |
 | `polling` | `poll_until`: a background job to its terminal state, with the states seen and a timeout that says where it stopped — see [[howto/layers]] |
+| `rounding` | `agrees_with_formula` / `agrees_with_sum`: "this value is that formula" within the rounding of every input and the output, and how sharp that check was — see [[howto/layers]] |
 | `TokenManager` | OIDC multi-role token cache; credentials come from an injected provider |
 | `Config` / `HeadersBind` | header and param builders, `apply_token` binding |
 | `httpx_client` / `httpx_async_client` | a client of your own **inside** the TLS policy — no retries, no coverage |

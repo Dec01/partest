@@ -2,7 +2,7 @@
 title: Journeys, invariants, integrations, e2e
 status: current
 verified: 2026-10-07
-sources: [partest/sideeffects.py, partest/polling.py, partest/test_types.py, partest/methodology/api/matrix.py]
+sources: [partest/sideeffects.py, partest/polling.py, partest/rounding.py, partest/test_types.py, partest/methodology/api/matrix.py]
 audience: user
 ships_in_wheel: true
 ---
@@ -180,6 +180,65 @@ class S3Probe(ObjectStoreProbe):
 ```
 
 The client, the bucket, the connection string and the schema stay in the project.
+
+## Checking a computed value against its formula (`L2`)
+
+A response says `total = 26.36` next to `rate = 3.14` and `count = 8.395`. The service
+computed the total from unrounded numbers and then rounded everything it wrote, each to its
+own scale; `3.14 × 8.395 = 26.3603` will not match exactly, and the question is whether the
+gap is what rounding can produce.
+
+`math.isclose(actual, expected, rel_tol=…)` answers a different question. The tolerance is
+picked by eye and is the same for every formula, so it fails both ways at once: too loose
+where the inputs were recorded precisely (a real 0.05 % defect passes), too tight where the
+formula amplifies rounding — a division by a small rounded number, a difference of two close
+ones — and a correct value fails. `partest.rounding` derives the tolerance instead:
+
+```python
+from partest.rounding import Rounded, agrees_with_formula, agrees_with_sum
+
+check = agrees_with_formula(
+    Rounded(body["total"], 2, "total"),          # value, scale it was rounded to, label
+    lambda rate, count: rate * count,
+    Rounded(body["rate"], 2, "rate"),
+    Rounded(body["count"], 3, "count"),
+)
+assert check, str(check)
+
+assert agrees_with_sum(Rounded(body["sum"], 2, "sum"), [Rounded(p, 2) for p in parts])
+```
+
+How it decides:
+
+1. every input recorded at scale `s` stands for the interval `value ± ½·10^−s`
+   (`scale=None` — an exact value, no width);
+2. the formula is evaluated over those intervals with interval arithmetic — `decimal`,
+   rounded outward, so the interval is never narrower than the truth;
+3. the result is widened by the output's own half unit;
+4. the recorded output must lie inside. For a sum that is the sum of all the half units and
+   nothing more: ten parts at two decimals may miss their total by `10 × 0.005 + 0.005`.
+
+`Agreement` is truthy when the value agrees. `str()` is the full protocol (actual, computed,
+deviation, the intervals, every input with its half unit); `as_dict()` is the same for an
+attachment. **`resolution`** is half the width of the accepted interval relative to the
+computed value — how sharp the check was. `±0.002 %` means a real check; `±4 %` means the
+inputs are recorded too coarsely for the comparison to catch much, which is worth knowing
+before trusting the green. `notes` flags a value carrying more decimals than its declared
+scale: either the scale is wrong or the value was not rounded to it.
+
+Limits, on purpose:
+
+- the formula receives `Interval` objects and may use `+ − × ÷`, unary minus, `abs` and
+  integer powers, with plain numbers mixed in (a float constant is read as the decimal it
+  prints as). `if`, `max`, `round`, `math.*` raise `TypeError` — each would silently pick
+  one end of an interval;
+- a divisor whose interval contains zero raises `ZeroDivisionError`: at those scales the
+  formula cannot be checked at all;
+- only round-to-nearest is modelled, with any tie rule. A value *truncated* to its scale is
+  off by up to a whole unit in one direction and is not covered;
+- interval arithmetic can over-estimate when one input appears several times in the formula
+  (`x − x` is not `0` over an interval). That makes the check more lenient, never wrong, and
+  the `resolution` shows it.
 
 ## Steps between the HTTP calls
 
