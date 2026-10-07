@@ -56,6 +56,33 @@ def mask_secret(value: Any, *, keep_prefix: int = 8) -> str:
     return f"{s[:keep_prefix]}…[masked]"
 
 
+_TEXT_KEYS = sorted(
+    {k.lower() for k in DEFAULT_SENSITIVE_BODY_KEYS | DEFAULT_SENSITIVE_HEADERS}, key=len, reverse=True
+)
+# `key: value`, `"key": "value"`, `key=value`, `key='value'`, `('key', 'value')` — the shapes a
+# JSON body, a dict repr, a dataclass or pydantic repr and a query string give a secret.
+_TEXT_PAIR_RE = re.compile(
+    r"""(?i)(["']?)\b(""" + "|".join(re.escape(k) for k in _TEXT_KEYS) + r""")\1(\s*[:=]\s*|(?<=["'])\s*,\s*)"""
+    r"""(?:(["'])(?:\\.|(?!\4)[^\\])*\4|(?:bearer\s+)?[^\s,;&}\])]+)"""
+)
+_TEXT_BEARER_RE = re.compile(r"(?i)\b(bearer\s+)[A-Za-z0-9\-._~+/]+=*")
+
+
+def redact_text(text: str) -> str:
+    """Mask secrets inside free text: values of sensitive keys, and bearer tokens.
+
+    For text whose structure is gone — a ``repr`` of a model, a response body kept as a
+    string, a log line. It recognises ``key: value``, ``"key": "value"``, ``key=value`` and
+    ``key='value'`` for the keys :func:`redact_mapping` and :func:`redact_headers` mask, and
+    ``Bearer <token>`` anywhere. Pattern-based, so best effort: prefer
+    :func:`redact_mapping` while the data is still a mapping.
+    """
+    if not text:
+        return text
+    masked = _TEXT_PAIR_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{m.group(1)}{m.group(3)}'***'", text)
+    return _TEXT_BEARER_RE.sub(lambda m: f"{m.group(1)}***", masked)
+
+
 def redact_headers(
     headers: Optional[Mapping[str, Any]],
     *,

@@ -83,6 +83,8 @@ opt-in marker sets (`meta.selection.optin`), is flagged as not comparable (when 
 carries the opt-in record, a soft entry in `notes` says comparability cannot be confirmed);
 `--strict` turns that into exit code 2 so a pipeline does not alarm on a partial run or, worse,
 stay quiet about a real loss hidden behind one.
+The CLI prints `warnings` and `notes` to stderr (`warning: …`, `note: …`), so piping the JSON
+stays clean. Notes never change the exit code.
 
 Related: [Coverage honesty — when the number lies](concepts-coverage-honesty.md)
 

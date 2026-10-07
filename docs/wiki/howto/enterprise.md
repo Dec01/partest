@@ -106,11 +106,17 @@ Business 4xx are **not** retried.
 ## Secret redaction
 
 ```python
-from partest.redact import redact_headers, redact_mapping, mask_secret
+from partest.redact import redact_headers, redact_mapping, redact_text, mask_secret
 ```
 
 Used by status mismatch messages and `partest.reporting.attach_request`.  
 Body keys like `password`, `token`, `access_token`, `client_secret` are masked.
+
+`redact_text` is for text that is no longer a mapping — a model's `repr`, a body kept as a
+string, a log line: it masks the values of the same keys in `"key": "value"`, `key='value'`,
+`key=value` and `('key', 'value')` shapes, and `Bearer <token>` anywhere. It is pattern-based
+and best effort; mask the mapping while you still have it. Poll messages
+(`partest.polling`, `sideeffects.wait_for`) go through it.
 
 ## Status hint locale
 

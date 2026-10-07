@@ -12,7 +12,11 @@
   returns a `PollResult` (`value`, `history` — states seen, consecutive repeats collapsed —
   `attempts`, `elapsed`) or raises `PollTimeout` with `last`, `history`, `attempts`,
   `elapsed` and `timeout`. Its message shows the first and last five states with "… k more …"
-  between them, redacted through `partest.redact`; the attributes keep everything.
+  between them, redacted — plain dicts and lists by key, no deeper than six levels (`…`
+  beyond), anything else (a model, a dataclass, a body kept as a string, a `Mapping`
+  subclass, a namedtuple) as its own `repr` passed through `partest.redact.redact_text` — and
+  shortened. **The attributes are not redacted**: `last`, `history` and `poll_history` hold
+  what was fetched, whole bodies without `state=`; reporting them is the caller's call.
   `PollTimeout` is an `AssertionError` — a failed test, as with `sideeffects.wait_for` — and
   deliberately not a `TimeoutError`, which is an `OSError` that network `except OSError`
   blocks would swallow; it pickles. Monotonic clock; the last sleep is cut to the deadline
@@ -22,6 +26,13 @@
   `poll_history`, `poll_attempts` and `poll_elapsed` (and a note on Python 3.11+).
   `on_tick` runs after a successful fetch: whatever the next fetch needs — a fresh token —
   belongs inside `fetch`. Also public: `PollTick`. See [[howto/layers]].
+
+- **`partest.redact.redact_text(text)` — secrets inside text whose structure is gone.** Masks
+  the values of the keys `redact_mapping` and `redact_headers` know, in the shapes a JSON
+  body, a dict or model `repr` and a query string give them (`"token": "…"`,
+  `access_token='…'`, `password=…`, `('client_secret', '…')`), and `Bearer <token>`
+  anywhere. Best effort by pattern, linear in the input; prefer `redact_mapping` while the
+  data is still a mapping. Used for every value a poll message shows.
 
 - **`partest.rounding` — "this value is that formula of those values", with the tolerance
   derived from how each was rounded.** `agrees_with_formula(actual, formula, *inputs)` takes
@@ -127,8 +138,12 @@
   whole `interval` even when less remained, and gave up without a last look — a pipeline that
   finished during that final sleep was reported as not having happened. It now runs on
   `partest.polling.poll_until_sync`: the last sleep is cut to the deadline and the probe is
-  called once more there. Signature, return value, the `AssertionError` and its message are
-  unchanged; the message now redacts sensitive keys in the last observation.
+  called once more there. Signature, return value, the `AssertionError` and the shape of its
+  message are unchanged, and a negative `timeout` still means one look (the message keeps
+  the value given). Two things are new: an exception from `probe` propagates carrying
+  `poll_history`, `poll_attempts` and `poll_elapsed` (and a note on Python 3.11+), and the
+  last observation in the message is redacted and shortened — dicts and lists by key,
+  anything else through `redact_text` on its `repr`.
 
 - **The repository did not contain `partest.env`.** `.gitignore` had a bare `env/` rule meant
   for a virtual environment, and it matched the package `partest/env/` as well (with

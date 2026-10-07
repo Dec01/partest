@@ -155,7 +155,10 @@ assert result.value["status"] == "DONE", result.history   # ('QUEUED', 'RUNNING'
   `attempts` and `elapsed`.
 - On timeout `PollTimeout` is raised with `last`, `history`, `attempts`, `elapsed` and the
   `timeout`. The message shows the first and last five states with "… k more …" between,
-  redacted (`partest.redact`); the attributes keep everything. It is an `AssertionError` —
+  redacted — plain dicts and lists by key and no deeper than six levels, anything else by
+  its `repr` through `partest.redact.redact_text`. **The attributes are not redacted:**
+  without `state=` every `history` entry is a whole response body, tokens included if the
+  API returns them; what reaches a report from there is your decision. It is an `AssertionError` —
   a failed test, like `wait_for` — and not a `TimeoutError`: that is an `OSError`, and a
   network `except OSError` around the poll would swallow it.
 - The clock is monotonic. Between fetches the loop sleeps `interval` and never past the

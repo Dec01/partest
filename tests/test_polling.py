@@ -314,3 +314,91 @@ def test_wait_for_now_looks_once_more_at_the_deadline(clock):
         wait_for(probe, timeout=5, interval=2, description="import")
     assert looks == [0, 2, 4, 5]
     assert clock.sleeps == [2, 2, 1]
+
+
+# --- what a message may show -------------------------------------------------------
+
+
+def _timeout_message(value):
+    with pytest.raises(PollTimeout) as caught:
+        poll_until_sync(lambda: value, lambda v: False, timeout=0, interval=1)
+    return str(caught.value)
+
+
+def test_a_model_with_a_token_is_shown_by_its_repr_masked():
+    from dataclasses import dataclass
+
+    from pydantic import BaseModel
+
+    class Session(BaseModel):
+        access_token: str
+        status: str
+
+    @dataclass
+    class Job:
+        status: str
+        token: str
+
+    model = _timeout_message(Session(access_token="SECRET-1", status="RUNNING"))
+    assert "SECRET-1" not in model
+    assert "Session(" in model and "RUNNING" in model
+    record = _timeout_message(Job(status="RUNNING", token="SECRET-2"))
+    assert "SECRET-2" not in record and "Job(" in record
+
+
+def test_a_body_kept_as_a_string_is_masked():
+    message = _timeout_message('{"status": "RUNNING", "token": "SECRET-3"}')
+    assert "SECRET-3" not in message and "RUNNING" in message
+
+
+def test_nesting_deeper_than_the_limit_is_not_printed():
+    deep = {"a": {"b": {"c": {"d": {"e": {"f": {"g": {"secretish": "DEEP-VALUE"}}}}}}}}
+    message = _timeout_message(deep)
+    assert "DEEP-VALUE" not in message and "…" in message
+
+
+def test_mapping_subclasses_and_namedtuples_keep_their_type_in_the_message():
+    import collections
+
+    Point = collections.namedtuple("Point", "status token")
+    ordered = collections.OrderedDict(status="RUNNING", token="SECRET-4")
+    message = _timeout_message([Point("RUNNING", "SECRET-5"), ordered])
+    assert "Point(" in message and "OrderedDict" in message
+    assert "SECRET-4" not in message and "SECRET-5" not in message
+
+
+def test_wait_for_with_a_negative_timeout_looks_once(clock):
+    from partest.sideeffects import wait_for
+
+    looks = []
+    with pytest.raises(AssertionError, match=r"import did not happen within -1s"):
+        wait_for(lambda: looks.append(1), timeout=-1, interval=1, description="import")
+    assert looks == [1]
+
+
+def test_wait_for_masks_its_message_and_keeps_repr_form(clock):
+    from partest.sideeffects import wait_for
+
+    with pytest.raises(AssertionError) as caught:
+        wait_for(lambda: {"token": "SECRET-6", "ok": False} and "", timeout=0, interval=1)
+    assert "last observation: ''" in str(caught.value)
+    with pytest.raises(AssertionError) as caught:
+        wait_for(lambda: [{"token": "SECRET-7"}][:0] or None, timeout=0, interval=1)
+    assert "last observation: None" in str(caught.value)
+
+
+def test_wait_for_probe_errors_carry_the_poll(clock):
+    from partest.sideeffects import wait_for
+
+    calls = {"n": 0}
+
+    def probe():
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise ConnectionError("down")
+        return None
+
+    with pytest.raises(ConnectionError) as caught:
+        wait_for(probe, timeout=10, interval=1, description="import")
+    assert caught.value.poll_attempts == 2
+    assert caught.value.poll_history == (None,)

@@ -1,7 +1,7 @@
 ---
 title: Interactive coverage report and CLI
 status: current
-verified: 2026-09-24
+verified: 2026-10-07
 sources: [partest/reports/__init__.py, partest/reports/validate.py, partest/reports/interactive_html.py, partest/reports/writer.py, partest/reports/services.py, partest/reports/__main__.py]
 audience: user
 ships_in_wheel: true
@@ -89,6 +89,8 @@ opt-in marker sets (`meta.selection.optin`), is flagged as not comparable (when 
 carries the opt-in record, a soft entry in `notes` says comparability cannot be confirmed);
 `--strict` turns that into exit code 2 so a pipeline does not alarm on a partial run or, worse,
 stay quiet about a real loss hidden behind one.
+The CLI prints `warnings` and `notes` to stderr (`warning: …`, `note: …`), so piping the JSON
+stays clean. Notes never change the exit code.
 
 Related: [[concepts/coverage-honesty]]
 

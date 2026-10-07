@@ -128,16 +128,17 @@ def wait_for(
     cut to the deadline and one more look *at* the deadline. For a state machine whose
     path matters, use :func:`partest.polling.poll_until` directly.
     """
-    from partest.polling import PollTimeout, poll_until_sync
-    from partest.redact import redact_mapping
+    from partest.polling import PollTimeout, _short_repr, poll_until_sync
 
     try:
+        # A negative timeout meant "look once" before the shared loop existed; keep it.
         return poll_until_sync(
-            probe, bool, timeout=timeout, interval=interval, what=description
+            probe, bool, timeout=max(timeout, 0), interval=interval, what=description
         ).value
     except PollTimeout as exc:
         raise AssertionError(
-            f"{description} did not happen within {timeout:g}s; last observation: {redact_mapping(exc.last)!r}"
+            f"{description} did not happen within {timeout:g}s; "
+            f"last observation: {_short_repr(exc.last)}"
         ) from exc
 
 

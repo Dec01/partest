@@ -547,7 +547,7 @@
       "path": "docs/wiki/howto/coverage-html.md",
       "title": "Interactive coverage report and CLI",
       "status": "current",
-      "verified": "2026-09-24",
+      "verified": "2026-10-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -596,7 +596,7 @@
           "text": "Reading the page honestly"
         }
       ],
-      "chars": 6205
+      "chars": 6346
     },
     {
       "slug": "howto/enterprise",
@@ -668,7 +668,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 7447
+      "chars": 7871
     },
     {
       "slug": "howto/layers",
@@ -743,7 +743,7 @@
           "text": "End to end"
         }
       ],
-      "chars": 13526
+      "chars": 13802
     },
     {
       "slug": "howto/migration",

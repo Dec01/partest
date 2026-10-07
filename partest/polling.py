@@ -51,8 +51,10 @@ so a job that finishes during the final sleep is not reported as stuck. Nothing 
 waits — the total is ``timeout`` plus however long the last fetch takes.
 
 Messages carry values a test fetched, and values fetched from an API can carry tokens.
-Everything put into a message goes through :func:`partest.redact.redact_mapping` and is
-shortened; the attributes keep the originals.
+Everything put into a message is redacted — dicts and lists by key, anything else through
+:func:`partest.redact.redact_text` on its ``repr`` — followed no deeper than
+:data:`MESSAGE_DEPTH` levels, and shortened. The attributes (``last``, ``history``,
+``poll_history``) keep the originals: reporting them is the caller's responsibility.
 """
 
 from __future__ import annotations
@@ -63,7 +65,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Generic, List, Optional, Tuple, TypeVar, Union
 
-from partest.redact import redact_mapping
+from partest.redact import DEFAULT_SENSITIVE_BODY_KEYS, DEFAULT_SENSITIVE_HEADERS, redact_text
 
 T = TypeVar("T")
 
@@ -121,8 +123,12 @@ class PollTimeout(AssertionError):
 
     Carries what a reader needs to tell "slow" from "stuck": ``last`` (the last value
     fetched), ``history`` (states seen, repeats collapsed), ``elapsed``, ``attempts`` and
-    the ``timeout`` that was set. The message shows a shortened, redacted history; the
-    attributes keep everything.
+    the ``timeout`` that was set. The message shows a shortened, redacted history.
+
+    **The attributes are not redacted.** ``last`` is the value as fetched, and without
+    ``state=`` every entry of ``history`` is a whole response body — tokens included, if
+    the API returns them. Putting the attributes into a report or an attachment is the
+    caller's decision and the caller's responsibility; the message is the safe part.
     """
 
     def __init__(
@@ -162,16 +168,75 @@ def _rebuild_timeout(what, last, history, elapsed, attempts, timeout) -> PollTim
     )
 
 
-def _short(value: Any) -> str:
-    """Redacted and shortened text of a value, for a message."""
+#: How deep a message follows nested dicts and lists before printing ``…`` instead.
+MESSAGE_DEPTH = 6
+
+_SENSITIVE_KEYS = {k.lower() for k in DEFAULT_SENSITIVE_BODY_KEYS | DEFAULT_SENSITIVE_HEADERS}
+
+
+class _Shown:
+    """A leaf already turned into safe text; its repr is that text."""
+
+    __slots__ = ("text",)
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+    def __repr__(self) -> str:
+        return self.text
+
+
+def _sanitize(value: Any, depth: int) -> Any:
+    """A copy safe to print: secrets masked, depth bounded, nothing echoed raw.
+
+    Plain ``dict`` and ``list`` (and a plain ``tuple``) are walked, values under sensitive
+    keys masked. Everything else — a ``Mapping`` subclass, a namedtuple, a model, a
+    dataclass — keeps its own ``repr``, passed through :func:`partest.redact.redact_text`,
+    so its type stays visible and its secrets do not.
+    """
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        return redact_text(value)
+    if depth <= 0:
+        return _Shown("…")
+    if type(value) is dict:
+        return {
+            k: ("***" if str(k).lower() in _SENSITIVE_KEYS and value[k] not in (None, "")
+                else _sanitize(value[k], depth - 1))
+            for k in value
+        }
+    if type(value) is list:
+        return [_sanitize(v, depth - 1) for v in value]
+    if type(value) is tuple:
+        return tuple(_sanitize(v, depth - 1) for v in value)
+    return _Shown(redact_text(repr(value)))
+
+
+def _masked(value: Any, *, quote_strings: bool) -> str:
     try:
-        safe = redact_mapping(value)
+        safe = _sanitize(value, MESSAGE_DEPTH)
+        if isinstance(safe, str) and not quote_strings:
+            return safe
+        return repr(safe)
     except Exception:  # an odd value must not turn a timeout into a different error
-        safe = value
-    text = safe if isinstance(safe, str) else repr(safe)
+        return f"<{type(value).__name__}>"
+
+
+def _shorten(text: str) -> str:
     if len(text) > _REPR_LIMIT:
         return text[: _REPR_LIMIT - 3] + "..."
     return text
+
+
+def _short(value: Any) -> str:
+    """Redacted and shortened text of a value, for a message; a string is shown bare."""
+    return _shorten(_masked(value, quote_strings=False))
+
+
+def _short_repr(value: Any) -> str:
+    """Like :func:`_short`, but in ``repr`` form: a string keeps its quotes."""
+    return _shorten(_masked(value, quote_strings=True))
 
 
 def _history_text(history: Tuple[Any, ...], edge: int = MESSAGE_HISTORY_EDGE) -> str:
@@ -228,7 +293,11 @@ class _Tracker:
         )
 
     def annotate(self, exc: BaseException, what: str) -> None:
-        """Attach the poll so far to an exception that is about to propagate."""
+        """Attach the poll so far to an exception that is about to propagate.
+
+        ``poll_history`` holds the states as recorded — unredacted, and whole response
+        bodies when no ``state=`` was given; the note shows the redacted, shortened form.
+        """
         history = tuple(self.history)
         elapsed = self.elapsed()
         for name, value in (
