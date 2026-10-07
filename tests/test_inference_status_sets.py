@@ -78,14 +78,47 @@ def test_a_set_reaches_the_rules_that_depend_on_the_status():
     assert result.confidence >= 0.99
 
 
-def test_status_independent_signals_still_decide_first():
-    """These never raised for a set; their answer must not change."""
-    broken = infer((200, 404), method="POST", content=b'{"a":', content_type="application/json")
-    assert broken.test_type == T.request_incorrect_body
-    assert broken.reason == "raw content is not valid JSON"
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"method": "GET", "params": {"page": 1}},
+        {"method": "POST", "files": {"file": ("a.txt", b"x", "text/plain")}},
+        {"method": "POST", "content": b'{"a":', "content_type": "application/json"},
+        {"method": "GET"},
+    ],
+    ids=["list-params", "files", "broken-body", "plain"],
+)
+@pytest.mark.parametrize("status", [404, 405, 200, 400, 401])
+def test_a_one_element_set_is_the_status_whatever_else_the_call_carries(status, kwargs):
+    single = infer(status, **kwargs)
+    as_set = infer((status,), **kwargs)
+    assert as_set.test_type == single.test_type
+    assert as_set.confidence == single.confidence
 
-    listing = infer((200, 404), params={"page": 1})
-    assert listing.test_type == T.request_params
+
+def test_a_status_independent_signal_counts_where_every_status_agrees_with_it():
+    """Each status goes through every rule; a broken body is incorrect-body only where
+    no status says otherwise."""
+    broken = {"method": "POST", "content": b'{"a":', "content_type": "application/json"}
+    assert infer((200, 400), **broken).test_type == T.request_incorrect_body
+    split = infer((200, 404), **broken)
+    assert split.test_type == T.type_unknown
+    assert T.request_not_found in split.reason
+
+    assert infer((200, 201), params={"page": 1}).test_type == T.request_params
+
+
+def test_a_huge_set_is_refused_without_being_expanded():
+    result = infer(range(0, 10**12))
+    assert result.test_type == T.type_unknown
+    assert "no usable status" in result.reason
+
+
+def test_a_one_shot_iterator_is_read_with_a_limit():
+    import itertools
+
+    assert infer(iter([401, 403])).test_type == T.request_permissions
+    assert infer(itertools.count(200)).test_type == T.type_unknown  # infinite, not a hang
 
 
 def test_a_long_run_of_statuses_is_named_compactly():

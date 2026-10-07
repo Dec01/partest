@@ -86,11 +86,17 @@
   `(401, 403)` permissions at 0.75, `(404,)` exactly what `404` is); if they disagree, the
   call is recorded as `unknown` at 0.2 with a reason naming the split
   (`{200} → request_default, {400} → unknown; pass type= explicitly`). "Same class" is not
-  the rule on purpose: `404` and `405` are both 4xx and still two different cells. Inference
-  changes only where it used to raise — the status-independent signals (broken raw body,
-  list parameters on a `GET`, files) decide first, as they did for a set before. A set
-  that names no status (`()`, `("abc",)`) is `unknown` too, and an expectation that cannot
-  be compared with a number no longer raises at the 2xx rule. Explicit `type=` still wins
+  the rule on purpose: `404` and `405` are both 4xx and still two different cells. Every
+  status goes through every rule, so `(404,)` is exactly `404` whatever else the call
+  carries. **One change beyond the crash:** a set combined with a status-independent signal
+  (broken raw body, list parameters on a `GET`, files) used to get that signal's type
+  without the set being looked at; now the signal counts where every status agrees with it —
+  `(200, 400)` with a broken body is still incorrect-body, `(200, 404)` with one is
+  `unknown`. A set that names no status (`()`, `("abc",)`), or more than 1000 of them, is
+  `unknown` too, read with a limit so `range(0, 10**12)` or an endless iterator cannot hang
+  the call; the parsing itself is `partest.client.normalize_expected_status`, the reading
+  the status check uses. An expectation that cannot be compared with a number no longer
+  raises at the 2xx rule. Explicit `type=` still wins
   and is still the rule. See [[concepts/methodology]].
 
 ## 2.4.0 — 2026-09-24

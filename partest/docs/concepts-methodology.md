@@ -118,8 +118,11 @@ A **set** of allowed statuses — `expected_status_code=(200, 400)`, a list, a `
 is inferred status by status. If every status yields the same type, that type is recorded at the
 lowest confidence among them; if they disagree, the call is `unknown` at low confidence and the
 reason names which status implies what. The rule is "same inferred type", not "same status class":
-`(404, 405)` is all 4xx and still two cells. A call that accepts either outcome does not say which
-case it tests — that is exactly where `type=` belongs.
+`(404, 405)` is all 4xx and still two cells. Each status goes through every rule, so `(404,)` is
+exactly `404`, and a signal that does not depend on the status (a broken body, list parameters)
+counts only where every status of the set agrees with it. More than 1000 statuses is `unknown`.
+A call that accepts either outcome does not say which case it tests — that is exactly where
+`type=` belongs.
 
 ## What "100% covered" means here
 
