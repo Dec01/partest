@@ -138,8 +138,11 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         # 3.14 is claimed because the suite was run there, not because it looked likely.
-        # Last re-earned for 2.4.0: 493 passed, 2 skipped — identical to 3.10, down to the
-        # same two skips for the same reason. Say which release, not just "it was run":
+        # Last re-earned 2026-10-07 on the unreleased work after 2.4.0 (Python 3.14.4, a local
+        # `.venv314/` with `.[dev]` and requirements.txt): 688 passed, 2 skipped — identical
+        # to 3.10, down to the same two skips for the same reason (no system CA bundle). One
+        # case needs openpyxl, which is no dependency of partest; without it, it skips too.
+        # Say which release, not just "it was run":
         # CI covers 3.10 and 3.13 only, so this line is the claim nobody else checks, and a
         # claim that cannot be dated is one that goes stale without anyone noticing. Re-run
         # the suite on 3.14 before each release that adds code, or drop the classifier.
