@@ -71,7 +71,12 @@
   `track(..., owner=)`, `owner_of()` and `owned()` complete it. `cleanup_since` skips claimed
   entries, `cleanup` still removes everything. Nothing changes without a claim: `items` still
   yields `(endpoint, id)` pairs, and a subclass that builds `_items` itself keeps working.
-  Also public: `partest.tracking.TEST_OWNER`. See [[howto/recipes]].
+  Claim the parents with the resource — wrapping the whole chain of creates in `owned_by`
+  is the form that cannot miss one; a claimed child under a test-owned parent is lost to the
+  cascade or keeps the parent's delete failing with 409. Leaving `owned_by` in another
+  context than it was entered in (held across an async fixture's `yield`) is a
+  `RuntimeError` naming the cause. Also public: `TEST_OWNER`, importable from `partest`
+  next to `CreatedRegistry`. See [[howto/recipes]].
 
 - **`partest.files.deterministic_zip` / `deterministic_xlsx` — equal content, equal bytes.**
   A generated test file had a different checksum on every run: a zip records a time per

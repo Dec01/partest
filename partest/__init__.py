@@ -53,6 +53,7 @@ from partest.test_types import (
     permission_cell_label,
 )
 from partest.tracking import (
+    TEST_OWNER,
     CreatedRegistry,
     TrackingApiClient,
     chain_extractors,
@@ -92,6 +93,7 @@ __all__ = [
     "status_matches",
     "TrackingApiClient",
     "CreatedRegistry",
+    "TEST_OWNER",
     "default_id_extractor",
     "nested_id_extractor",
     "field_id_extractor",

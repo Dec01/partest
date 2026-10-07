@@ -181,8 +181,23 @@ class CreatedRegistry:
             async def shared_item(api, registry):
                 if cache.item is None:            # the first test to need it pays for it
                     with registry.owned_by("session"):
+                        folder = await api.make_request("POST", "/folders", ...)
                         cache.item = await api.make_request("POST", "/items", ...)
                 return cache.item
+
+        **Claim the parents together with the resource** — wrap the whole chain of creates
+        in the block, not only the last one. A claimed child under a test-owned parent is
+        not protected: per-test cleanup deletes the parent, and the service either cascades
+        the delete to the child (the cache now holds an id that is gone) or refuses it with
+        409 because a child exists (the delete is retried, then given up, and the parent is
+        left on the stand). The other way round is safe: a claimed parent with test-owned
+        children loses the children after each test and keeps itself.
+
+        Enter and leave the block in the same context. Holding it across the ``yield`` of an
+        async fixture does not work: pytest-asyncio may run the teardown half in another
+        context, where the claim cannot be undone — that is reported as ``RuntimeError``
+        here. Claim inside the fixture's setup instead, or use :meth:`adopt` /
+        ``track(..., owner=...)``.
         """
         if owner is TEST_OWNER:
             raise ValueError("owned_by(None) would claim nothing; None is the per-test owner")
@@ -191,7 +206,15 @@ class CreatedRegistry:
         try:
             yield self
         finally:
-            _CURRENT_OWNER.reset(token)
+            try:
+                _CURRENT_OWNER.reset(token)
+            except ValueError as exc:  # token created in a different Context
+                raise RuntimeError(
+                    "CreatedRegistry.owned_by() was left in a different context than it was "
+                    "entered in — typically a `with` held across the `yield` of an async "
+                    "fixture. Claim around the creating calls only, or use adopt() / "
+                    "track(..., owner=...)."
+                ) from exc
 
     def adopt(self, resource_id: Any, owner: Hashable, *, endpoint: Optional[str] = None) -> int:
         """Hand an already tracked resource to ``owner``; return how many entries moved.
@@ -202,6 +225,11 @@ class CreatedRegistry:
         without one ``LookupError`` is raised — a claim that silently did nothing would let
         per-test cleanup delete a resource its caller believes is protected.
         ``owner=None`` hands the resource back to the test.
+
+        Adopt the parents as well (each with its own call, or by wrapping the creation in
+        :meth:`owned_by`, which is preferable because it cannot miss one): a claimed child
+        whose parent stays with the test is deleted by the cascade, or keeps the parent's
+        delete failing with 409 — see :meth:`owned_by`.
         """
         moved = 0
         owners = self._owner_list()

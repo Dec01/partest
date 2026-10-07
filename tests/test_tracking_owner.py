@@ -211,3 +211,21 @@ def test_tracking_client_creates_under_the_claim(deletes):
     assert deletes == ["/items/2"]
     assert registry.items == (("/items", 1),)
     assert registry.owner_of("/items", 1) == "session"
+
+
+def test_test_owner_is_public_at_the_top_level():
+    import partest
+
+    assert partest.TEST_OWNER is TEST_OWNER is None
+    assert "TEST_OWNER" in partest.__all__
+
+
+def test_leaving_a_claim_in_another_context_is_a_clear_error():
+    """What an async fixture holding owned_by across its yield runs into."""
+    import contextvars
+
+    registry = CreatedRegistry()
+    block = registry.owned_by("session")
+    contextvars.copy_context().run(block.__enter__)
+    with pytest.raises(RuntimeError, match="different context"):
+        block.__exit__(None, None, None)

@@ -152,6 +152,32 @@ async def shared_item(api, registry):
 - `track(endpoint, id, owner=...)`, `owner_of(endpoint, id)` and `owned(owner)` (a registry
   of one owner's entries) for the rest.
 
+**Claim the parents with the resource.** Wrap the whole chain of creates in `owned_by`, not
+only the last call — it is the form that cannot miss a parent; with `adopt`, adopt each one.
+The two orders behave differently:
+
+| Parent | Child | After per-test cleanup |
+|---|---|---|
+| test | claimed | **broken.** The parent is deleted; the service either cascades the delete to the child — the cache now holds an id that is gone — or refuses it with 409 because a child exists, and the parent's delete is retried, given up and left on the stand |
+| claimed | test | fine: the children go after each test, the parent stays for its area |
+| claimed | claimed | fine: both stay, and their area's cleanup removes them child-first (LIFO) |
+
+**Do not hold `owned_by` across the `yield` of an async fixture.** pytest-asyncio may run the
+teardown half of a fixture in a different context from its setup, and a context-variable claim
+cannot be undone there — partest reports it as a `RuntimeError` instead of the bare
+`ValueError` from `contextvars`. Claim around the creating calls only, or record the owner
+directly:
+
+```python
+@pytest.fixture(scope="module")
+async def shared_folder(registry, api, domain, token):
+    with registry.owned_by("module-folders"):          # setup only — the block ends here
+        folder = await api.make_request("POST", "/folders", json_data=body,
+                                        expected_status_code=201, type=types.request_new_object)
+    yield folder
+    await registry.cleanup_owned("module-folders", domain, token)
+```
+
 Who cleans up what:
 
 | Call | Removes |
@@ -173,6 +199,8 @@ async def module_area(request, registry, domain, token):
 
 `snapshot()` marks are positions, so call `cleanup_owned` at the end of its area, not inside
 a test that is still holding a mark.
+
+`TEST_OWNER` (`None`, importable from `partest`) is the owner of everything nobody claimed.
 
 ## Resolve OpenAPI
 
