@@ -111,7 +111,8 @@ await api_client.make_request(
     content=b'{"a":',
     content_type="application/json",
     expected_status_code=(400, 415),   # multi-status is supported
-    type=types.request_incorrect_body,
+    type=types.request_incorrect_body, # keep it: a status set that splits across types
+                                       # is recorded as `unknown` without it
 )
 ```
 

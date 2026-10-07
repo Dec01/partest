@@ -13,6 +13,17 @@ allow_version_literals: true
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
 
+## 2026-10-07 · update · шесть возможностей, которые потребитель писал сам
+
+Описаны вынесенные из потребителя обобщения (раздел `Unreleased` в `CHANGELOG.md`):
+вывод типа для набора статусов — [[concepts/methodology]]; `poll_until` и сверка по
+округлению (`partest.rounding`) — [[howto/layers]]; владелец ресурса в `CreatedRegistry` —
+[[howto/recipes]]; детерминированные байты zip/xlsx — [[howto/upload]]; opt-in наборы
+маркеров и карта новых модулей — [[components/overview]]. `verified` обновлён у страниц, чьи
+`sources` затронуты; у `howto/layers` и `components/overview` в `sources` добавлены новые
+модули. [[status]] не правился: он называет версией в коде 2.1.0, а в коде 2.4.0, и сверять
+его — отдельная работа, а не попутная правка.
+
 ## 2026-09-23 · update · сверка перед 2.0.0 и даты `verified`
 
 Запись `Unreleased` в `CHANGELOG.md` закрыта как выпуск 2.0.0 от этой даты, `__version__`
