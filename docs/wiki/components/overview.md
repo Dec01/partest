@@ -23,6 +23,7 @@ partest/
   tracking.py          TrackingApiClient, CreatedRegistry, id extractors, resource owners
   polling.py           poll_until / poll_until_sync — wait for a terminal state, keep the path
   rounding.py          agrees_with_formula / agrees_with_sum — tolerance derived from scales
+  files.py             upload byte factories and mutation corpus; deterministic zip/xlsx bytes
   optin.py             opt-in marker sets for the pytest plugin (ini `optin_markers`)
   payloads.py          BaseRequestBody
   validation/          BaseResponseValidator, ProblemDetail*, raw IncorrectBody cases

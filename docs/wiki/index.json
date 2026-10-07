@@ -128,7 +128,7 @@
           "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 13808
+      "chars": 13903
     },
     {
       "slug": "components/project-gen",
@@ -1425,7 +1425,7 @@
       "path": "docs/wiki/howto/upload.md",
       "title": "Testing file upload endpoints",
       "status": "current",
-      "verified": "2026-09-04",
+      "verified": "2026-10-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1467,10 +1467,14 @@
         },
         {
           "level": 2,
+          "text": "Stable bytes for a generated file"
+        },
+        {
+          "level": 2,
           "text": "Building blocks"
         }
       ],
-      "chars": 5119
+      "chars": 7316
     },
     {
       "slug": "index",

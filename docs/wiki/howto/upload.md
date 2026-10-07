@@ -1,7 +1,7 @@
 ---
 title: Testing file upload endpoints
 status: current
-verified: 2026-09-04
+verified: 2026-10-07
 sources: [partest/files.py, partest/client.py]
 audience: user
 ships_in_wheel: true
@@ -116,6 +116,41 @@ a stand with a hundred megabytes to discover a limit nobody wrote down gives you
 test and an unhappy platform team. No limit in the specification means a question, not
 an invented 400.
 
+## Stable bytes for a generated file
+
+A file generated for a test — a workbook built from fixture rows, a zip of documents — is
+easiest to reason about when the same content always gives the same bytes: a checksum in a
+manifest then says "the input did not change", a fixture can be named by its hash, a
+comparison run can prove it sent what the baseline sent. A zip does not do this by itself:
+every entry records a modification time, and a workbook writer (openpyxl among them) also
+stamps "now" into `docProps/core.xml`. Two runs of the same generator give two checksums.
+
+```python
+import hashlib
+from partest.files import deterministic_xlsx, deterministic_zip
+
+content = deterministic_xlsx(build_workbook(rows))     # build_workbook is yours
+digest = hashlib.sha256(content).hexdigest()           # same rows → same digest
+```
+
+- `deterministic_zip(content, *, date_time=FIXED_ZIP_TIME, compression=ZIP_DEFLATED)` repacks
+  an archive: every entry time set to `date_time` (1980-01-01, the earliest a zip can hold),
+  permissions and creating system fixed (Windows and Linux otherwise differ), entries sorted
+  by name with `mimetype` and `[Content_Types].xml` first where their formats want them
+  (`mimetype` also stays uncompressed, as ODF requires), archive comment dropped. Entry
+  content is not touched.
+- `deterministic_xlsx(content, *, timestamp=FIXED_CORE_TIMESTAMP, ...)` does the same and sets
+  `dcterms:created`, `dcterms:modified` and `cp:lastPrinted` in `docProps/core.xml` to
+  `timestamp`. Any OOXML package works — `.docx` and `.pptx` carry the same part. Other
+  volatile values a generator may write (a random id, a temporary path) are its own to fix.
+- Deflated output is stable for one zlib build. For a checksum that must also hold across
+  machines and Python builds — a manifest committed to the repository — pass
+  `compression=zipfile.ZIP_STORED`: the bytes then depend on the content alone.
+- Only the standard library. openpyxl is not a dependency of partest; it is simply one of the
+  writers whose output this normalises.
+
+The upload corpus above is not changed by this: its factories build their archives as before.
+
 ## Building blocks
 
 ```python
@@ -123,6 +158,7 @@ from partest.files import (
     minimal_xlsx_bytes, minimal_ole_xls_bytes, png_bytes, pdf_bytes,
     empty_zip_bytes, truncated_zip_bytes, zip_without_content_types, zip_with_extra_part,
     format_cases, spoof_cases, filename_cases, size_cases,
+    deterministic_zip, deterministic_xlsx,
 )
 ```
 

@@ -56,6 +56,15 @@
   yields `(endpoint, id)` pairs, and a subclass that builds `_items` itself keeps working.
   Also public: `partest.tracking.TEST_OWNER`. See [[howto/recipes]].
 
+- **`partest.files.deterministic_zip` / `deterministic_xlsx` — equal content, equal bytes.**
+  A generated test file had a different checksum on every run: a zip records a time per
+  entry, and a workbook writer stamps "now" into `docProps/core.xml`. The archive is repacked
+  with fixed entry times, permissions and creating system, entries sorted (`mimetype` and
+  `[Content_Types].xml` first), the comment dropped; `deterministic_xlsx` also fixes
+  `dcterms:created`, `dcterms:modified` and `cp:lastPrinted`. `compression=ZIP_STORED` for a
+  checksum that must hold across zlib builds. Standard library only. Also public:
+  `FIXED_ZIP_TIME`, `FIXED_CORE_TIMESTAMP`. See [[howto/upload]].
+
 ### Fixed
 
 - **`make_request(expected_status_code=(200, 400))` without `type=` raised `TypeError`.**

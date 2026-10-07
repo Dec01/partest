@@ -20,8 +20,9 @@ can take a stand down is not a test corpus.
 from __future__ import annotations
 
 import io
+import re
 import zipfile
-from typing import List, NamedTuple, Optional, Sequence
+from typing import Callable, List, NamedTuple, Optional, Sequence, Tuple
 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 XLS_MIME = "application/vnd.ms-excel"
@@ -109,6 +110,113 @@ def zip_with_extra_part() -> bytes:
         zf.writestr("xl/workbook.xml", _WORKBOOK)
         zf.writestr("xl/vbaProject.bin", b"\x00" * 32)
     return buffer.getvalue()
+
+
+# --- Deterministic packaging ------------------------------------------------------
+#
+# A zip records a modification time for every entry, and an OOXML writer stamps the
+# creation and modification time into ``docProps/core.xml`` as well. Two runs of the same
+# generator therefore give different bytes for the same workbook, and a checksum over a
+# generated test file — in a manifest, in a fixture name, in a "did the input change"
+# guard — means nothing. The functions below repack an archive so that equal content
+# gives equal bytes.
+
+#: The earliest time a zip can record (MS-DOS epoch). Used for every entry.
+FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
+#: What ``dcterms:created`` / ``dcterms:modified`` / ``cp:lastPrinted`` are set to.
+FIXED_CORE_TIMESTAMP = "1980-01-01T00:00:00Z"
+
+_CORE_PROPS = "docProps/core.xml"
+_CORE_DATES = re.compile(
+    rb"(<(dcterms:created|dcterms:modified|cp:lastPrinted)(?:\s[^>]*)?>)[^<]*(</\2>)"
+)
+# Names that a format requires at the front: OOXML readers look for the manifest first,
+# ODF requires ``mimetype`` to be the first entry and stored uncompressed.
+_FIRST = ("mimetype", "[Content_Types].xml")
+
+
+def _entry_order(name: str) -> Tuple[int, str]:
+    return (_FIRST.index(name) if name in _FIRST else len(_FIRST), name)
+
+
+def _repack(
+    content: bytes,
+    *,
+    date_time: Tuple[int, int, int, int, int, int],
+    compression: int,
+    rewrite: Optional[Callable[[str, bytes], bytes]] = None,
+) -> bytes:
+    with zipfile.ZipFile(io.BytesIO(content)) as source:
+        infos = sorted(source.infolist(), key=lambda info: _entry_order(info.filename))
+        names = [info.filename for info in infos]
+        if len(set(names)) != len(names):
+            raise ValueError("archive has duplicate entry names; its content is ambiguous")
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as target:
+            for info in infos:
+                data = source.read(info.filename)
+                if rewrite is not None:
+                    data = rewrite(info.filename, data)
+                fixed = zipfile.ZipInfo(info.filename, date_time=date_time)
+                # Every field that varies by machine or by run is set explicitly:
+                # ``create_system`` defaults to 0 on Windows and 3 elsewhere.
+                fixed.create_system = 3
+                if info.is_dir():
+                    fixed.external_attr = (0o40755 << 16) | 0x10
+                    fixed.compress_type = zipfile.ZIP_STORED
+                else:
+                    fixed.external_attr = 0o100644 << 16
+                    fixed.compress_type = (
+                        zipfile.ZIP_STORED if info.filename == "mimetype" else compression
+                    )
+                target.writestr(fixed, data)
+    return buffer.getvalue()
+
+
+def deterministic_zip(
+    content: bytes,
+    *,
+    date_time: Tuple[int, int, int, int, int, int] = FIXED_ZIP_TIME,
+    compression: int = zipfile.ZIP_DEFLATED,
+) -> bytes:
+    """Repack a zip so that the same entries give the same bytes.
+
+    Entry times are set to ``date_time``, permissions and the creating system to fixed
+    values, entries sorted by name (``mimetype`` and ``[Content_Types].xml`` first, where
+    their formats want them), the archive comment and per-entry extras dropped. Entry
+    *content* is untouched — see :func:`deterministic_xlsx` for an OOXML package, whose
+    metadata carries timestamps of its own.
+
+    ``ZIP_DEFLATED`` output is stable for one zlib build. If the checksum must also hold
+    across machines or Python builds — a manifest committed to a repository — pass
+    ``compression=zipfile.ZIP_STORED``: the bytes then depend on nothing but the content.
+    """
+    return _repack(content, date_time=date_time, compression=compression)
+
+
+def deterministic_xlsx(
+    content: bytes,
+    *,
+    timestamp: str = FIXED_CORE_TIMESTAMP,
+    date_time: Tuple[int, int, int, int, int, int] = FIXED_ZIP_TIME,
+    compression: int = zipfile.ZIP_DEFLATED,
+) -> bytes:
+    """:func:`deterministic_zip` plus fixed dates in ``docProps/core.xml``.
+
+    A workbook writer (openpyxl among them) stamps "now" into ``dcterms:created`` and
+    ``dcterms:modified``; both, and ``cp:lastPrinted`` if present, are set to
+    ``timestamp``. Nothing else inside the package is changed, so a generator that writes
+    other volatile values (a random id, a temp path) still has to fix those itself. Works
+    for any OOXML package — ``.docx`` and ``.pptx`` carry the same part.
+    """
+    stamp = timestamp.encode("ascii")
+
+    def rewrite(name: str, data: bytes) -> bytes:
+        if name != _CORE_PROPS:
+            return data
+        return _CORE_DATES.sub(lambda m: m.group(1) + stamp + m.group(3), data)
+
+    return _repack(content, date_time=date_time, compression=compression, rewrite=rewrite)
 
 
 class UploadCase(NamedTuple):
@@ -212,9 +320,13 @@ def mutation_cases(stem: str = "report", *, allowed: Sequence[str] = (".xlsx", "
 
 
 __all__ = [
+    "FIXED_CORE_TIMESTAMP",
+    "FIXED_ZIP_TIME",
     "XLSX_MIME",
     "XLS_MIME",
     "UploadCase",
+    "deterministic_xlsx",
+    "deterministic_zip",
     "empty_zip_bytes",
     "filename_cases",
     "format_cases",
