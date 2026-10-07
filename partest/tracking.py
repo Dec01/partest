@@ -2,13 +2,27 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, List, Optional, Sequence, Tuple, Union
+import contextvars
+from contextlib import contextmanager
+from typing import Any, Callable, Dict, Hashable, Iterator, List, Optional, Sequence, Tuple, Union
 
 from partest.client import ApiClient
 from partest.http.client import httpx_async_client
 from partest.tls import VerifySetting, resolve_verify
 
 IdExtractor = Callable[[Any, str, str], Optional[Tuple[str, Any]]]
+
+_UNSET: Any = object()
+
+#: Owner of a resource nobody claimed: the test that created it. Per-test cleanup
+#: (:meth:`CreatedRegistry.cleanup_since`) removes exactly these.
+TEST_OWNER = None
+
+# The owner a registry stamps on what it tracks, per async task / thread. A mapping keyed
+# by ``id(registry)`` so two registries in one context do not share a claim.
+_CURRENT_OWNER: "contextvars.ContextVar[Dict[int, Hashable]]" = contextvars.ContextVar(
+    "partest_tracking_owner", default={}
+)
 
 
 def _dig(data: Any, path: Sequence[str]) -> Any:
@@ -92,14 +106,49 @@ def chain_extractors(*extractors: IdExtractor) -> IdExtractor:
 
 
 class CreatedRegistry:
-    """Stores (collection_endpoint, id) pairs for LIFO multi-pass DELETE cleanup."""
+    """Stores (collection_endpoint, id) pairs for LIFO multi-pass DELETE cleanup.
+
+    Every entry has an **owner**. By default it is :data:`TEST_OWNER` (``None``) — the test
+    that was running — and per-test cleanup removes it. A resource created *during* a test
+    but meant to outlive it — a lazily filled session cache, a module-level object created
+    on first use — is claimed by a wider owner (any hashable: ``"session"``,
+    ``("module", request.module.__name__)``) with :meth:`owned_by` or :meth:`adopt`.
+    :meth:`cleanup_since` then leaves it alone, :meth:`cleanup_owned` removes it when that
+    area ends, and :meth:`cleanup` — the session pass — still removes everything.
+    """
 
     def __init__(self):
         self._items: List[Tuple[str, Any]] = []
+        # Parallel to ``_items``, index for index; every mutation below touches both.
+        # ``items`` keeps returning bare pairs, so nothing that unpacks them changes.
+        self._owners: List[Hashable] = []
 
-    def track(self, endpoint: str, resource_id: Any) -> None:
+    def _owner_list(self) -> List[Hashable]:
+        """``_owners``, brought level with ``_items`` first.
+
+        A subclass that builds ``_items`` itself, or code that appends to it directly,
+        predates owners; whatever it added belongs to the test, as everything did then.
+        """
+        owners = self.__dict__.setdefault("_owners", [])
+        missing = len(self._items) - len(owners)
+        if missing > 0:
+            owners.extend([TEST_OWNER] * missing)
+        elif missing < 0:
+            del owners[len(self._items):]
+        return owners
+
+    def track(self, endpoint: str, resource_id: Any, *, owner: Hashable = _UNSET) -> None:
+        """Register a created resource.
+
+        ``owner`` defaults to the one set by an enclosing :meth:`owned_by`, else
+        :data:`TEST_OWNER`.
+        """
         if resource_id is not None:
+            if owner is _UNSET:
+                owner = _CURRENT_OWNER.get().get(id(self), TEST_OWNER)
+            owners = self._owner_list()
             self._items.append((endpoint, resource_id))
+            owners.append(owner)
 
     @property
     def count(self) -> int:
@@ -109,8 +158,75 @@ class CreatedRegistry:
     def items(self) -> Sequence[Tuple[str, Any]]:
         return tuple(self._items)
 
+    def owner_of(self, endpoint: str, resource_id: Any) -> Hashable:
+        """Owner of the latest entry for this resource; ``KeyError`` if it is not tracked."""
+        owners = self._owner_list()
+        for index in range(len(self._items) - 1, -1, -1):
+            if self._items[index] == (endpoint, resource_id):
+                return owners[index]
+        raise KeyError((endpoint, resource_id))
+
     def clear(self) -> None:
         self._items.clear()
+        self._owner_list().clear()
+
+    @contextmanager
+    def owned_by(self, owner: Hashable) -> Iterator["CreatedRegistry"]:
+        """Within the block, everything this registry tracks belongs to ``owner``.
+
+        Covers ids registered by :class:`TrackingApiClient` too, in sync and async code.
+        The claim lives in a context variable, so a concurrent task outside the block is
+        not affected::
+
+            async def shared_item(api, registry):
+                if cache.item is None:            # the first test to need it pays for it
+                    with registry.owned_by("session"):
+                        cache.item = await api.make_request("POST", "/items", ...)
+                return cache.item
+        """
+        if owner is TEST_OWNER:
+            raise ValueError("owned_by(None) would claim nothing; None is the per-test owner")
+        current = _CURRENT_OWNER.get()
+        token = _CURRENT_OWNER.set({**current, id(self): owner})
+        try:
+            yield self
+        finally:
+            _CURRENT_OWNER.reset(token)
+
+    def adopt(self, resource_id: Any, owner: Hashable, *, endpoint: Optional[str] = None) -> int:
+        """Hand an already tracked resource to ``owner``; return how many entries moved.
+
+        For a claim that can only be made after the fact — the id is known once the create
+        returned. Matches by id, and by ``endpoint`` as well when it is given. If nothing
+        under that id is tracked: with ``endpoint`` it is tracked now, under ``owner``;
+        without one ``LookupError`` is raised — a claim that silently did nothing would let
+        per-test cleanup delete a resource its caller believes is protected.
+        ``owner=None`` hands the resource back to the test.
+        """
+        moved = 0
+        owners = self._owner_list()
+        for index, (ep, rid) in enumerate(self._items):
+            if rid == resource_id and (endpoint is None or ep == endpoint):
+                owners[index] = owner
+                moved += 1
+        if moved:
+            return moved
+        if endpoint is None:
+            raise LookupError(
+                f"resource {resource_id!r} is not tracked; pass endpoint= to track it "
+                f"under {owner!r}"
+            )
+        self.track(endpoint, resource_id, owner=owner)
+        return 1
+
+    def owned(self, owner: Hashable) -> "CreatedRegistry":
+        """New registry holding only what ``owner`` owns, in tracking order."""
+        selected = CreatedRegistry()
+        for item, who in zip(self._items, self._owner_list()):
+            if who == owner:
+                selected._items.append(item)
+                selected._owners.append(who)
+        return selected
 
     def snapshot(self) -> int:
         """Current size, to be paired with :meth:`since` or :meth:`cleanup_since`.
@@ -121,21 +237,53 @@ class CreatedRegistry:
         return len(self._items)
 
     def since(self, mark: int) -> "CreatedRegistry":
-        """New registry holding everything tracked after ``mark``."""
+        """New registry holding everything tracked after ``mark``, whoever owns it."""
         drained = CreatedRegistry()
         drained._items = list(self._items[mark:])
+        drained._owners = list(self._owner_list()[mark:])
         return drained
 
     async def cleanup_since(self, mark: int, domain: str, token: str, **kwargs) -> None:
-        """Clean up only resources tracked after ``mark``, then forget them.
+        """Clean up the resources the test tracked after ``mark``, then forget them.
 
-        The tail is removed from this registry whether cleanup succeeded or not — a
+        Entries claimed by a wider owner (:meth:`owned_by`, :meth:`adopt`) are skipped and
+        stay in the registry, in order, for :meth:`cleanup_owned` or the session pass.
+        Without claims this is everything after ``mark``, as it always was.
+
+        The removed part leaves this registry whether cleanup succeeded or not — a
         failed delete is reported by :meth:`cleanup` itself, and keeping the entry
         would make the session pass try it again for every later test.
         """
-        tail = self.since(mark)
-        del self._items[mark:]
+        tail = CreatedRegistry()
+        kept_items: List[Tuple[str, Any]] = []
+        kept_owners: List[Hashable] = []
+        owners = self._owner_list()
+        for item, who in zip(self._items[mark:], owners[mark:]):
+            if who is TEST_OWNER:
+                tail._items.append(item)
+                tail._owners.append(who)
+            else:
+                kept_items.append(item)
+                kept_owners.append(who)
+        self._items[mark:] = kept_items
+        owners[mark:] = kept_owners
         await tail.cleanup(domain, token, **kwargs)
+
+    async def cleanup_owned(self, owner: Hashable, domain: str, token: str, **kwargs) -> None:
+        """Clean up everything ``owner`` owns, wherever it sits, then forget it.
+
+        The teardown of a module- or class-level area::
+
+            await registry.cleanup_owned(("module", request.module.__name__), domain, token)
+
+        Same delete rules as :meth:`cleanup`; forgotten whether the delete succeeded or
+        not, like :meth:`cleanup_since`.
+        """
+        selected = self.owned(owner)
+        keep = [i for i, who in enumerate(self._owner_list()) if who != owner]
+        self._items = [self._items[i] for i in keep]
+        self._owners = [self._owners[i] for i in keep]
+        await selected.cleanup(domain, token, **kwargs)
 
     async def cleanup(
         self,
@@ -184,6 +332,7 @@ class CreatedRegistry:
                         still.append((endpoint, rid))
                 pending = still
         self._items.clear()
+        self._owner_list().clear()
 
 
 class TrackingApiClient:
@@ -249,6 +398,14 @@ class TrackingApiClient:
 
     def add_id_extractor(self, extractor: IdExtractor) -> None:
         self._id_extractors.append(extractor)
+
+    def owned_by(self, owner: Hashable):
+        """What this client creates inside the block belongs to ``owner``.
+
+        Shorthand for ``client.registry.owned_by(owner)`` — see
+        :meth:`CreatedRegistry.owned_by`.
+        """
+        return self._registry.owned_by(owner)
 
     async def make_request(self, method, endpoint, *args, **kwargs):
         call = self._client.make_request

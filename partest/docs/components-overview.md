@@ -14,7 +14,7 @@ partest/
   test_types.py        TypesTestCases, canonicalize_type, TYPE_LABELS
   conf.py              load/validate confpartest
   openapi.py           spec loading and path matching
-  tracking.py          TrackingApiClient, CreatedRegistry, id extractors
+  tracking.py          TrackingApiClient, CreatedRegistry, id extractors, resource owners
   polling.py           poll_until / poll_until_sync — wait for a terminal state, keep the path
   rounding.py          agrees_with_formula / agrees_with_sum — tolerance derived from scales
   optin.py             opt-in marker sets for the pytest plugin (ini `optin_markers`)
@@ -48,7 +48,7 @@ partest/
 |---|---|
 | `ApiClient` | the only sanctioned way to make suite HTTP calls — raw httpx calls are invisible to coverage |
 | `tls` | `default_verify()` / `resolve_verify()`: certificates are verified unless the project says otherwise |
-| `TrackingApiClient` / `CreatedRegistry` | record created ids, clean up in LIFO with 409 retry |
+| `TrackingApiClient` / `CreatedRegistry` | record created ids, clean up in LIFO with 409 retry; a resource can belong to a wider area than the test — see [Recipes — consumer-side adapters](howto-recipes.md) |
 | `polling` | `poll_until`: a background job to its terminal state, with the states seen and a timeout that says where it stopped — see [Journeys, invariants, integrations, e2e](howto-layers.md) |
 | `rounding` | `agrees_with_formula` / `agrees_with_sum`: "this value is that formula" within the rounding of every input and the output, and how sharp that check was — see [Journeys, invariants, integrations, e2e](howto-layers.md) |
 | `TokenManager` | OIDC multi-role token cache; credentials come from an injected provider |

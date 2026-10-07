@@ -44,6 +44,18 @@
   and prints nothing. Lives in `partest.optin`, wired from the existing plugin; not behind
   `PARTEST_PYTEST_PLUGIN`. See [[components/overview]].
 
+- **A tracked resource can belong to a wider area than the test that created it.** A
+  session-scoped cache filled lazily creates its object inside whichever test needs it
+  first, and per-test `cleanup_since` used to delete it — every later test got a cached id
+  that no longer existed. `CreatedRegistry.owned_by(owner)` (also on `TrackingApiClient`)
+  claims everything tracked inside the block, including ids registered from responses;
+  `adopt(resource_id, owner, endpoint=None)` claims after the fact and raises `LookupError`
+  rather than claiming nothing; `cleanup_owned(owner, ...)` drains one area;
+  `track(..., owner=)`, `owner_of()` and `owned()` complete it. `cleanup_since` skips claimed
+  entries, `cleanup` still removes everything. Nothing changes without a claim: `items` still
+  yields `(endpoint, id)` pairs, and a subclass that builds `_items` itself keeps working.
+  Also public: `partest.tracking.TEST_OWNER`. See [[howto/recipes]].
+
 ### Fixed
 
 - **`make_request(expected_status_code=(200, 400))` without `type=` raised `TypeError`.**

@@ -128,7 +128,7 @@
           "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 13714
+      "chars": 13808
     },
     {
       "slug": "components/project-gen",
@@ -1043,7 +1043,7 @@
       "path": "docs/wiki/howto/recipes.md",
       "title": "Recipes — consumer-side adapters",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-10-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1099,6 +1099,10 @@
           "text": "Draining per test instead of per session"
         },
         {
+          "level": 3,
+          "text": "A resource that outlives the test that created it"
+        },
+        {
           "level": 2,
           "text": "Resolve OpenAPI"
         },
@@ -1139,7 +1143,7 @@
           "text": "custom consumer validator"
         }
       ],
-      "chars": 7249
+      "chars": 9989
     },
     {
       "slug": "howto/release",

@@ -1,7 +1,7 @@
 ---
 title: Recipes — consumer-side adapters
 status: current
-verified: 2026-09-07
+verified: 2026-10-07
 sources: [partest/collections/base.py, partest/http/config.py, partest/validation/incorrect_body.py, partest/tracking.py, partest/data_marker.py]
 audience: user
 ships_in_wheel: true
@@ -124,6 +124,61 @@ async def cleanup_created(registry, domain, token):
 `snapshot()` records the current size, `cleanup_since(mark, ...)` deletes only what this
 test created and forgets it, so the session pass does not retry it. `since(mark)` returns
 the tail as a separate registry if you want to inspect it first.
+
+### A resource that outlives the test that created it
+
+Per-test draining has one trap: an object created *during* a test but meant for later
+tests. A session-scoped cache filled lazily — by whichever test needs it first — creates
+its object inside that test, `cleanup_since` deletes it at teardown, and every later test
+receives a cached id that no longer exists.
+
+Every registry entry has an **owner**. Nobody claims it — it belongs to the test, and
+everything works as above. Claim it for a wider area and per-test cleanup leaves it alone:
+
+```python
+async def shared_item(api, registry):
+    if _cache.get("item") is None:                 # the first test to need it pays for it
+        with registry.owned_by("session"):         # or api.owned_by("session")
+            _cache["item"] = await api.make_request(
+                "POST", "/items", json_data=body, expected_status_code=201,
+                type=types.request_new_object,
+            )
+    return _cache["item"]
+```
+
+- `owned_by(owner)` — a context manager; whatever this registry tracks inside the block,
+  including ids `TrackingApiClient` registers from responses, belongs to `owner`. The claim
+  lives in a context variable: a concurrent task outside the block is not affected, and
+  another registry is not affected.
+- `adopt(resource_id, owner, endpoint=None)` — claim after the fact, when the id is known
+  only once the create returned. Returns how many entries moved. With nothing tracked under
+  that id it tracks it (given `endpoint=`) or raises `LookupError` — a claim that silently
+  did nothing would let the per-test cleanup delete what you believe is protected.
+  `owner=None` hands it back to the test.
+- `track(endpoint, id, owner=...)`, `owner_of(endpoint, id)` and `owned(owner)` (a registry
+  of one owner's entries) for the rest.
+
+Who cleans up what:
+
+| Call | Removes |
+|---|---|
+| `cleanup_since(mark, ...)` | what the test owns after `mark`; claimed entries stay, in order |
+| `cleanup_owned(owner, ...)` | everything `owner` owns, wherever it sits — the teardown of a module or class area |
+| `cleanup(...)` | everything — the session pass, unchanged |
+
+The owner is any hashable: `"session"`, `("module", request.module.__name__)`. A module-level
+area claims with its key and drains in its own teardown:
+
+```python
+@pytest.fixture(scope="module", autouse=True)
+async def module_area(request, registry, domain, token):
+    key = ("module", request.module.__name__)
+    yield key                                      # tests create with registry.owned_by(key)
+    await registry.cleanup_owned(key, domain, token)
+```
+
+`snapshot()` marks are positions, so call `cleanup_owned` at the end of its area, not inside
+a test that is still holding a mark.
 
 ## Resolve OpenAPI
 
