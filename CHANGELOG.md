@@ -43,16 +43,23 @@
   decimal — not a float the service computed. Also public: `Interval`, `half_unit`,
   `RoundingNoteWarning`. See [[howto/layers]].
 
-- **Opt-in marker sets: `optin_markers = marker[:ENV_VAR] ...` in the ini file.** Tests with
-  such a marker, or any `marker_*`, are **deselected** — not skipped — unless the `-m`
-  expression depends on the set positively (true on the test's markers, false on the same
-  markers without the set's), or `ENV_VAR` reads as true. The expression is evaluated with
-  pytest's own parser, so a workaround such as `-m "not slow_db and not flaky"` does not pull
-  the set in, and `-m "slow or api"` on a test marked both is selected by `api`, not by the
-  set. Sub-markers are taken by prefix; a test in two sets must be opted into both; deselected
-  tests go through `pytest_deselected`. With the option empty the plugin registers nothing
-  and prints nothing. Lives in `partest.optin`, wired from the existing plugin; not behind
-  `PARTEST_PYTEST_PLUGIN`. See [[components/overview]].
+- **Opt-in marker sets: `partest_optin_markers = marker[:ENV_VAR] ...` in the ini file.**
+  Tests with such a marker, or any `marker_*`, are **deselected** — not skipped — unless
+  `ENV_VAR` reads as true or the `-m` expression asks for the family: with `M` the test's
+  markers and `F` the family's, `expr(M) and (not expr(M − F) or (expr(F) and not expr(∅)))`,
+  evaluated by pytest's own parser. So `-m slow` and `-m "slow or api"` take the set,
+  `-m "not slow_db and not flaky"` — true of everything unmarked — does not pull it in, and
+  `-m smoke` on a test marked `smoke` and `slow` leaves it out. Sub-markers are taken by
+  prefix; the session header names what each prefix captured. A test in two sets must be
+  opted into both; deselected tests go through `pytest_deselected`. How each set was decided
+  is recorded as `run_info["selection"]["optin"]` — **`coverage.json` `meta.selection.optin`**,
+  `{"<marker>": {"state": "off" | "markexpr" | "env", "env": ..., "deselected": n}}` —
+  merged across xdist shards; `partialRun` does not read it, and `compare` reports two
+  payloads that both carry it and disagree as not comparable. With the option empty the
+  plugin registers nothing and prints nothing. `-p no:partest` turns it off together with
+  the rest of the plugin, and the opt-in sets then run. Lives in `partest.optin` (public:
+  `INI_NAME`, `OptInSet`, `parse_optin_markers`); not behind `PARTEST_PYTEST_PLUGIN`. See
+  [[components/overview]].
 
 - **A tracked resource can belong to a wider area than the test that created it.** A
   session-scoped cache filled lazily creates its object inside whichever test needs it

@@ -1,7 +1,7 @@
 ---
 title: Coverage honesty — when the number lies
 status: current
-verified: 2026-09-24
+verified: 2026-10-07
 sources: [partest/call_storage.py, partest/coverage.py, partest/reports/analyzer.py, partest/reports/compare.py, partest/reports/payload.py, partest/pytest_plugin.py]
 audience: agent
 ships_in_wheel: true
@@ -94,6 +94,12 @@ Two things now prevent that:
   keep their own hooks, and it used to take this signal down with it. The deselected figure is
   a count of distinct node ids, so merging the shards of a parallel run does not double it —
   every worker deselects the same tests.
+- **Opt-in sets are recorded per set.** A set declared in `partest_optin_markers` is
+  deselected unless asked for, so a run with the expensive set switched on simply has more
+  cases, and nothing else in the payload says why. `meta.selection.optin` holds each set's
+  state (`off`, `markexpr`, `env`) and how many tests it removed; `compare` calls two payloads
+  that both carry it and disagree not comparable. It does not feed `partialRun`. See
+  [[components/overview]].
 - **A call-volume collapse is caught even without it.** `compare` warns when a run made less
   than half the calls of the one before it while the share of never-called endpoints barely
   moved. That signature is what a cell-level filter looks like, and it reads from the endpoints

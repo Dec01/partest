@@ -145,6 +145,7 @@ def _run_warnings(old: dict, new: dict, not_run: list) -> list[str]:
                 f"{label} run looks partial"
                 + (f" ({ratio:.0%} of endpoints never called)" if isinstance(ratio, float) else "")
             )
+    messages.extend(_optin_warning(old, new))
     if not_run:
         messages.append(
             f"{len(not_run)} endpoint(s) were covered before and not called at all now; "
@@ -152,6 +153,36 @@ def _run_warnings(old: dict, new: dict, not_run: list) -> list[str]:
         )
     messages.extend(_call_volume_warning(old, new))
     return messages
+
+
+def _optin_states(payload: dict) -> "dict | None":
+    selection = (payload.get("meta") or {}).get("selection") or {}
+    optin = selection.get("optin")
+    if not isinstance(optin, dict):
+        return None
+    return {str(name): (info or {}).get("state") for name, info in optin.items()}
+
+
+def _optin_warning(old: dict, new: dict) -> list[str]:
+    """Two runs that ran different opt-in marker sets did not run the same suite.
+
+    An opt-in set is deselected, not skipped, so nothing else in the payload shows it:
+    the run with the expensive set switched on simply has more cases. Compared only when
+    both payloads carry ``meta.selection.optin`` — an older artifact, or a project without
+    opt-in sets, says nothing either way, and guessing would flag every such pair.
+    """
+    before, after = _optin_states(old), _optin_states(new)
+    if before is None or after is None or before == after:
+        return []
+    changed = [
+        f"{name}: {before.get(name) or 'absent'} → {after.get(name) or 'absent'}"
+        for name in sorted(set(before) | set(after))
+        if before.get(name) != after.get(name)
+    ]
+    return [
+        "the runs selected different opt-in marker sets (" + "; ".join(changed)
+        + ") — they did not run the same suite"
+    ]
 
 
 def _call_volume_warning(old: dict, new: dict) -> list[str]:

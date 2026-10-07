@@ -128,7 +128,7 @@
           "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 13903
+      "chars": 15504
     },
     {
       "slug": "components/project-gen",
@@ -175,7 +175,7 @@
       "path": "docs/wiki/concepts/coverage-honesty.md",
       "title": "Coverage honesty — when the number lies",
       "status": "current",
-      "verified": "2026-09-24",
+      "verified": "2026-10-07",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -216,7 +216,7 @@
           "text": "What to trust"
         }
       ],
-      "chars": 7436
+      "chars": 7910
     },
     {
       "slug": "concepts/methodology",
@@ -596,7 +596,7 @@
           "text": "Reading the page honestly"
         }
       ],
-      "chars": 6021
+      "chars": 6099
     },
     {
       "slug": "howto/enterprise",

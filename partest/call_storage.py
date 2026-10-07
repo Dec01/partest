@@ -154,6 +154,19 @@ def record_unknown_tls_host(url: Any) -> None:
         unknown_tls_hosts.add(host)
 
 
+def record_optin(summary: Dict[str, Dict[str, Any]]) -> None:
+    """Record how each opt-in marker set was decided (see :mod:`partest.optin`).
+
+    ``{"slow": {"state": "off" | "markexpr" | "env", "env": "RUN_SLOW", "deselected": 3}}``
+    under ``run_info["selection"]["optin"]``. Additive: a reader that does not know the key
+    sees the selection it always saw, and ``partialRun`` does not look at it.
+    """
+    with _lock:
+        run_info.setdefault("selection", {})["optin"] = {
+            str(name): dict(info) for name, info in summary.items()
+        }
+
+
 def reset_selection() -> None:
     """Forget how *this process* was selected.
 
@@ -201,7 +214,7 @@ def dump_storage() -> Dict[str, Any]:
             },
             "selection": {
                 k: v for k, v in (run_info.get("selection") or {}).items()
-                if k in {"markexpr", "keyword"}
+                if k in {"markexpr", "keyword", "optin"}
             },
             "deselected_nodes": sorted(deselected_nodes),
             "tls_verified": bool(run_info.get("tlsVerified", True)),

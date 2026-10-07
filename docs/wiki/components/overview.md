@@ -24,7 +24,7 @@ partest/
   polling.py           poll_until / poll_until_sync — wait for a terminal state, keep the path
   rounding.py          agrees_with_formula / agrees_with_sum — tolerance derived from scales
   files.py             upload byte factories and mutation corpus; deterministic zip/xlsx bytes
-  optin.py             opt-in marker sets for the pytest plugin (ini `optin_markers`)
+  optin.py             opt-in marker sets for the pytest plugin (ini `partest_optin_markers`)
   payloads.py          BaseRequestBody
   validation/          BaseResponseValidator, ProblemDetail*, raw IncorrectBody cases
   data_marker.py       TEST_MARKER, marked_name/code/short — test-data naming
@@ -124,7 +124,7 @@ in every report and teaches people to read past it; a deselected test is simply 
 
 ```ini
 [pytest]
-optin_markers =
+partest_optin_markers =
     slow:RUN_SLOW
     nightly
 markers =
@@ -133,34 +133,58 @@ markers =
     nightly: only when asked for
 ```
 
-A test carrying `slow` or any `slow_*` marker stays in the run when either holds:
+A test carrying `slow` or any `slow_*` marker — the set's *family* — stays in the run when
+either holds:
 
-- the `-m` expression **depends on the set positively** — it is true on the test's markers and
-  false on the same markers with every `slow`/`slow_*` removed: `-m slow`, `-m slow_db`,
-  `-m "slow and not flaky"`;
 - the variable after the colon reads as true (`RUN_SLOW=1`; same words as every other partest
-  switch), which takes the whole set regardless of `-m`.
+  switch), which takes the whole set regardless of `-m`;
+- the `-m` expression **asks for the family**. With `M` the test's markers and `F` those of
+  the family, evaluated by pytest's own parser:
 
-The rule is an evaluation, not a search for the word. `-m "not slow_db and not flaky"` is true
-for every test without those two markers — the whole `slow` set included — and a substring
-check would pull the set in; evaluating with and without the set's markers sees that `slow`
-is not what selected them. `-m "slow or api"` on a test marked both does not count either: the
-`api` half selects it alone. The expression goes through pytest's own parser
-(`_pytest.mark.expression`, a private module — the `pytest<10` cap covers it), so keyword
-matching such as `-m "slow(level=2)"` means what it means to pytest.
+  ```text
+  expr(M) and ( not expr(M − F)  or  ( expr(F) and not expr(∅) ) )
+  ```
+
+| `-m` | test marked | in the run | why |
+|---|---|---|---|
+| `slow`, `slow_db`, `slow and not flaky` | `slow`, `slow_db` | yes | without the family the expression is false |
+| `slow or api` | `slow`, `api` | yes | true for the family alone, false for no markers: it names the family |
+| `nightly or slow` | `nightly`, `slow` (two sets) | yes | the same, for each set |
+| `not slow_db and not flaky` | `slow` | **no** | true of everything unmarked — the classic workaround, it does not pull the set in |
+| `smoke` | `smoke`, `slow` | **no** | about something else: false for `{slow}` |
+
+The rule is an evaluation, not a search for the word: a substring check would take the
+workaround row as a request. Keyword matching such as `-m "slow(level=2)"` means what it means
+to pytest. The parser is `_pytest.mark.expression`, a private module — one of the two reasons
+`setup.py` caps pytest below 10.
 
 - **Sub-markers by prefix:** `slow` covers `slow_*`. A set is one family of names, and a prefix
-  keeps a new member from slipping out of it because a list was not extended. A marker outside
-  the family joins with its own entry and the same variable (`heavy:RUN_SLOW`).
+  keeps a new member from slipping out of it because a list was not extended. The price is that
+  a marker named `slow_something` joins the set whether or not that was meant — so the session
+  header names what each prefix captured among the registered markers
+  (`partest opt-in markers: slow (or RUN_SLOW=1) covers: slow, slow_db`), and the collection
+  summary the markers it met on tests and how many it deselected. A marker outside the family
+  joins with its own entry and the same variable (`heavy:RUN_SLOW`).
 - A test in two sets must be opted into both.
 - Deselected tests go through `pytest_deselected`, so they show in pytest's summary and in
   `run_info["selection"]` like any other filter.
-- With `optin_markers` empty nothing is registered and nothing is printed; otherwise one header
-  line names the sets. A malformed entry is a usage error, not a silently ignored line.
+- **The decision is in the run metadata.** `run_info["selection"]["optin"]` — `coverage.json`
+  `meta.selection.optin` — holds, per set, how it was decided and how many tests it removed:
+  `{"slow": {"state": "off" | "markexpr" | "env", "env": "RUN_SLOW", "deselected": 3}}`. It
+  crosses xdist shards like the rest of the selection. The key is additive: `partialRun` does
+  not read it. `python -m partest.reports compare` does: two payloads that both carry it and
+  disagree on a set's state are reported as not comparable — the run with the expensive set
+  switched on simply has more cases, and nothing else in the payload would say why. A payload
+  without the key (older, or a project without opt-in sets) is not flagged.
+- With `partest_optin_markers` empty nothing is registered and nothing is printed. A malformed
+  entry is a usage error, not a silently ignored line.
 - Markers are still registered under `markers` — `--strict-markers` is not this plugin's job.
-- Not behind `PARTEST_PYTEST_PLUGIN` or `PARTEST_RUN_METADATA`: it decides what runs, and a
-  project that turned the Allure half off still wants its long tests kept out.
-  `-p no:partest` disables it along with everything else.
+- Not behind `PARTEST_PYTEST_PLUGIN` or `PARTEST_RUN_METADATA` (the latter only stops the
+  metadata record): it decides what runs, and a project that turned the Allure half off still
+  wants its long tests kept out.
+- **`-p no:partest` turns this off too** — and then the opt-in sets are ordinary tests: the
+  expensive suites start running in every plain `pytest`. A project that disables the plugin
+  and still has opt-in sets needs its own deselection.
 
 ## TLS verification
 

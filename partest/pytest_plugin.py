@@ -28,7 +28,7 @@ it writes nothing to Allure and cannot collide with anybody's hooks::
 Turning that one off costs the report its only exact signal that the run covered a
 subset of the suite — see :func:`_record_selection`.
 
-A third, independent piece: opt-in marker sets (``optin_markers`` in the ini file,
+A third, independent piece: opt-in marker sets (``partest_optin_markers`` in the ini file,
 :mod:`partest.optin`). Inert unless that option names something.
 """
 
@@ -202,14 +202,14 @@ def pytest_runtest_makereport(item, call):
 
 
 def pytest_addoption(parser) -> None:
-    """``optin_markers`` in the ini file; see :mod:`partest.optin`."""
+    """``partest_optin_markers`` in the ini file; see :mod:`partest.optin`."""
     from partest.optin import add_ini
 
     add_ini(parser)
 
 
 def pytest_configure(config) -> None:
-    """Register the opt-in deselection — only when ``optin_markers`` names something.
+    """Register the opt-in deselection — only when ``partest_optin_markers`` names something.
 
     Not behind either switch above: it decides what runs, it does not decorate a report,
     and a project that turned the Allure half off still wants its long tests kept out.
