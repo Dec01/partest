@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Sized, Tuple, Type, Union
 
 import httpx
 from pydantic import BaseModel, RootModel, ValidationError
@@ -301,6 +301,14 @@ class ApiClient:
         max_retries / retry_statuses:
             Override client-level RetryPolicy for this call only.
         """
+        if (
+            expected_status_code is not None
+            and not isinstance(expected_status_code, (int, str, bytes, Sized))
+            and isinstance(expected_status_code, Iterable)
+        ):
+            # A one-shot iterator is read twice below (the step title, then the match):
+            # the second reading found it empty and raised. Read it once, here.
+            expected_status_code = normalize_expected_status(expected_status_code)
         url = f"{self.domain}{endpoint}{add_url1 or ''}{add_url2 or ''}{add_url3 or ''}{after_url or ''}"
         timeout = self.default_timeout if timeout is None else timeout
         headers = dict(headers) if headers else {}

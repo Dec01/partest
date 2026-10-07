@@ -25,7 +25,8 @@ Nothing here breaks a suite that does not use the new names. Two behaviours chan
 | What | Before | Now | Do |
 |---|---|---|---|
 | `make_request(expected_status_code=(200, 400))` without `type=` | `TypeError` from type inference, before the request was sent | recorded; a set whose statuses imply different types is `unknown` | nothing — or pass `type=`, which was always the rule |
-| a status set together with a broken raw body or list parameters | the body/parameter signal decided, the set was not looked at | every status goes through every rule; `(404,)` is exactly `404`, `(200, 404)` with a broken body is `unknown` | pass `type=` where the recorded cell matters |
+| a **one-element** status set (`(404,)`, `[404]`) together with a broken raw body, files or list parameters | the body/files/parameter signal decided | the set is its status: `(404,)` is exactly `404` | pass `type=` where the recorded cell matters |
+| `expected_status_code=` a generator | every status check failed (`must not be empty`) | read once; works | nothing |
 | `sideeffects.wait_for` | could sleep past its deadline and gave up without a last look | the last sleep is cut to the deadline and the probe is called once more there | nothing |
 
 What a suite can now delete from its own code, if it carried a copy:

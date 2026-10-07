@@ -96,16 +96,30 @@ def test_a_one_element_set_is_the_status_whatever_else_the_call_carries(status, 
     assert as_set.confidence == single.confidence
 
 
-def test_a_status_independent_signal_counts_where_every_status_agrees_with_it():
-    """Each status goes through every rule; a broken body is incorrect-body only where
-    no status says otherwise."""
-    broken = {"method": "POST", "content": b'{"a":', "content_type": "application/json"}
-    assert infer((200, 400), **broken).test_type == T.request_incorrect_body
-    split = infer((200, 404), **broken)
-    assert split.test_type == T.type_unknown
-    assert T.request_not_found in split.reason
+BROKEN = {"method": "POST", "content": b'{"a":', "content_type": "application/json"}
 
-    assert infer((200, 201), params={"page": 1}).test_type == T.request_params
+
+@pytest.mark.parametrize("expected", [(200, 404), (200, 400), [404, 405], {401, 403}, range(200, 300)])
+def test_status_independent_signals_still_decide_first(expected):
+    """A set of several statuses never raised when such a signal was present, and its
+    answer was the signal's. A call that worked in 2.4.0 keeps its cell."""
+    broken = infer(expected, **BROKEN)
+    assert broken.test_type == T.request_incorrect_body
+    assert broken.confidence >= 0.99
+    assert broken.reason == "raw content is not valid JSON"
+
+    listing = infer(expected, params={"page": 1})
+    assert listing.test_type == T.request_params
+
+    upload = infer(expected, method="POST", files={"file": ("a.txt", b"x", "text/plain")})
+    assert upload.test_type == T.request_default and upload.confidence == 0.5
+
+
+@pytest.mark.parametrize("expected", [(), [], set()], ids=["tuple", "list", "set"])
+def test_an_empty_set_means_no_status_was_given(expected):
+    assert infer(expected) == infer(None)
+    assert infer(expected, **BROKEN) == infer(None, **BROKEN)
+    assert infer(expected, params={"page": 1}) == infer(None, params={"page": 1})
 
 
 def test_a_huge_set_is_refused_without_being_expanded():
@@ -114,11 +128,13 @@ def test_a_huge_set_is_refused_without_being_expanded():
     assert "no usable status" in result.reason
 
 
-def test_a_one_shot_iterator_is_read_with_a_limit():
+def test_a_one_shot_iterator_is_not_read_and_counts_as_no_status():
     import itertools
 
-    assert infer(iter([401, 403])).test_type == T.request_permissions
-    assert infer(itertools.count(200)).test_type == T.type_unknown  # infinite, not a hang
+    statuses = iter([401, 403])
+    assert infer(statuses) == infer(None)
+    assert list(statuses) == [401, 403], "inference must leave the iterator to the status check"
+    assert infer(itertools.count(200)) == infer(None)  # infinite, and not a hang
 
 
 def test_a_long_run_of_statuses_is_named_compactly():
@@ -127,7 +143,7 @@ def test_a_long_run_of_statuses_is_named_compactly():
     assert "{200-299}" in result.reason
 
 
-@pytest.mark.parametrize("expected", [(), [], ("abc",), [object()]], ids=["empty", "list", "text", "object"])
+@pytest.mark.parametrize("expected", [("abc",), [object()], ("abc", "def")], ids=["text", "object", "two"])
 def test_a_set_with_no_usable_status_is_unknown_not_an_error(expected):
     result = infer(expected)
     assert result.test_type == T.type_unknown
@@ -180,5 +196,28 @@ async def test_make_request_with_a_status_set_and_no_type_records_the_call(monke
         assert call_storage.call_type[key] == [T.type_unknown]
         meta = call_storage.call_meta[key][0]
         assert meta["inferred"] is True and "{200, 400}" in meta["reason"]
+    finally:
+        call_storage.reset_storage()
+
+
+@pytest.mark.asyncio
+async def test_make_request_with_a_generator_of_statuses_is_left_intact(monkeypatch):
+    """Inference reads nothing from a one-shot iterator: the status check still sees 404."""
+    monkeypatch.setattr(coverage, "SWAGGER_AVAILABLE", True)
+    monkeypatch.setattr(coverage, "swagger_files", ["stub"])
+    monkeypatch.setattr(coverage, "paths_info", [_Path("GET", "/items")])
+    call_storage.reset_storage()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"error": "gone"})
+
+    try:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as hx:
+            api = ApiClient("http://stand", client=hx)
+            body = await api.make_request(
+                "GET", "/items", expected_status_code=(s for s in (200, 404))
+            )
+        assert body == {"error": "gone"}
+        assert call_storage.call_type[("GET", "/items", "")] == [T.type_unknown]
     finally:
         call_storage.reset_storage()

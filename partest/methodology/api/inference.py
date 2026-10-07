@@ -7,7 +7,6 @@ the same request must stay explicit in the suite.
 
 from __future__ import annotations
 
-import itertools
 import json
 import numbers
 from dataclasses import dataclass
@@ -79,37 +78,45 @@ def _ct_mismatch_abuse(headers: Optional[Dict[str, str]], content: Any, json_dat
 MAX_STATUS_SET = 1000
 
 
-def _status_set(expected: Any) -> Optional[Tuple[int, ...]]:
-    """The statuses of a set-valued expectation, sorted and de-duplicated.
+def _read_expectation(expected: Any) -> Tuple[Any, Optional[Tuple[int, ...]]]:
+    """Split an expectation into ``(status, statuses)``.
 
-    ``None`` means the expectation is not a collection — absent, or a single status —
-    and the scalar rules apply as they always did. An empty tuple means a collection
-    that names no usable status: empty, larger than :data:`MAX_STATUS_SET`, or holding
-    something that is not a status.
+    ``status`` is what the single-status rules compare against; ``statuses`` is a set of
+    two or more statuses, decided where the status class is first compared — after every
+    status-independent signal, which is the order 2.4.0 had for a set (it raised there).
+    ``()`` means a collection that names no usable status.
 
-    Parsing is :func:`partest.client.normalize_expected_status` — the same reading the
-    status check uses; only its errors are turned into "no usable status", because
-    inference is a fallback and must not be what fails the test.
+    * a scalar, ``None`` or something that is not a collection — passed through as before;
+    * an empty collection — no status given;
+    * a one-shot iterator (not ``Sized``) — no status given, and **nothing is read from
+      it**: the status check in the client consumes it, and must find it intact;
+    * one distinct status — that status, as a scalar: ``(404,)`` is exactly ``404``;
+    * more than :data:`MAX_STATUS_SET`, or anything that does not parse — ``()``.
+
+    Parsing is :func:`partest.client.normalize_expected_status` — the reading the status
+    check uses; only its errors are turned into "no usable status", because inference is
+    a fallback and must not be what fails the test.
     """
     if expected is None or isinstance(expected, (str, bytes, bytearray, numbers.Number)):
-        return None
+        return expected, None
     if not isinstance(expected, Iterable):
-        return None
+        return expected, None
+    if not isinstance(expected, Sized):
+        return None, None
+    if len(expected) == 0:
+        return None, None
+    if len(expected) > MAX_STATUS_SET:
+        return None, ()
     # Imported here: partest.client imports the coverage decorator, which imports this.
     from partest.client import normalize_expected_status
 
-    if isinstance(expected, Sized):
-        if len(expected) > MAX_STATUS_SET:
-            return ()
-        candidates = expected
-    else:  # a one-shot iterator: read at most one more than the limit
-        candidates = list(itertools.islice(expected, MAX_STATUS_SET + 1))
-        if len(candidates) > MAX_STATUS_SET:
-            return ()
     try:
-        return tuple(sorted(set(normalize_expected_status(candidates))))
+        values = tuple(sorted(set(normalize_expected_status(expected))))
     except (TypeError, ValueError, OverflowError):
-        return ()
+        return None, ()
+    if len(values) == 1:
+        return values[0], None
+    return None, values
 
 
 def _is_2xx(status: Any) -> bool:
@@ -214,9 +221,10 @@ def infer_test_type(
     A **set** of allowed statuses (``(200, 201)``, ``[400, 415]``, ``range(200, 300)``)
     is decided status by status: if every status yields the same type, that type at the
     lowest confidence among them; otherwise ``unknown`` at 0.2 with a reason naming
-    which status implies what. Each status goes through every rule, so ``(404,)`` is
-    exactly ``404``, and a status-independent signal (a broken raw body, list params on
-    a GET, files) counts only where every status of the set agrees with it.
+    which status implies what. Status-independent signals (a broken raw body, a
+    content-type mismatch, list params on a GET, files) decide before a set of several
+    statuses is looked at, as in 2.4.0. A one-element set is its status: ``(404,)`` is
+    exactly ``404``. An empty set and a one-shot iterator count as no status at all.
 
     **Decision for 1.0.0:** do not drop the ``type`` parameter. Callers should
     still pass ``type=`` for permissions / new / update / elements / extra / env.
@@ -234,25 +242,10 @@ def infer_test_type(
         headers = dict(headers or {})
         headers.setdefault("Content-Type", content_type)
 
-    status = expected_status_code
-    # A set is decided status by status, each through every rule below — so ``(404,)``
-    # means exactly what ``404`` means, signals that do not depend on the status included.
-    statuses = _status_set(status)
-    if statuses is not None:
-        return _infer_for_status_set(
-            statuses,
-            method=method,
-            endpoint=endpoint,
-            params=params,
-            json_data=json_data,
-            data=data,
-            content=content,
-            content_type=content_type,
-            files=files,
-            headers=headers,
-            explicit_type=explicit_type,
-            graphql_query=graphql_query,
-        )
+    # A one-element set becomes its status here; a set of several never matches the
+    # single-status rules below and is decided at the class rule, after the signals that
+    # do not depend on the status — the order 2.4.0 had, so calls that worked keep their cell.
+    status, statuses = _read_expectation(expected_status_code)
 
     if status == 405:
         return InferResult(
@@ -324,6 +317,22 @@ def infer_test_type(
             0.5,
             "multipart/files present — use explicit type for upload/elements",
             True,
+        )
+
+    if statuses is not None:
+        return _infer_for_status_set(
+            statuses,
+            method=method,
+            endpoint=endpoint,
+            params=params,
+            json_data=json_data,
+            data=data,
+            content=content,
+            content_type=content_type,
+            files=files,
+            headers=headers,
+            explicit_type=explicit_type,
+            graphql_query=graphql_query,
         )
 
     if status is not None and _is_2xx(status):

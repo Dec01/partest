@@ -93,6 +93,29 @@
   `FIXED_CORE_TIMESTAMP`, `MAX_ENTRY_SIZE`, `MAX_TOTAL_SIZE`, `MAX_ENTRIES`.
   See [[howto/upload]].
 
+### Changed
+
+- **A one-element status set is inferred exactly like its status.** `(404,)`, `[404]` and
+  `(404, 404)` are normalised to `404` before the rules run. In 2.4.0 such a set skipped the
+  single-status rules, and when the call also carried a status-independent signal it did not
+  raise but took that signal's type; it now takes the status's. This is the **only** change
+  on calls that worked in 2.4.0, measured against the 2.4.0 module over 63 360 combinations
+  (statuses × methods × params × body × content type × files × GraphQL): 10 080 used to
+  raise and are now answered, 47 488 are identical, and the 5 792 that differ are all
+  one-status sets —
+
+  | Expectation | 2.4.0 | Now | Combinations |
+  |---|---|---|---|
+  | `(404,)` / `[404]` / `(404, 404)` + broken raw body | incorrect-body 0.99 | not-found 0.99 | 3 × 1 120 |
+  | `(405,)` + broken raw body | incorrect-body 0.99 | not-allowed 0.99 | 1 120 |
+  | `(404,)` / `[404]` / `(404, 404)` + files on a write | default 0.5 | not-found 0.99 | 3 × 240 |
+  | `(405,)` + files on a write | default 0.5 | not-allowed 0.99 | 240 |
+  | `(404,)` / `[404]` / `(404, 404)` + list params on a `GET` | params 0.85 | not-found 0.99 | 3 × 80 |
+  | `(405,)` + list params on a `GET` | params 0.85 | not-allowed 0.99 | 80 |
+  | `(400,)` + JSON body under a non-JSON content type, with files or list params | default 0.5 / params 0.85 | incorrect-body 0.99 | 24 + 8 |
+
+  Pass `type=` where the recorded cell matters — which was always the rule.
+
 ### Fixed
 
 - **`sideeffects.wait_for` could sleep past its deadline and never looked at it.** It slept a
@@ -115,24 +138,29 @@
   `ApiClient` has accepted a set of allowed statuses for a long time; type inference, which
   runs inside the coverage decorator whenever `type=` is missing, compared the expectation
   with `200 <= status < 300` and failed on a tuple — before the request was sent, so the
-  test died on the harness rather than on anything the API did. A set (`tuple`, `list`,
-  `set`, `range`) is now decided status by status: if every status infers the same type,
-  that type stands at the **lowest** confidence among them (`(200, 201)` is default at 0.4,
-  `(401, 403)` permissions at 0.75, `(404,)` exactly what `404` is); if they disagree, the
-  call is recorded as `unknown` at 0.2 with a reason naming the split
+  test died on the harness rather than on anything the API did. Where it used to raise, a
+  set of several statuses (`tuple`, `list`, `set`, `range`) is now decided status by
+  status: if every status infers the same type, that type stands at the **lowest**
+  confidence among them (`(200, 201)` is default at 0.4, `(401, 403)` permissions at 0.75);
+  if they disagree, the call is recorded as `unknown` at 0.2 with a reason naming the split
   (`{200} → request_default, {400} → unknown; pass type= explicitly`). "Same class" is not
-  the rule on purpose: `404` and `405` are both 4xx and still two different cells. Every
-  status goes through every rule, so `(404,)` is exactly `404` whatever else the call
-  carries. **One change beyond the crash:** a set combined with a status-independent signal
-  (broken raw body, list parameters on a `GET`, files) used to get that signal's type
-  without the set being looked at; now the signal counts where every status agrees with it —
-  `(200, 400)` with a broken body is still incorrect-body, `(200, 404)` with one is
-  `unknown`. A set that names no status (`()`, `("abc",)`), or more than 1000 of them, is
-  `unknown` too, read with a limit so `range(0, 10**12)` or an endless iterator cannot hang
-  the call; the parsing itself is `partest.client.normalize_expected_status`, the reading
-  the status check uses. An expectation that cannot be compared with a number no longer
-  raises at the 2xx rule. Explicit `type=` still wins
-  and is still the rule. See [[concepts/methodology]].
+  the rule on purpose: `404` and `405` are both 4xx and still two different cells. Calls
+  that did **not** raise keep their 2.4.0 answer: the status-independent signals (broken raw
+  body, a content type that does not match the body, list parameters on a `GET`, files)
+  still decide before a set of several statuses is looked at — `(200, 404)` with a broken
+  body is incorrect-body at 0.99, as it was. An empty set and a one-shot iterator count as
+  no status given (an iterator is not read at all; the status check consumes it). A set
+  that names nothing usable (`("abc",)`) or more than 1000 statuses is `unknown`, without
+  expanding `range(0, 10**12)`. Parsing is `partest.client.normalize_expected_status`, the
+  reading the status check uses. An expectation that cannot be compared with a number no
+  longer raises at the 2xx rule. Explicit `type=` still wins and is still the rule. See
+  [[concepts/methodology]].
+
+- **A generator as `expected_status_code` failed every status check.** `ApiClient` read the
+  expectation twice — once for the step title, once for the match — and the second reading
+  of a one-shot iterator was empty: `ValueError: expected_status_code sequence must not be
+  empty`, whatever the response was. A non-`Sized` iterable is now read once, at the start
+  of `make_request`.
 
 ## 2.4.0 — 2026-09-24
 
