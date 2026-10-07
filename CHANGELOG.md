@@ -45,17 +45,22 @@
 
 - **Opt-in marker sets: `partest_optin_markers = marker[:ENV_VAR] ...` in the ini file.**
   Tests with such a marker, or any `marker_*`, are **deselected** — not skipped — unless
-  `ENV_VAR` reads as true or the `-m` expression asks for the family: with `M` the test's
-  markers and `F` the family's, `expr(M) and (not expr(M − F) or (expr(F) and not expr(∅)))`,
-  evaluated by pytest's own parser. So `-m slow` and `-m "slow or api"` take the set,
-  `-m "not slow_db and not flaky"` — true of everything unmarked — does not pull it in, and
-  `-m smoke` on a test marked `smoke` and `slow` leaves it out. Sub-markers are taken by
+  `ENV_VAR` reads as true or the `-m` expression asks for the family — depends on it
+  positively in at least one context: `expr(M)` holds and for some set `S` of the
+  expression's other marker names `expr(S)` is false and `expr(S ∪ F)` true, `F` being the
+  test's family markers; evaluated by pytest's own parser over every `S`, with a documented
+  two-context fallback above 8 names. So `-m slow`, `-m "slow or api"` and
+  `-m "slow or not flaky"` take the set, `-m "not slow_db and not flaky"` does not pull it
+  in, and `-m smoke` on a test marked `smoke` and `slow` leaves it out. Sub-markers are taken by
   prefix; the session header names what each prefix captured. A test in two sets must be
   opted into both; deselected tests go through `pytest_deselected`. How each set was decided
   is recorded as `run_info["selection"]["optin"]` — **`coverage.json` `meta.selection.optin`**,
   `{"<marker>": {"state": "off" | "markexpr" | "env", "env": ..., "deselected": n}}` —
-  merged across xdist shards; `partialRun` does not read it, and `compare` reports two
-  payloads that both carry it and disagree as not comparable. With the option empty the
+  merged across xdist shards; `partialRun` does not read it. `compare` reports two
+  payloads that both carry it and disagree as not comparable; when only one carries it and
+  a set there deselected tests or ran by its variable, the result gains a soft entry in a
+  new `notes` list ("comparability cannot be confirmed"), which does not touch
+  `comparable`. With the option empty the
   plugin registers nothing and prints nothing. `-p no:partest` turns it off together with
   the rest of the plugin, and the opt-in sets then run. Lives in `partest.optin` (public:
   `INI_NAME`, `OptInSet`, `parse_optin_markers`); not behind `PARTEST_PYTEST_PLUGIN`. See

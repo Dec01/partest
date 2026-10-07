@@ -45,6 +45,8 @@ def _cmd_compare(args: argparse.Namespace) -> int:
     # partial or unmerged run still sees why the delta may mean nothing.
     for warning in diff.get("warnings") or []:
         print(f"warning: {warning}", file=sys.stderr)
+    for note in diff.get("notes") or []:
+        print(f"note: {note}", file=sys.stderr)
     if args.strict and not diff.get("comparable", True):
         return 2
     return 0

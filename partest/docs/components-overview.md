@@ -132,20 +132,26 @@ either holds:
 
 - the variable after the colon reads as true (`RUN_SLOW=1`; same words as every other partest
   switch), which takes the whole set regardless of `-m`;
-- the `-m` expression **asks for the family**. With `M` the test's markers and `F` those of
-  the family, evaluated by pytest's own parser:
+- the `-m` expression **asks for the family**: it depends on the family positively in at
+  least one context. With `M` the test's markers, `F` its family markers and `I` the marker
+  names the expression mentions outside the family, evaluated by pytest's own parser:
 
   ```text
-  expr(M) and ( not expr(M − F)  or  ( expr(F) and not expr(∅) ) )
+  expr(M)  and  there is S ⊆ I with  expr(S) = False  and  expr(S ∪ F) = True
   ```
 
 | `-m` | test marked | in the run | why |
 |---|---|---|---|
-| `slow`, `slow_db`, `slow and not flaky` | `slow`, `slow_db` | yes | without the family the expression is false |
-| `slow or api` | `slow`, `api` | yes | true for the family alone, false for no markers: it names the family |
+| `slow`, `slow_db`, `slow and not flaky` | `slow`, `slow_db` | yes | `S = ∅`: false without the family, true with it |
+| `slow or api` | `slow`, `api` | yes | `S = ∅` again: `api` matching too does not cancel the request |
+| `slow or not flaky` | `slow`, with or without `flaky` | yes | `S = {flaky}`: false, then true once `slow` is added |
 | `nightly or slow` | `nightly`, `slow` (two sets) | yes | the same, for each set |
-| `not slow_db and not flaky` | `slow` | **no** | true of everything unmarked — the classic workaround, it does not pull the set in |
-| `smoke` | `smoke`, `slow` | **no** | about something else: false for `{slow}` |
+| `not slow_db and not flaky` | `slow` | **no** | adding `slow` never turns it true — the classic workaround does not pull the set in |
+| `smoke` | `smoke`, `slow` | **no** | about something else: `slow` changes nothing about it |
+
+Every `S` is tried — 2^k evaluations for `k` names outside the family. Above 8 such names the
+search gives way to a two-context rule, `expr(M) and (not expr(M − F) or (expr(F) and not
+expr(∅)))`, which never selects more and can miss a request phrased through many names.
 
 The rule is an evaluation, not a search for the word: a substring check would take the
 workaround row as a request. Keyword matching such as `-m "slow(level=2)"` means what it means
@@ -168,8 +174,10 @@ to pytest. The parser is `_pytest.mark.expression`, a private module — one of 
   crosses xdist shards like the rest of the selection. The key is additive: `partialRun` does
   not read it. `python -m partest.reports compare` does: two payloads that both carry it and
   disagree on a set's state are reported as not comparable — the run with the expensive set
-  switched on simply has more cases, and nothing else in the payload would say why. A payload
-  without the key (older, or a project without opt-in sets) is not flagged.
+  switched on simply has more cases, and nothing else in the payload would say why. When only
+  one payload carries the key and a set there deselected tests or ran by its variable, the
+  result gets a soft entry in `notes` — "comparability cannot be confirmed" — which leaves
+  `comparable` alone: an older artifact proves nothing either way.
 - With `partest_optin_markers` empty nothing is registered and nothing is printed. A malformed
   entry is a usage error, not a silently ignored line.
 - Markers are still registered under `markers` — `--strict-markers` is not this plugin's job.

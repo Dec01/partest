@@ -79,7 +79,8 @@ was covered before and simply was not called this time is reported under `not_ru
 
 The result carries `comparable` and `warnings`. A run made with parallel workers that were not
 merged, one where a fifth of the endpoints went untouched, or two runs that selected different
-opt-in marker sets (`meta.selection.optin`), is flagged as not comparable;
+opt-in marker sets (`meta.selection.optin`), is flagged as not comparable (when only one
+carries the opt-in record, a soft entry in `notes` says comparability cannot be confirmed);
 `--strict` turns that into exit code 2 so a pipeline does not alarm on a partial run or, worse,
 stay quiet about a real loss hidden behind one.
 

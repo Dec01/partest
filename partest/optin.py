@@ -19,20 +19,29 @@ asked for::
 A test carrying ``slow`` (or any ``slow_*`` marker — the set's *family*) is selected when
 the environment variable named after the colon reads as true (``RUN_SLOW=1``), which takes
 the whole set regardless of ``-m``; or when the ``-m`` expression asks for the family.
-"Asks for" is evaluated, with pytest's own expression parser, on three marker sets — the
-test's markers ``M``, the same without the family ``M − F``, and the family alone ``F``::
+"Asks for" means the expression depends on the family **positively in at least one
+context**. With ``M`` the test's markers, ``F`` its markers of the family, and ``I`` the
+marker names the expression mentions outside the family, the test is selected when::
 
-    expr(M) and ( not expr(M − F)  or  ( expr(F) and not expr(∅) ) )
+    expr(M)  and  there is S ⊆ I with  expr(S) = False  and  expr(S ∪ F) = True
 
-* ``not expr(M − F)`` — the family is what makes the expression true for this test:
-  ``-m slow``, ``-m slow_db``, ``-m "slow and not flaky"``.
-* ``expr(F) and not expr(∅)`` — the expression is true for the family on its own and not
-  for a test with no markers at all: ``-m "slow or api"`` selects a test marked both. It
-  names the family; that the test also matches through ``api`` does not cancel that.
-* Neither holds for an expression true of everything unmarked: ``-m "not slow_db and not
-  flaky"`` is true of the whole ``slow`` set *and* of the empty marker set, so it does not
-  pull the set in. Nor for one that is about something else: ``-m smoke`` on a test marked
-  ``smoke`` and ``slow`` is false for ``{slow}``, so that test stays out.
+— adding the test's family markers to some set of the other markers turns the expression
+from false to true. Evaluated with pytest's own parser, by trying every ``S``:
+
+* ``-m slow``, ``-m slow_db``, ``-m "slow and not flaky"`` — ``S = ∅`` already shows it.
+* ``-m "slow or api"`` on a test marked both — ``S = ∅``: false without ``slow``, true with.
+* ``-m "slow or not flaky"`` — ``S = {flaky}``: false, and true once ``slow`` is added. The
+  test is selected whether or not it is itself marked ``flaky``.
+* ``-m "not slow_db and not flaky"`` — no ``S`` works: adding ``slow`` never turns it true,
+  so this workaround does not pull the set in. Likewise ``-m smoke`` on a test marked
+  ``smoke`` and ``slow``: the family changes nothing about ``smoke``.
+
+``S`` is drawn from plain marker names; a keyword-qualified atom such as ``x(level=2)`` on a
+name outside the family is false for every ``S``. When the expression mentions more than
+:data:`MAX_CONTEXT_NAMES` names outside the family, the 2^k search is not run and the rule
+falls back to two contexts only — the test's own markers without the family, and the empty
+set: ``expr(M) and (not expr(M − F) or (expr(F) and not expr(∅)))``. That fallback never
+selects more than the full search would; it can miss a request phrased through many names.
 
 Keyword matching (``-m "slow(level=2)"``) means exactly what it means to pytest.
 
@@ -55,6 +64,7 @@ opt-in states are not compared as if they ran the same suite.
 
 from __future__ import annotations
 
+import itertools
 import os
 import re
 from dataclasses import dataclass
@@ -153,13 +163,42 @@ def _evaluate(markexpr: str, marks: Sequence[Any]) -> bool:
     return bool(Expression.compile(markexpr).evaluate(_matcher(marks)))
 
 
+#: Above this many marker names outside the family, the context search (2^k evaluations)
+#: gives way to the two-context fallback described in the module docstring.
+MAX_CONTEXT_NAMES = 8
+
+
+def _names(markexpr: str) -> Optional[List[str]]:
+    """Marker names an expression mentions — identifiers outside keyword parentheses."""
+    try:
+        from _pytest.mark.expression import Scanner, TokenType
+
+        scanner = Scanner(markexpr)
+        names: List[str] = []
+        depth = 0
+        token = scanner.current
+        while token.type is not TokenType.EOF:
+            if token.type is TokenType.LPAREN:
+                depth += 1
+            elif token.type is TokenType.RPAREN:
+                depth -= 1
+            elif token.type is TokenType.IDENT and depth == 0 and token.value not in names:
+                names.append(token.value)
+            scanner.accept(token.type)
+            token = scanner.current
+        return names
+    except Exception:  # a private API that moved: use the fallback rule
+        return None
+
+
 def selected_through(markexpr: Optional[str], marks: Sequence[Any], optin: OptInSet) -> bool:
     """Does ``-m`` ask for the opt-in family of a test with these marks?
 
     ``marks`` are objects with ``name`` and ``kwargs`` (pytest's ``Mark`` or anything
-    shaped like it). The rule, with ``M`` the marks and ``F`` those of the family::
-
-        expr(M) and (not expr(M − F) or (expr(F) and not expr(∅)))
+    shaped like it). True when ``expr(M)`` holds and some set ``S`` of the expression's
+    other marker names has ``expr(S)`` false and ``expr(S ∪ F)`` true, ``F`` being the
+    test's family markers — see the module docstring, including the fallback above
+    :data:`MAX_CONTEXT_NAMES` names.
     """
     expr = (markexpr or "").strip()
     if not expr:
@@ -168,6 +207,16 @@ def selected_through(markexpr: Optional[str], marks: Sequence[Any], optin: OptIn
     if not _evaluate(expr, marks):
         return False
     family = [m for m in marks if optin.covers(m.name)]
+    names = _names(expr)
+    if names is not None:
+        others = [n for n in names if not optin.covers(n)]
+        if len(others) <= MAX_CONTEXT_NAMES:
+            for size in range(len(others) + 1):
+                for chosen in itertools.combinations(others, size):
+                    context = [_Mark(n) for n in chosen]
+                    if not _evaluate(expr, context) and _evaluate(expr, context + family):
+                        return True
+            return False
     rest = [m for m in marks if not optin.covers(m.name)]
     if not _evaluate(expr, rest):
         return True

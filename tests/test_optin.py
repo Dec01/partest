@@ -93,10 +93,29 @@ def test_selected_only_when_m_asks_for_the_family(expr, item_marks, expected):
     assert selected_through(expr, marks(*item_marks), SLOW) is expected
 
 
-def test_an_expression_true_of_everything_unmarked_never_asks_for_a_set():
-    """True for the family alone *and* for no markers at all: that is not a request."""
-    for expr in ("not slow_db and not flaky", "not flaky", "not api or slow"):
+def test_an_expression_the_family_never_turns_true_does_not_ask_for_it():
+    """No context in which adding the family flips false to true: not a request."""
+    for expr in ("not slow_db and not flaky", "not flaky", "not slow_db"):
         assert selected_through(expr, marks("slow"), SLOW) is False, expr
+
+
+@pytest.mark.parametrize("item", [["slow"], ["slow", "flaky"]], ids=["slow", "slow+flaky"])
+@pytest.mark.parametrize("expr", ["slow or not flaky", "slow or not api", "not api or slow"])
+def test_an_or_with_a_negation_still_asks_for_the_family(expr, item):
+    """``slow or not flaky``: in the context {flaky} the family flips it — a request,
+    for a test marked flaky and for one that is not."""
+    assert selected_through(expr, marks(*item), SLOW) is True
+
+
+def test_the_fallback_beyond_the_context_limit_is_the_two_context_rule(monkeypatch):
+    from partest import optin
+
+    monkeypatch.setattr(optin, "MAX_CONTEXT_NAMES", 0)
+    # Two-context rule: "slow or not flaky" is true without the family and with no
+    # markers at all, so the fallback does not take it — the documented, safer miss.
+    assert selected_through("slow or not flaky", marks("slow"), SLOW) is False
+    assert selected_through("slow or api", marks("slow", "api"), SLOW) is True
+    assert selected_through("not slow_db and not flaky", marks("slow"), SLOW) is False
 
 
 def test_two_sets_named_with_or_are_both_asked_for():
@@ -272,6 +291,28 @@ def test_compare_calls_different_optin_states_incomparable():
     # An artifact without the key says nothing either way.
     older = _run_warnings(_payload(), _payload({"slow": "env"}), [])
     assert not any("opt-in" in w for w in older)
+
+
+def test_compare_notes_an_optin_record_on_one_side_only():
+    from partest.reports.compare import compare_payloads
+
+    acted = {"meta": {"selection": {"optin": {"slow": {"state": "off", "deselected": 4}}}},
+             "endpoints": []}
+    quiet = {"meta": {"selection": {"optin": {"slow": {"state": "off", "deselected": 0}}}},
+             "endpoints": []}
+    older = {"meta": {}, "endpoints": []}
+
+    diff = compare_payloads(older, acted)
+    assert diff["notes"] == [
+        "previous run carries no opt-in record; current slow: deselected 4 — "
+        "comparability cannot be confirmed"
+    ]
+    assert diff["comparable"] is True  # soft: one-sided evidence decides nothing
+    env = {"meta": {"selection": {"optin": {"slow": {"state": "env", "deselected": 0}}}},
+           "endpoints": []}
+    assert "previous slow: enabled by env" in compare_payloads(env, older)["notes"][0]
+    assert compare_payloads(older, quiet)["notes"] == []
+    assert compare_payloads(acted, acted)["notes"] == []
 
 
 def test_nothing_is_reported_when_nothing_is_deselected(monkeypatch):

@@ -96,6 +96,7 @@ def compare_payloads(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]
     old_avg = float((old.get("summary") or {}).get("avg") or 0.0)
     new_avg = float((new.get("summary") or {}).get("avg") or 0.0)
     warnings = _run_warnings(old, new, not_run)
+    notes = _optin_one_sided_note(old, new)
     return {
         "old_avg": old_avg,
         "new_avg": new_avg,
@@ -110,6 +111,8 @@ def compare_payloads(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]
         "not_run": not_run,
         "comparable": not warnings,
         "warnings": warnings,
+        # Soft remarks: they do not decide `comparable`, because the evidence is one-sided.
+        "notes": notes,
     }
 
 
@@ -183,6 +186,44 @@ def _optin_warning(old: dict, new: dict) -> list[str]:
         "the runs selected different opt-in marker sets (" + "; ".join(changed)
         + ") — they did not run the same suite"
     ]
+
+
+def _optin_one_sided_note(old: dict, new: dict) -> list[str]:
+    """Only one payload carries ``meta.selection.optin``, and in it a set did something.
+
+    The other payload is older than the key, or came from a project without opt-in sets:
+    nothing proves the two runs differ, so this does not touch ``comparable`` — but a run
+    that deselected a set, or ran one through its variable, may well not match a run that
+    cannot say what it did.
+    """
+    sides = {"previous": _optin_records(old), "current": _optin_records(new)}
+    present = [label for label, rec in sides.items() if rec is not None]
+    if len(present) != 1:
+        return []
+    carrier = present[0]
+    missing = "current" if carrier == "previous" else "previous"
+    acted = {
+        name: info for name, info in sides[carrier].items()
+        if int((info or {}).get("deselected") or 0) > 0 or (info or {}).get("state") == "env"
+    }
+    if not acted:
+        return []
+    described = ", ".join(
+        f"{name}: "
+        + (f"deselected {int(info.get('deselected') or 0)}"
+           if int(info.get("deselected") or 0) > 0 else "enabled by env")
+        for name, info in sorted(acted.items())
+    )
+    return [
+        f"{missing} run carries no opt-in record; {carrier} {described} — "
+        "comparability cannot be confirmed"
+    ]
+
+
+def _optin_records(payload: dict) -> "dict | None":
+    selection = (payload.get("meta") or {}).get("selection") or {}
+    optin = selection.get("optin")
+    return optin if isinstance(optin, dict) else None
 
 
 def _call_volume_warning(old: dict, new: dict) -> list[str]:
