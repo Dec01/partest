@@ -133,9 +133,10 @@ content = deterministic_xlsx(build_workbook(rows))     # build_workbook is yours
 digest = hashlib.sha256(content).hexdigest()           # same rows → same digest
 ```
 
-- `deterministic_zip(content, *, date_time=FIXED_ZIP_TIME, compression=ZIP_DEFLATED)` repacks
-  an archive: every entry time set to `date_time` (1980-01-01, the earliest a zip can hold),
-  permissions and creating system fixed (Windows and Linux otherwise differ), entries sorted
+- `deterministic_zip(content, *, date_time=FIXED_ZIP_TIME, compression=ZIP_STORED, ...)`
+  repacks an archive: every entry time set to `date_time` (1980-01-01, the earliest a zip can
+  hold), permissions and creating system fixed — never taken from the source — (Windows and
+  Linux otherwise differ), entries sorted
   by name with `mimetype` and `[Content_Types].xml` first where their formats want them
   (`mimetype` also stays uncompressed, as ODF requires), archive comment dropped. Entry
   content is not touched.
@@ -143,9 +144,15 @@ digest = hashlib.sha256(content).hexdigest()           # same rows → same dige
   `dcterms:created`, `dcterms:modified` and `cp:lastPrinted` in `docProps/core.xml` to
   `timestamp`. Any OOXML package works — `.docx` and `.pptx` carry the same part. Other
   volatile values a generator may write (a random id, a temporary path) are its own to fix.
-- Deflated output is stable for one zlib build. For a checksum that must also hold across
-  machines and Python builds — a manifest committed to the repository — pass
-  `compression=zipfile.ZIP_STORED`: the bytes then depend on the content alone.
+- **Entries are stored, not deflated, by default**, so the bytes depend on the content alone
+  and the checksum holds across machines — a manifest committed to the repository stays
+  valid. Deflate output depends on the zlib build, and Python 3.14 builds may ship zlib-ng,
+  which compresses differently: `compression=zipfile.ZIP_DEFLATED` gives smaller files whose
+  checksum holds for one interpreter build only. Ask for it when size matters more.
+- Meant for files the suite generated itself. What is inflated is bounded —
+  `max_entry_size` (64 MiB), `max_total_size` (256 MiB), `max_entries` (10 000), counted on
+  the decompressed bytes rather than the declared sizes — so a decompression bomb fails fast
+  with `ValueError`; that is a guard, not a hardened unpacker for archives from outside.
 - Only the standard library. openpyxl is not a dependency of partest; it is simply one of the
   writers whose output this normalises.
 

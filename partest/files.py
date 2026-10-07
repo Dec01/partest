@@ -120,23 +120,57 @@ def zip_with_extra_part() -> bytes:
 # generated test file — in a manifest, in a fixture name, in a "did the input change"
 # guard — means nothing. The functions below repack an archive so that equal content
 # gives equal bytes.
+#
+# They are meant for files the suite generated itself, not for archives from outside: the
+# size limits below stop a decompression bomb, but nothing here is a hardened unpacker.
 
 #: The earliest time a zip can record (MS-DOS epoch). Used for every entry.
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 #: What ``dcterms:created`` / ``dcterms:modified`` / ``cp:lastPrinted`` are set to.
 FIXED_CORE_TIMESTAMP = "1980-01-01T00:00:00Z"
+#: Default ceilings for one uncompressed entry, for all entries together, and for their
+#: number. Generous for a generated test file, small enough that a bomb fails fast.
+MAX_ENTRY_SIZE = 64 * 1024 * 1024
+MAX_TOTAL_SIZE = 256 * 1024 * 1024
+MAX_ENTRIES = 10_000
 
 _CORE_PROPS = "docProps/core.xml"
+# Bounded on both variable parts: a date is short, and an unbounded class on a hostile part
+# would let one malformed tag make the substitution scan far more than it needs to.
 _CORE_DATES = re.compile(
-    rb"(<(dcterms:created|dcterms:modified|cp:lastPrinted)(?:\s[^>]*)?>)[^<]*(</\2>)"
+    rb"(<(dcterms:created|dcterms:modified|cp:lastPrinted)(?:\s[^<>]{0,256})?>)[^<]{0,256}(</\2>)"
 )
 # Names that a format requires at the front: OOXML readers look for the manifest first,
 # ODF requires ``mimetype`` to be the first entry and stored uncompressed.
 _FIRST = ("mimetype", "[Content_Types].xml")
+_CHUNK = 1024 * 1024
 
 
 def _entry_order(name: str) -> Tuple[int, str]:
     return (_FIRST.index(name) if name in _FIRST else len(_FIRST), name)
+
+
+def _read_limited(source: zipfile.ZipFile, info: zipfile.ZipInfo, limit: int) -> bytes:
+    """Read one entry, refusing to inflate more than ``limit`` bytes.
+
+    The declared ``file_size`` is not trusted: a crafted header can understate it, so the
+    count is of what decompression actually produces.
+    """
+    parts = []
+    size = 0
+    with source.open(info) as stream:
+        while True:
+            chunk = stream.read(min(_CHUNK, limit - size + 1))
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > limit:
+                raise ValueError(
+                    f"entry {info.filename!r} inflates beyond {limit} bytes; "
+                    "raise max_entry_size if this file is really yours"
+                )
+            parts.append(chunk)
+    return b"".join(parts)
 
 
 def _repack(
@@ -144,22 +178,31 @@ def _repack(
     *,
     date_time: Tuple[int, int, int, int, int, int],
     compression: int,
+    max_entry_size: int,
+    max_total_size: int,
+    max_entries: int,
     rewrite: Optional[Callable[[str, bytes], bytes]] = None,
 ) -> bytes:
     with zipfile.ZipFile(io.BytesIO(content)) as source:
-        infos = sorted(source.infolist(), key=lambda info: _entry_order(info.filename))
+        infos = source.infolist()
+        if len(infos) > max_entries:
+            raise ValueError(f"archive has {len(infos)} entries, more than max_entries={max_entries}")
+        infos = sorted(infos, key=lambda info: _entry_order(info.filename))
         names = [info.filename for info in infos]
         if len(set(names)) != len(names):
             raise ValueError("archive has duplicate entry names; its content is ambiguous")
         buffer = io.BytesIO()
+        total = 0
         with zipfile.ZipFile(buffer, "w") as target:
             for info in infos:
-                data = source.read(info.filename)
+                data = _read_limited(source, info, min(max_entry_size, max_total_size - total))
+                total += len(data)
                 if rewrite is not None:
                     data = rewrite(info.filename, data)
                 fixed = zipfile.ZipInfo(info.filename, date_time=date_time)
                 # Every field that varies by machine or by run is set explicitly:
-                # ``create_system`` defaults to 0 on Windows and 3 elsewhere.
+                # ``create_system`` defaults to 0 on Windows and 3 elsewhere, and the
+                # permissions are never taken from the source archive.
                 fixed.create_system = 3
                 if info.is_dir():
                     fixed.external_attr = (0o40755 << 16) | 0x10
@@ -177,9 +220,12 @@ def deterministic_zip(
     content: bytes,
     *,
     date_time: Tuple[int, int, int, int, int, int] = FIXED_ZIP_TIME,
-    compression: int = zipfile.ZIP_DEFLATED,
+    compression: int = zipfile.ZIP_STORED,
+    max_entry_size: int = MAX_ENTRY_SIZE,
+    max_total_size: int = MAX_TOTAL_SIZE,
+    max_entries: int = MAX_ENTRIES,
 ) -> bytes:
-    """Repack a zip so that the same entries give the same bytes.
+    """Repack a zip so that the same entries give the same bytes — on any machine.
 
     Entry times are set to ``date_time``, permissions and the creating system to fixed
     values, entries sorted by name (``mimetype`` and ``[Content_Types].xml`` first, where
@@ -187,11 +233,24 @@ def deterministic_zip(
     *content* is untouched — see :func:`deterministic_xlsx` for an OOXML package, whose
     metadata carries timestamps of its own.
 
-    ``ZIP_DEFLATED`` output is stable for one zlib build. If the checksum must also hold
-    across machines or Python builds — a manifest committed to a repository — pass
-    ``compression=zipfile.ZIP_STORED``: the bytes then depend on nothing but the content.
+    Entries are **stored** by default: the bytes then depend on the content alone. Deflate
+    output depends on the zlib build — CPython 3.14 builds may use zlib-ng, which
+    compresses differently from zlib — so ``compression=zipfile.ZIP_DEFLATED`` gives a
+    checksum that holds for one interpreter build and no further. Ask for it only when the
+    file size matters more than that.
+
+    Meant for files the suite generated itself. ``max_entry_size``, ``max_total_size`` and
+    ``max_entries`` bound what is inflated (``ValueError`` beyond them), so a hostile
+    archive fails fast, but this is not a hardened unpacker.
     """
-    return _repack(content, date_time=date_time, compression=compression)
+    return _repack(
+        content,
+        date_time=date_time,
+        compression=compression,
+        max_entry_size=max_entry_size,
+        max_total_size=max_total_size,
+        max_entries=max_entries,
+    )
 
 
 def deterministic_xlsx(
@@ -199,7 +258,10 @@ def deterministic_xlsx(
     *,
     timestamp: str = FIXED_CORE_TIMESTAMP,
     date_time: Tuple[int, int, int, int, int, int] = FIXED_ZIP_TIME,
-    compression: int = zipfile.ZIP_DEFLATED,
+    compression: int = zipfile.ZIP_STORED,
+    max_entry_size: int = MAX_ENTRY_SIZE,
+    max_total_size: int = MAX_TOTAL_SIZE,
+    max_entries: int = MAX_ENTRIES,
 ) -> bytes:
     """:func:`deterministic_zip` plus fixed dates in ``docProps/core.xml``.
 
@@ -207,7 +269,9 @@ def deterministic_xlsx(
     ``dcterms:modified``; both, and ``cp:lastPrinted`` if present, are set to
     ``timestamp``. Nothing else inside the package is changed, so a generator that writes
     other volatile values (a random id, a temp path) still has to fix those itself. Works
-    for any OOXML package — ``.docx`` and ``.pptx`` carry the same part.
+    for any OOXML package — ``.docx`` and ``.pptx`` carry the same part. Same defaults and
+    limits as :func:`deterministic_zip`: stored entries, for a checksum that holds across
+    machines.
     """
     stamp = timestamp.encode("ascii")
 
@@ -216,7 +280,15 @@ def deterministic_xlsx(
             return data
         return _CORE_DATES.sub(lambda m: m.group(1) + stamp + m.group(3), data)
 
-    return _repack(content, date_time=date_time, compression=compression, rewrite=rewrite)
+    return _repack(
+        content,
+        date_time=date_time,
+        compression=compression,
+        max_entry_size=max_entry_size,
+        max_total_size=max_total_size,
+        max_entries=max_entries,
+        rewrite=rewrite,
+    )
 
 
 class UploadCase(NamedTuple):
@@ -322,6 +394,9 @@ def mutation_cases(stem: str = "report", *, allowed: Sequence[str] = (".xlsx", "
 __all__ = [
     "FIXED_CORE_TIMESTAMP",
     "FIXED_ZIP_TIME",
+    "MAX_ENTRIES",
+    "MAX_ENTRY_SIZE",
+    "MAX_TOTAL_SIZE",
     "XLSX_MIME",
     "XLS_MIME",
     "UploadCase",

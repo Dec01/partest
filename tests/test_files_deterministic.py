@@ -171,3 +171,68 @@ def test_a_real_openpyxl_workbook_saved_twice():
     second = save(datetime.datetime(2027, 1, 1, 0, 0, 0))
     assert first != second
     assert deterministic_xlsx(first) == deterministic_xlsx(second)
+
+
+# --- review: defaults, limits, permissions ---------------------------------------
+
+
+def test_entries_are_stored_by_default_so_the_checksum_needs_no_zlib():
+    """zlib and zlib-ng deflate differently; stored bytes depend on the content alone."""
+    out = deterministic_xlsx(workbook(created="a", modified="b"))
+    with zipfile.ZipFile(io.BytesIO(out)) as zf:
+        assert {i.compress_type for i in zf.infolist()} == {zipfile.ZIP_STORED}
+    deflated = deterministic_xlsx(workbook(created="a", modified="b"), compression=zipfile.ZIP_DEFLATED)
+    with zipfile.ZipFile(io.BytesIO(deflated)) as zf:
+        assert {i.compress_type for i in zf.infolist()} == {zipfile.ZIP_DEFLATED}
+    assert deterministic_xlsx(deflated) == out  # same content, same stored bytes
+
+
+def test_source_permissions_never_reach_the_output():
+    def archive(mode):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as zf:
+            info = zipfile.ZipInfo("a.txt", date_time=(2026, 1, 1, 0, 0, 0))
+            info.create_system = 3
+            info.external_attr = mode << 16
+            zf.writestr(info, "x")
+        return buffer.getvalue()
+
+    executable, private = deterministic_zip(archive(0o100755)), deterministic_zip(archive(0o100600))
+    assert executable == private
+    with zipfile.ZipFile(io.BytesIO(executable)) as zf:
+        assert zf.getinfo("a.txt").external_attr == 0o100644 << 16
+
+
+def test_a_decompression_bomb_is_refused_without_inflating_it():
+    bomb = io.BytesIO()
+    with zipfile.ZipFile(bomb, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("zeros.bin", b"\0" * (8 * 1024 * 1024))
+    assert len(bomb.getvalue()) < 64 * 1024
+    with pytest.raises(ValueError, match="inflates beyond"):
+        deterministic_zip(bomb.getvalue(), max_entry_size=1024 * 1024)
+    with pytest.raises(ValueError, match="inflates beyond"):
+        deterministic_zip(bomb.getvalue(), max_total_size=1024 * 1024)
+
+
+def test_too_many_entries_are_refused():
+    many = package([(f"f{i}.txt", "x") for i in range(20)])
+    with pytest.raises(ValueError, match="max_entries"):
+        deterministic_zip(many, max_entries=10)
+
+
+def test_a_pathological_core_part_is_handled_in_linear_time():
+    import time
+
+    hostile = (
+        b"<cp:coreProperties>"
+        + b"<dcterms:created " * 20000
+        + b"x" * 200000
+        + b"<dcterms:modified>" + b"y" * 100000
+        + b"</cp:coreProperties>"
+    )
+    raw = package([("[Content_Types].xml", "<Types/>"), ("docProps/core.xml", hostile)])
+    started = time.perf_counter()
+    out = deterministic_xlsx(raw)
+    assert time.perf_counter() - started < 2.0
+    with zipfile.ZipFile(io.BytesIO(out)) as zf:
+        assert zf.read("docProps/core.xml") == hostile  # nothing matched, nothing changed

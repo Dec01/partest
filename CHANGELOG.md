@@ -83,9 +83,15 @@
   entry, and a workbook writer stamps "now" into `docProps/core.xml`. The archive is repacked
   with fixed entry times, permissions and creating system, entries sorted (`mimetype` and
   `[Content_Types].xml` first), the comment dropped; `deterministic_xlsx` also fixes
-  `dcterms:created`, `dcterms:modified` and `cp:lastPrinted`. `compression=ZIP_STORED` for a
-  checksum that must hold across zlib builds. Standard library only. Also public:
-  `FIXED_ZIP_TIME`, `FIXED_CORE_TIMESTAMP`. See [[howto/upload]].
+  `dcterms:created`, `dcterms:modified` and `cp:lastPrinted`. Permissions are never taken
+  from the source. **Entries are stored by default** (`compression=ZIP_STORED`): deflate
+  output depends on the zlib build — Python 3.14 builds may use zlib-ng — so a deflated
+  checksum holds for one interpreter build only; `ZIP_DEFLATED` is there on request. Meant for
+  files the suite generated: inflation is bounded by `max_entry_size`, `max_total_size` and
+  `max_entries` (counted on decompressed bytes), and the core-date pattern is bounded, so a
+  hostile archive fails fast. Standard library only. Also public: `FIXED_ZIP_TIME`,
+  `FIXED_CORE_TIMESTAMP`, `MAX_ENTRY_SIZE`, `MAX_TOTAL_SIZE`, `MAX_ENTRIES`.
+  See [[howto/upload]].
 
 ### Fixed
 
