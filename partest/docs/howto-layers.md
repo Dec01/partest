@@ -117,6 +117,44 @@ Develop against the fake, swap in a real probe, and the report says which one ra
 green test backed by a fake is exactly the false coverage the rest of this methodology
 is built to prevent.
 
+### Waiting for a job to finish (`I5`)
+
+`wait_for` is the small form: one synchronous probe, truthy means done. A background job is
+a state machine, and when it does not finish, *where it stopped* is the finding — "did not
+finish in 300 s" and "sat in `QUEUED` for 300 s" send you to different teams.
+`partest.polling.poll_until` keeps the path:
+
+```python
+from partest.polling import PollTimeout, poll_until
+
+result = await poll_until(
+    lambda: api_client.make_request(
+        "GET", "/jobs", add_url1=f"/{job_id}",
+        expected_status_code=200, type=types.request_default,
+    ),
+    lambda job: job["status"] in {"DONE", "FAILED"},
+    timeout=300, interval=2,
+    state=lambda job: job["status"],   # what the history records
+    what=f"job {job_id}",
+)
+assert result.value["status"] == "DONE", result.history   # ('QUEUED', 'RUNNING', 'FAILED')
+```
+
+- `fetch` may be a coroutine function or a plain one; `on_tick` (plain or async) gets a
+  `PollTick(attempt, value, state, elapsed)` after every fetch — log it, attach it, refresh
+  a token there.
+- `PollResult` carries `value`, `history` (states seen, consecutive repeats collapsed),
+  `attempts` and `elapsed`.
+- On timeout `PollTimeout` is raised with `last`, `history`, `attempts`, `elapsed` and the
+  `timeout`, and its message names them. It is an `AssertionError` (a failed test, like
+  `wait_for`) and a `TimeoutError`.
+- The clock is monotonic. Between fetches the loop sleeps `interval` and never past the
+  deadline, then looks once more *at* the deadline — a job that finished during the last
+  sleep is not reported as stuck. No other pause is added.
+- An exception from `fetch` propagates: a failing request is its own finding, not a reason
+  to keep waiting.
+- `poll_until_sync` is the same contract for synchronous code.
+
 ### Implementing a real probe
 
 ```python

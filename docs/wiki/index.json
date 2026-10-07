@@ -68,7 +68,7 @@
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-09-24",
+      "verified": "2026-10-07",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -85,7 +85,8 @@
         "partest/http/client.py",
         "partest/call_storage.py",
         "partest/reports/payload.py",
-        "partest/pytest_plugin.py"
+        "partest/pytest_plugin.py",
+        "partest/polling.py"
       ],
       "headings": [
         {
@@ -121,7 +122,7 @@
           "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 10496
+      "chars": 10746
     },
     {
       "slug": "components/project-gen",
@@ -668,11 +669,12 @@
       "path": "docs/wiki/howto/layers.md",
       "title": "Journeys, invariants, integrations, e2e",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-10-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
         "partest/sideeffects.py",
+        "partest/polling.py",
         "partest/test_types.py",
         "partest/methodology/api/matrix.py"
       ],
@@ -715,6 +717,10 @@
         },
         {
           "level": 3,
+          "text": "Waiting for a job to finish (`I5`)"
+        },
+        {
+          "level": 3,
           "text": "Implementing a real probe"
         },
         {
@@ -726,7 +732,7 @@
           "text": "End to end"
         }
       ],
-      "chars": 6993
+      "chars": 8794
     },
     {
       "slug": "howto/migration",
@@ -1997,6 +2003,10 @@
     ],
     "partest/payloads.py": [
       "backlog-audit"
+    ],
+    "partest/polling.py": [
+      "components/overview",
+      "howto/layers"
     ],
     "partest/project_gen/__init__.py": [
       "components/project-gen"

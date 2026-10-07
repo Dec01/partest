@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Added
+
+- **`partest.polling.poll_until` / `poll_until_sync` — wait for a terminal state and keep the
+  path.** A consumer had written the same loop three times, and the copies disagreed on the
+  details: one ran on wall-clock time, one had earlier returned the last non-terminal value
+  as if it were the answer, one reported only the last state and not the way there. `poll_until(fetch, is_terminal, *, timeout, interval,
+  on_tick=None, state=None, what=...)` returns a `PollResult` (`value`, `history` — states
+  seen, consecutive repeats collapsed — `attempts`, `elapsed`) or raises `PollTimeout` with
+  `last`, `history`, `attempts`, `elapsed` and `timeout`, all named in its message.
+  `PollTimeout` is an `AssertionError` (a failed test, as with `sideeffects.wait_for`) and a
+  `TimeoutError`. Monotonic clock; the last sleep is cut to the deadline and one more fetch
+  is made there, so nothing waits beyond `interval` and a job finishing in the final sleep is
+  not reported stuck. `fetch` and `on_tick` may be plain or async; an exception from `fetch`
+  propagates. Also public: `PollTick`. See [[howto/layers]].
+
 ### Fixed
 
 - **`make_request(expected_status_code=(200, 400))` without `type=` raised `TypeError`.**
