@@ -67,6 +67,15 @@
 
 ### Fixed
 
+- **The repository did not contain `partest.env`.** `.gitignore` had a bare `env/` rule meant
+  for a virtual environment, and it matched the package `partest/env/` as well (with
+  `core.ignorecase` so did `ENV/`). The package existed on every developer machine and in
+  every wheel built from one — the 2.4.0 wheel is not affected — and in no clone of the
+  repository, where `import partest.env` failed and the docs lint could not pass. The
+  virtual-environment rules are now anchored at the root, the two files are tracked, and
+  `tests/test_packaging.py` fails if anything under `partest/` other than bytecode is
+  ignored by git.
+
 - **`make_request(expected_status_code=(200, 400))` without `type=` raised `TypeError`.**
   `ApiClient` has accepted a set of allowed statuses for a long time; type inference, which
   runs inside the coverage decorator whenever `type=` is missing, compared the expectation

@@ -30,10 +30,13 @@ wheels/
 
 # Virtual environments (root-only; do NOT use bare lib/bin/scripts — those
 # patterns match package paths and break a public library checkout)
-.venv/
-venv/
-ENV/
-env/
+# Anchored at the root: a bare `env/` also matched the package `partest/env/`, so it
+# never reached git (and with core.ignorecase `ENV/` matches it as well).
+/.venv/
+/.venv314/
+/venv/
+/ENV/
+/env/
 pyvenv.cfg
 pip-selfcheck.json
 
@@ -57,6 +60,8 @@ nosetests.xml
 # Run artifacts written into the working directory by the report builders
 # (partest/allure_graph.py, partest/zorro_report.py). Generated per run, never source.
 /api_call_counts.png
+# Coverage shards of an xdist run (partest/call_storage.py, DEFAULT_SHARD_DIR).
+/.partest/
 
 # Local secrets & runtime logs (never ship)
 .env

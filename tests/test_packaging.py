@@ -345,3 +345,29 @@ def test_the_pytest_the_suite_runs_on_is_inside_the_declared_range():
         f"the suite is running on pytest {running}, which setup.py excludes ({declared}): "
         "either the run is wrong or the declaration is"
     )
+
+
+def test_no_package_file_is_hidden_by_gitignore():
+    """Everything under `partest/` that is source reaches git.
+
+    A bare `env/` rule in `.gitignore` (meant for a virtual environment) also matched the
+    package `partest/env/`, so it existed on every developer machine and in every wheel built
+    from one, and in no clone of the repository. Nothing failed locally; a fresh checkout
+    could not pass its own docs lint. Only bytecode may be ignored here.
+    """
+    import shutil
+    import subprocess
+
+    if shutil.which("git") is None or not (REPO_ROOT / ".git").exists():
+        pytest.skip("not a git checkout")
+    result = subprocess.run(
+        ["git", "ls-files", "-o", "-i", "--exclude-standard", "partest"],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip(f"git ls-files failed: {result.stderr.strip()}")
+    hidden = [
+        line for line in result.stdout.splitlines()
+        if line and "__pycache__/" not in line and not line.endswith((".pyc", ".pyo"))
+    ]
+    assert hidden == [], f"ignored by .gitignore but part of the package: {hidden}"
