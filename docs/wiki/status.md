@@ -69,8 +69,10 @@ allow_version_literals: true
 
 ### Не выпущено — шесть возможностей, которые потребитель писал сам (2026-10-07)
 
-Раздел `Unreleased` в `CHANGELOG.md`. Версия не поднята; предложение — патч для одного
-исправления вывода типа, минор для остального.
+Раздел `Unreleased` в `CHANGELOG.md`. Версия не поднята. **Вердикт: один выпуск 2.5.0**, без
+отдельного патча 2.4.1: исправления выходят вместе с возможностями, а `### Changed` (одноэлементный
+набор статусов выводится как сам статус, у существующих вызовов меняется ячейка) — по правилам
+[[howto/release]] уже минор.
 
 | Что | Где | Документация |
 |---|---|---|
@@ -80,10 +82,13 @@ allow_version_literals: true
 | opt-in наборы маркеров, `meta.selection.optin` | `partest/optin.py`, `partest/call_storage.py`, `partest/reports/compare.py` | [[components/overview]] |
 | владелец ресурса шире теста | `partest/tracking.py` | [[howto/recipes]] |
 | детерминированные байты zip/xlsx | `partest/files.py` | [[howto/upload]] |
-| `partest/env/` снова в git | `.gitignore`, `tests/test_packaging.py` | — |
+| `partest/env/` снова в git; страж от игнорируемых и забытых в `git add` файлов пакета | `.gitignore`, `tests/test_packaging.py` | [[howto/contribute]] |
+| генератор в `expected_status_code` больше не валит проверку статуса | `partest/client.py` | — |
+| `redact_text` — маскировка в тексте; ею закрыты сообщения опроса | `partest/redact.py` | [[howto/enterprise]] |
 
 Для каскада: ключ `meta.selection.optin` в `coverage.json` — аддитивный, `partialRun` его не
-читает; его видят atlas и закрытый сервер, если читают `meta.selection`. Спорное из ревью —
+читает; его видят `partest-atlas` и другие читатели формата, если читают `meta.selection`.
+У `compare` новый мягкий список `notes`. Спорное из ревью —
 [[proposals]] §D.
 
 ### 1.6 — точность покрытия и доступы · **выпущено в 1.7.0**

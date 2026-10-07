@@ -371,3 +371,29 @@ def test_no_package_file_is_hidden_by_gitignore():
         if line and "__pycache__/" not in line and not line.endswith((".pyc", ".pyo"))
     ]
     assert hidden == [], f"ignored by .gitignore but part of the package: {hidden}"
+
+
+def test_no_package_file_is_left_out_of_git():
+    """A new module under `partest/` that was never `git add`-ed.
+
+    It works on the machine that wrote it and ships in every wheel built there, and a clone
+    of the repository does not have it — the same split as the ignored `partest/env/`, by
+    forgetting instead of by a rule. Run before committing, this fails until the file is
+    added; that is the point.
+    """
+    import shutil
+    import subprocess
+
+    if shutil.which("git") is None or not (REPO_ROOT / ".git").exists():
+        pytest.skip("not a git checkout")
+    result = subprocess.run(
+        ["git", "ls-files", "-o", "--exclude-standard", "partest"],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        pytest.skip(f"git ls-files failed: {result.stderr.strip()}")
+    untracked = [
+        line for line in result.stdout.splitlines()
+        if line and "__pycache__/" not in line and not line.endswith((".pyc", ".pyo"))
+    ]
+    assert untracked == [], f"under partest/ but not in git: {untracked}"

@@ -53,7 +53,7 @@ PYTHONPATH=../partest_client python -m pytest tests/test_golden_suite.py -q
 ```
 
 `tests/test_packaging.py` also fails when anything under `partest/` other than bytecode is
-ignored by git: a bare `env/` rule meant for a virtual environment once kept `partest/env/` out
+untracked — a new module not yet `git add`-ed fails the suite until it is — or ignored by git: a bare `env/` rule meant for a virtual environment once kept `partest/env/` out
 of every clone while every local wheel still carried it. Virtual-environment rules in
 `.gitignore` are anchored at the root (`/env/`), and a local interpreter for another Python
 (for instance `.venv314/` for the 3.14 claim in `setup.py`) belongs under such a rule too.

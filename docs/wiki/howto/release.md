@@ -23,6 +23,7 @@ Only bump on an explicit release request. Semver as practiced here:
 |---|---|
 | new opt-in API, new CLI flag, new subtype | minor |
 | bug fix, doc-only, internal refactor | patch |
+| type inference gives an existing, non-failing call a different cell | **minor** — coverage numbers move without any test changing; list the classes in `### Changed` |
 | removing a legacy alias (`type_*`, `aqa_*`, legacy TC names) | **major** |
 
 Aliases live at least one full minor before removal.
@@ -43,6 +44,10 @@ python -m partest.ui.capture_baselines --dry-run
 - [ ] touched `partest/methodology/*`? `partest-gen` reads those functions from another
       repository — run its golden test against this tree, and raise its floor after the
       release. See [[components/project-gen]]
+- [ ] touched the `coverage.json` format (`partest/reports/payload.py`,
+      `partest.call_storage.dump_storage`)? Its readers live in other repositories —
+      `partest-atlas` and every other consumer of the format — and each needs a line in its own
+      `CHANGELOG.md`, even for an additive key
 - [ ] no secrets, stand URLs, absolute local paths, or consumer project names in anything with
       `ships_in_wheel: true` — the linter checks this, but read the diff too
 - [ ] the release adds code? Re-run the whole suite on Python 3.14 (`setup.py` claims it and CI
@@ -99,9 +104,13 @@ python -m venv /tmp/verify && /tmp/verify/bin/pip install -U partest
 ### If you have to publish by hand
 
 Only when the workflow is unavailable. Credentials belong in your own keyring or
-`~/.pypirc`, never on a command line and never in a message:
+`~/.pypirc`, never on a command line and never in a message. Build from a **clean clone**,
+not from the working copy: a working copy carries untracked and ignored files, and the build
+packs whatever is on disk.
 
 ```bash
+git clone <repository> /tmp/partest-release && cd /tmp/partest-release
+git checkout vX.Y.Z
 python tools/check_all.py --strict-docs --package
 python -m twine upload dist/*
 ```
