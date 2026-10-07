@@ -8,8 +8,9 @@ the same request must stay explicit in the suite.
 from __future__ import annotations
 
 import json
+import numbers
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Union
 
 from partest.test_types import TypesTestCases as T
 from partest.test_types import canonicalize_type
@@ -72,11 +73,102 @@ def _ct_mismatch_abuse(headers: Optional[Dict[str, str]], content: Any, json_dat
     return False
 
 
+def _status_set(expected: Any) -> Optional[Tuple[int, ...]]:
+    """The statuses of a set-valued expectation, sorted and de-duplicated.
+
+    ``None`` means the expectation is not a collection — absent, or a single status —
+    and the scalar rules apply as they always did. An empty tuple means a collection
+    that names no usable status (empty, or holding something that is not a status).
+    """
+    if expected is None or isinstance(expected, (str, bytes, bytearray, numbers.Number)):
+        return None
+    if not isinstance(expected, Iterable):
+        return None
+    try:
+        return tuple(
+            sorted({int(s) for s in expected if not isinstance(s, bool)})
+        )
+    except (TypeError, ValueError):
+        return ()
+
+
+def _is_2xx(status: Any) -> bool:
+    """``200 <= status < 300`` for anything that compares, ``False`` for what does not."""
+    try:
+        return bool(200 <= status < 300)
+    except TypeError:
+        return False
+
+
+def _format_statuses(statuses: Tuple[int, ...]) -> str:
+    """``{200, 201}``; a run of three or more collapses, so ``range(200, 300)`` is ``{200-299}``."""
+    runs = []
+    for s in statuses:
+        if runs and s == runs[-1][1] + 1:
+            runs[-1][1] = s
+        else:
+            runs.append([s, s])
+    parts = []
+    for lo, hi in runs:
+        if hi - lo >= 2:
+            parts.append(f"{lo}-{hi}")
+        else:
+            parts.extend(str(s) for s in range(lo, hi + 1))
+    return "{" + ", ".join(parts) + "}"
+
+
+def _infer_for_status_set(statuses: Tuple[int, ...], **context: Any) -> InferResult:
+    """One type for a set of allowed statuses — or an honest "unknown".
+
+    Every status of the set is inferred on its own, with the rest of the call unchanged.
+    If they all name the same type, that type stands, at the *lowest* confidence among
+    them: ``(401, 403)`` is permissions at 0.75, ``(200, 201)`` is default at 0.4,
+    ``(404,)`` is not-found exactly as ``404`` is. If they disagree — ``(200, 400)``, or
+    ``(404, 405)``, which share a class and still mean two different cells — the call is
+    recorded as ``unknown`` with low confidence and a reason that names the split: a
+    request that accepts either outcome does not say which case it tests, and guessing
+    one would file it in the wrong cell, silently.
+    """
+    if not statuses:
+        return InferResult(
+            T.type_unknown,
+            0.2,
+            "expected_status_code names no usable status",
+            True,
+        )
+    per_status = [
+        (status, infer_test_type(expected_status_code=status, **context))
+        for status in statuses
+    ]
+    types = {result.test_type for _, result in per_status}
+    label = _format_statuses(statuses)
+    if len(types) == 1:
+        weakest = min((result for _, result in per_status), key=lambda r: r.confidence)
+        return InferResult(
+            weakest.test_type,
+            weakest.confidence,
+            f"every expected status in {label} agrees: {weakest.reason}",
+            True,
+        )
+    by_type: Dict[str, list] = {}
+    for status, result in per_status:
+        by_type.setdefault(result.test_type, []).append(status)
+    split = ", ".join(
+        f"{_format_statuses(tuple(group))} → {test_type}" for test_type, group in by_type.items()
+    )
+    return InferResult(
+        T.type_unknown,
+        0.2,
+        f"expected statuses {label} imply different types ({split}); pass type= explicitly",
+        True,
+    )
+
+
 def infer_test_type(
     *,
     method: str,
     endpoint: str = "",
-    expected_status_code: Optional[int] = None,
+    expected_status_code: Optional[Union[int, Sequence[int]]] = None,
     params: Any = None,
     json_data: Any = None,
     data: Any = None,
@@ -99,6 +191,12 @@ def infer_test_type(
     - query params that look like filter/sort/page on GET → request_params (0.85)
     - otherwise → request_default with low confidence (0.4) if 2xx expected, else unknown
 
+    A **set** of allowed statuses (``(200, 201)``, ``[400, 415]``, ``range(200, 300)``)
+    is decided status by status: if every status yields the same type, that type at the
+    lowest confidence among them; otherwise ``unknown`` at 0.2 with a reason naming
+    which status implies what. Status-independent signals (a broken raw body, list
+    params on a GET, files) decide before the set is looked at, as they always did.
+
     **Decision for 1.0.0:** do not drop the ``type`` parameter. Callers should
     still pass ``type=`` for permissions / new / update / elements / extra / env.
     """
@@ -116,6 +214,12 @@ def infer_test_type(
         headers.setdefault("Content-Type", content_type)
 
     status = expected_status_code
+    # A set of allowed statuses never matched the single-status rules below (a tuple is
+    # not equal to 405), so those keep skipping it; it is decided where the status class
+    # is first compared, which used to raise TypeError on anything but a number.
+    statuses = _status_set(status)
+    if statuses is not None:
+        status = None
 
     if status == 405:
         return InferResult(
@@ -189,7 +293,23 @@ def infer_test_type(
             True,
         )
 
-    if status is not None and 200 <= status < 300:
+    if statuses is not None:
+        return _infer_for_status_set(
+            statuses,
+            method=method,
+            endpoint=endpoint,
+            params=params,
+            json_data=json_data,
+            data=data,
+            content=content,
+            content_type=content_type,
+            files=files,
+            headers=headers,
+            explicit_type=explicit_type,
+            graphql_query=graphql_query,
+        )
+
+    if status is not None and _is_2xx(status):
         return InferResult(
             T.request_default,
             0.4,

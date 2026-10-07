@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`make_request(expected_status_code=(200, 400))` without `type=` raised `TypeError`.**
+  `ApiClient` has accepted a set of allowed statuses for a long time; type inference, which
+  runs inside the coverage decorator whenever `type=` is missing, compared the expectation
+  with `200 <= status < 300` and failed on a tuple — before the request was sent, so the
+  test died on the harness rather than on anything the API did. A set (`tuple`, `list`,
+  `set`, `range`) is now decided status by status: if every status infers the same type,
+  that type stands at the **lowest** confidence among them (`(200, 201)` is default at 0.4,
+  `(401, 403)` permissions at 0.75, `(404,)` exactly what `404` is); if they disagree, the
+  call is recorded as `unknown` at 0.2 with a reason naming the split
+  (`{200} → request_default, {400} → unknown; pass type= explicitly`). "Same class" is not
+  the rule on purpose: `404` and `405` are both 4xx and still two different cells. Inference
+  changes only where it used to raise — the status-independent signals (broken raw body,
+  list parameters on a `GET`, files) decide first, as they did for a set before. A set
+  that names no status (`()`, `("abc",)`) is `unknown` too, and an expectation that cannot
+  be compared with a number no longer raises at the 2xx rule. Explicit `type=` still wins
+  and is still the rule. See [[concepts/methodology]].
+
 ## 2.4.0 — 2026-09-24
 
 ### Added

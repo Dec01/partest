@@ -1,7 +1,7 @@
 ---
 title: Coverage methodology — two areas, three axes each
 status: current
-verified: 2026-09-23
+verified: 2026-10-07
 sources: [partest/methodology/__init__.py, partest/methodology/api/subtypes.py, partest/methodology/api/matrix.py, partest/methodology/api/steps.py, partest/methodology/api/inference.py, partest/methodology/api/classifier.py, partest/test_types.py, partest/methodology/ui/surfaces.py, partest/methodology/ui/checks.py, partest/methodology/ui/matrix.py, partest/methodology/ui/steps.py]
 audience: agent
 ships_in_wheel: true
@@ -119,6 +119,13 @@ extra data, env lists, benchmarks — is ambiguous from the wire alone.
 
 Rule: pass `type=` explicitly. Explicit always wins over inference. Do not remove `type=` from
 existing tests to "let inference handle it".
+
+A **set** of allowed statuses — `expected_status_code=(200, 400)`, a list, a `set`, a `range` —
+is inferred status by status. If every status yields the same type, that type is recorded at the
+lowest confidence among them; if they disagree, the call is `unknown` at low confidence and the
+reason names which status implies what. The rule is "same inferred type", not "same status class":
+`(404, 405)` is all 4xx and still two cells. A call that accepts either outcome does not say which
+case it tests — that is exactly where `type=` belongs.
 
 ## What "100% covered" means here
 

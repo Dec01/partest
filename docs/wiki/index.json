@@ -216,7 +216,7 @@
       "path": "docs/wiki/concepts/methodology.md",
       "title": "Coverage methodology — two areas, three axes each",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-10-07",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -290,7 +290,7 @@
           "text": "Axis C — depth"
         }
       ],
-      "chars": 10966
+      "chars": 11509
     },
     {
       "slug": "decisions/distribution",
@@ -424,7 +424,7 @@
       "path": "docs/wiki/decisions/explicit-type.md",
       "title": "ADR — явный type= вместо автоинференса",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-10-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
