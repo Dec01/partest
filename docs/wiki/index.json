@@ -86,6 +86,7 @@
         "partest/call_storage.py",
         "partest/reports/payload.py",
         "partest/pytest_plugin.py",
+        "partest/optin.py",
         "partest/polling.py",
         "partest/rounding.py"
       ],
@@ -111,6 +112,10 @@
           "text": "pytest plugin"
         },
         {
+          "level": 3,
+          "text": "Opt-in marker sets"
+        },
+        {
           "level": 2,
           "text": "TLS verification"
         },
@@ -123,7 +128,7 @@
           "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 11031
+      "chars": 13714
     },
     {
       "slug": "components/project-gen",
@@ -2006,6 +2011,9 @@
     ],
     "partest/methodology/ui/surfaces.py": [
       "concepts/methodology"
+    ],
+    "partest/optin.py": [
+      "components/overview"
     ],
     "partest/payloads.py": [
       "backlog-audit"

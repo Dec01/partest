@@ -17,6 +17,7 @@ partest/
   tracking.py          TrackingApiClient, CreatedRegistry, id extractors
   polling.py           poll_until / poll_until_sync — wait for a terminal state, keep the path
   rounding.py          agrees_with_formula / agrees_with_sum — tolerance derived from scales
+  optin.py             opt-in marker sets for the pytest plugin (ini `optin_markers`)
   payloads.py          BaseRequestBody
   validation/          BaseResponseValidator, ProblemDetail*, raw IncorrectBody cases
   data_marker.py       TEST_MARKER, marked_name/code/short — test-data naming
@@ -89,7 +90,8 @@ stays project-agnostic so a second project can adopt it without stripping anythi
 ## pytest plugin
 
 Auto-loads via the `pytest11` entry point (`partest/pytest_plugin.py`) and does two unrelated
-things, each behind its own switch.
+things, each behind its own switch — and a third, opt-in marker sets, that is inert until the
+ini file asks for it (below).
 
 | Switch | Default | Governs |
 |---|---|---|
@@ -106,6 +108,52 @@ subset of the suite ([Coverage honesty — when the number lies](concepts-covera
 so a parallel run merges them: workers deselect the *same* tests, and sets merge where counts
 would double. The same representation makes a second run in one process harmless.
 When the change landed is in [Migration between partest versions](howto-migration.md).
+
+### Opt-in marker sets
+
+Tests that must not run in a plain `pytest` — long, expensive, needing a stand prepared by
+hand — are **deselected**, not skipped, until someone asks for them. An everlasting skip sits
+in every report and teaches people to read past it; a deselected test is simply not in the run.
+
+```ini
+[pytest]
+optin_markers =
+    slow:RUN_SLOW
+    nightly
+markers =
+    slow: long-running, opt-in
+    slow_db: the database part of slow
+    nightly: only when asked for
+```
+
+A test carrying `slow` or any `slow_*` marker stays in the run when either holds:
+
+- the `-m` expression **depends on the set positively** — it is true on the test's markers and
+  false on the same markers with every `slow`/`slow_*` removed: `-m slow`, `-m slow_db`,
+  `-m "slow and not flaky"`;
+- the variable after the colon reads as true (`RUN_SLOW=1`; same words as every other partest
+  switch), which takes the whole set regardless of `-m`.
+
+The rule is an evaluation, not a search for the word. `-m "not slow_db and not flaky"` is true
+for every test without those two markers — the whole `slow` set included — and a substring
+check would pull the set in; evaluating with and without the set's markers sees that `slow`
+is not what selected them. `-m "slow or api"` on a test marked both does not count either: the
+`api` half selects it alone. The expression goes through pytest's own parser
+(`_pytest.mark.expression`, a private module — the `pytest<10` cap covers it), so keyword
+matching such as `-m "slow(level=2)"` means what it means to pytest.
+
+- **Sub-markers by prefix:** `slow` covers `slow_*`. A set is one family of names, and a prefix
+  keeps a new member from slipping out of it because a list was not extended. A marker outside
+  the family joins with its own entry and the same variable (`heavy:RUN_SLOW`).
+- A test in two sets must be opted into both.
+- Deselected tests go through `pytest_deselected`, so they show in pytest's summary and in
+  `run_info["selection"]` like any other filter.
+- With `optin_markers` empty nothing is registered and nothing is printed; otherwise one header
+  line names the sets. A malformed entry is a usage error, not a silently ignored line.
+- Markers are still registered under `markers` — `--strict-markers` is not this plugin's job.
+- Not behind `PARTEST_PYTEST_PLUGIN` or `PARTEST_RUN_METADATA`: it decides what runs, and a
+  project that turned the Allure half off still wants its long tests kept out.
+  `-p no:partest` disables it along with everything else.
 
 ## TLS verification
 

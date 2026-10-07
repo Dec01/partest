@@ -33,6 +33,17 @@
   divisor interval containing zero raises `ZeroDivisionError`. Also public: `Interval`,
   `half_unit`. See [[howto/layers]].
 
+- **Opt-in marker sets: `optin_markers = marker[:ENV_VAR] ...` in the ini file.** Tests with
+  such a marker, or any `marker_*`, are **deselected** — not skipped — unless the `-m`
+  expression depends on the set positively (true on the test's markers, false on the same
+  markers without the set's), or `ENV_VAR` reads as true. The expression is evaluated with
+  pytest's own parser, so a workaround such as `-m "not slow_db and not flaky"` does not pull
+  the set in, and `-m "slow or api"` on a test marked both is selected by `api`, not by the
+  set. Sub-markers are taken by prefix; a test in two sets must be opted into both; deselected
+  tests go through `pytest_deselected`. With the option empty the plugin registers nothing
+  and prints nothing. Lives in `partest.optin`, wired from the existing plugin; not behind
+  `PARTEST_PYTEST_PLUGIN`. See [[components/overview]].
+
 ### Fixed
 
 - **`make_request(expected_status_code=(200, 400))` without `type=` raised `TypeError`.**
