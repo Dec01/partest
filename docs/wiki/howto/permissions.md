@@ -1,7 +1,7 @@
 ---
 title: Permissions — four cells, not one 401
 status: current
-verified: 2026-09-08
+verified: 2026-10-07
 sources: [partest/access.py, partest/test_types.py]
 audience: user
 ships_in_wheel: true

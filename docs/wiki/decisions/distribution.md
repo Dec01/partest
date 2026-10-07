@@ -1,7 +1,7 @@
 ---
 title: ADR — как распространяется partest
 status: current
-verified: 2026-09-23
+verified: 2026-10-07
 sources: [setup.py, MANIFEST.in]
 audience: maintainer
 ships_in_wheel: false
@@ -65,8 +65,14 @@ git-ignored `.private-names` или `PARTEST_PRIVATE_NAMES` — в коде ег
 | | Содержимое |
 |---|---|
 | **wheel** | `partest/**`, `py.typed`, страницы `partest/docs/*.md` с `ships_in_wheel: true`, `LICENSE` |
-| **sdist** | то же плюс `CHANGELOG.md`, `setup.py`, `setup.cfg`, `MANIFEST.in` |
-| **GitHub** | всё дерево, кроме локального слоя источников |
+| **sdist** | то же плюс `CHANGELOG.md`, `docs/PYPI.md` (его читает `setup.py`), `setup.py`, `setup.cfg`, `MANIFEST.in` |
+| **GitHub** | всё, что отслеживает git, — кроме локального слоя источников |
+
+Колесо и sdist собираются из рабочей копии, GitHub показывает то, что в git. Расхождение между
+ними уже было: правило `env/` в `.gitignore` скрывало `partest/env/` от git, и пакет годами
+был в колёсах и отсутствовал в клонах. Теперь правила виртуальных окружений заякорены за
+корнем, а `tests/test_packaging.py` падает, если что-то внутри `partest/`, кроме байткода,
+игнорируется git.
 
 `MANIFEST.in` вычищает из дистрибутивов `tests/`, `docs/`, `tools/`, `.claude/`, `.grok/` и
 корневой `README.md`. Причина не в секретности, а в назначении: это материал для того, кто
@@ -81,8 +87,10 @@ git-ignored `.private-names` или `PARTEST_PRIVATE_NAMES` — в коде ег
    [[decisions/docs-in-wheel]]. Отбор по `ships_in_wheel` тоже остаётся: пользователю пакета
    не нужны ADR и доска статусов.
 3. **Публичный CI появился** — `.github/workflows/checks.yml` гоняет `tools/check_all.py`
-   на push и pull request и отдельно проверяет содержимое собранных артефактов. Публикация
-   при этом остаётся ручной: выпуск — осознанный акт, а не следствие зелёной сборки.
+   на push и pull request и отдельно проверяет содержимое собранных артефактов. Публикация —
+   отдельный `release.yml`, запускается тегом, повторяет проверки с `--strict-docs` и ждёт
+   ручного одобрения окружения `pypi`: выпуск — осознанный акт, а не следствие зелёной
+   сборки ([[howto/release]]).
 4. **Обратная связь приходит через GitHub**, а не мимо репозитория. [[status]] остаётся
    источником планов.
 

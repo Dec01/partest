@@ -1,7 +1,7 @@
 ---
 title: Статус, версии и что дальше
 status: current
-verified: 2026-09-23
+verified: 2026-10-07
 sources: [partest/__init__.py, CHANGELOG.md]
 audience: maintainer
 ships_in_wheel: false
@@ -15,9 +15,9 @@ allow_version_literals: true
 
 | | |
 |---|---|
-| **Дата актуализации** | 2026-09-23 |
-| **Версия в коде** | **2.1.0** — подготовлена к выпуску, ещё не на PyPI. Запись в `CHANGELOG.md` закрыта датой 2026-09-23. Поддержка pytest 8 прекращена: `PYSEC-2026-1845` исправлена только в 9.0.3 |
-| **Последний релиз на PyPI** | **1.8.1** (2026-09-07) — пять фиксов по отчёту консьюмера, §6. Минимальный Python — 3.10 |
+| **Дата актуализации** | 2026-10-07 |
+| **Версия в коде** | **2.4.0** — совпадает с последним релизом. Поверх неё — раздел `Unreleased` в `CHANGELOG.md`, **не выпущено**: см. §3 «Не выпущено» |
+| **Последний релиз на PyPI** | **2.4.0** (2026-09-24; проверено `pip index versions partest` 2026-10-07). Минимальный Python — 3.10, pytest `>=9.0.3,<10` |
 | **Дистрибуция** | PyPI — пакет, GitHub — исходники и история; см. [[decisions/distribution]] |
 | **Соседний пакет** | `partest-gen` выделен из `partest.project_gen` 2026-09-07; см. §5 |
 | **Consumer proof** | переезд `1.5.0 → 1.8.0` **состоялся** 2026-09-07: `8 failed, 2122 passed`, все падения предсуществующие; пять находок по пакету разобраны, см. §6 |
@@ -43,6 +43,10 @@ allow_version_literals: true
 | Coverage extras: `zorro_enhanced`, CLI, `ServiceMap`, badge/stubs | 1.5.0 |
 | IncorrectBody helper, freeze CSS sync, `compare_images(name=)` | 1.5.0 |
 | Методология UI: поверхности × проверки × глубина, матрица применимости | 2.0.0 |
+| `httpx_client` / `httpx_async_client` — свой клиент внутри политики TLS | 2.2.0 |
+| `meta.tlsUnverifiedHosts` / `tlsUnknownHosts`, `check_measured` | 2.3.0 |
+| `validate_coverage_payload` | 2.4.0 |
+| `poll_until`, `partest.rounding`, opt-in наборы маркеров, владелец ресурса в `CreatedRegistry`, детерминированные zip/xlsx | **не выпущено** |
 
 ## 2. Волны — закрыты
 
@@ -62,6 +66,25 @@ allow_version_literals: true
 «проверить в partest-repo» — **закрыты**: `tests/test_ui_isolation.py`, `tests/test_harness_1_1.py`.
 
 ## 3. Что дальше
+
+### Не выпущено — шесть возможностей, которые потребитель писал сам (2026-10-07)
+
+Раздел `Unreleased` в `CHANGELOG.md`. Версия не поднята; предложение — патч для одного
+исправления вывода типа, минор для остального.
+
+| Что | Где | Документация |
+|---|---|---|
+| набор статусов в выводе типа больше не роняет `make_request` | `partest/methodology/api/inference.py` | [[concepts/methodology]] |
+| `poll_until` / `poll_until_sync`; `sideeffects.wait_for` на том же цикле | `partest/polling.py` | [[howto/layers]] |
+| сверка «значение = формула от округлённых входов» | `partest/rounding.py` | [[howto/layers]] |
+| opt-in наборы маркеров, `meta.selection.optin` | `partest/optin.py`, `partest/call_storage.py`, `partest/reports/compare.py` | [[components/overview]] |
+| владелец ресурса шире теста | `partest/tracking.py` | [[howto/recipes]] |
+| детерминированные байты zip/xlsx | `partest/files.py` | [[howto/upload]] |
+| `partest/env/` снова в git | `.gitignore`, `tests/test_packaging.py` | — |
+
+Для каскада: ключ `meta.selection.optin` в `coverage.json` — аддитивный, `partialRun` его не
+читает; его видят atlas и закрытый сервер, если читают `meta.selection`. Спорное из ревью —
+[[proposals]] §D.
 
 ### 1.6 — точность покрытия и доступы · **выпущено в 1.7.0**
 

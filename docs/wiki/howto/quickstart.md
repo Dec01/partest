@@ -1,7 +1,7 @@
 ---
 title: Quickstart — first green API test
 status: current
-verified: 2026-09-08
+verified: 2026-10-07
 sources: [partest/client.py, partest/conf.py, partest/env/__init__.py, partest/zorro_report.py, partest/tls.py, partest/pytest_plugin.py]
 audience: user
 ships_in_wheel: true
@@ -180,7 +180,7 @@ python -m partest.ui.capture_baselines --scenes scenes.json --dry-run
 | `PARTEST_PYTEST_PLUGIN=0` | disable partest Allure hooks — **titles and attachments only** |
 | `pytest_plugin = False` in confpartest | same |
 | `PARTEST_RUN_METADATA=0` / `run_metadata = False` | stop recording what the run selected (`meta.selection`); rarely what you want |
-| `pytest -p no:partest` | hard unload entry point — both of the above |
+| `pytest -p no:partest` | hard unload entry point — all of the above, **and** the opt-in marker sets (`partest_optin_markers`): their tests then run like any other |
 
 The first two are for projects that own their Allure hooks. They no longer take the run
 metadata with them: see [[concepts/coverage-honesty]] for what that signal is worth.

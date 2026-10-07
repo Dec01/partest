@@ -1,7 +1,7 @@
 ---
 title: Developing partest
 status: current
-verified: 2026-09-24
+verified: 2026-10-07
 sources: [partest/__init__.py, setup.py, tests/test_docs.py, tools/docs_lint.py]
 audience: maintainer
 ships_in_wheel: false
@@ -51,6 +51,12 @@ golden test against this working tree before calling it done:
 cd ../partest_gen
 PYTHONPATH=../partest_client python -m pytest tests/test_golden_suite.py -q
 ```
+
+`tests/test_packaging.py` also fails when anything under `partest/` other than bytecode is
+ignored by git: a bare `env/` rule meant for a virtual environment once kept `partest/env/` out
+of every clone while every local wheel still carried it. Virtual-environment rules in
+`.gitignore` are anchored at the root (`/env/`), and a local interpreter for another Python
+(for instance `.venv314/` for the 3.14 claim in `setup.py`) belongs under such a rule too.
 
 `tests/test_ui_isolation.py` guards that `import partest.ui` needs no network, no OpenAPI and no
 confpartest — a monorepo UI job must not pull the API session. Do not weaken it.

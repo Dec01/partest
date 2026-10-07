@@ -13,16 +13,48 @@ allow_version_literals: true
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
 
+## 2026-10-07 · lint · ноль предупреждений для `--strict-docs`
+
+`release.yml` гоняет `check_all.py --strict-docs`, и 22 предупреждения линтера сделали бы
+выпуск невозможным. Каждая страница сверена с изменениями в своих `sources` с даты её
+`verified`, а не только передатирована:
+
+- [[status]] переписан в шапке: код и PyPI — 2.4.0 (проверено `pip index versions`), новые
+  возможности помечены «не выпущено», добавлен раздел о них;
+- [[howto/quickstart]] — `-p no:partest` снимает и opt-in-отбор; остальное (`partest.env`,
+  `TokenManager`, `RiskProfile`, TLS) сверено с кодом;
+- [[howto/migration]] — раздел «Unreleased» про httpx-фабрику на деле описывал 2.2.0 и
+  переименован; новый «Unreleased» — две смены поведения и что можно удалить у себя;
+- [[howto/release]] — пункты про перепрогон на 3.14 и сборку из того, что в git; сломанная
+  однострочная команда листинга sdist исправлена;
+- [[decisions/distribution]] — sdist содержит `docs/PYPI.md`, публикация идёт через
+  `release.yml` с одобрением, урок `partest/env/`;
+- [[howto/security]] — `SecHttp` в политике TLS; [[howto/enterprise]],
+  [[concepts/coverage-honesty]], [[howto/coverage-html]] — `meta.selection.optin`;
+- [[backlog-audit]] — волна 1.6 выпущена в 1.7.0 (было «не выпущена»), строка про владельцев;
+- [[howto/contribute]] — страж `.gitignore` для пакета;
+- `components/project-gen`, `decisions/docs-in-wheel`, `howto/permissions`, `howto/ui` —
+  сверены, расхождений нет, только дата;
+- [[proposals]] — новый раздел D со спорным из ревью.
+
 ## 2026-10-07 · update · шесть возможностей, которые потребитель писал сам
 
 Описаны вынесенные из потребителя обобщения (раздел `Unreleased` в `CHANGELOG.md`):
 вывод типа для набора статусов — [[concepts/methodology]]; `poll_until` и сверка по
 округлению (`partest.rounding`) — [[howto/layers]]; владелец ресурса в `CreatedRegistry` —
 [[howto/recipes]]; детерминированные байты zip/xlsx — [[howto/upload]]; opt-in наборы
-маркеров и карта новых модулей — [[components/overview]]. `verified` обновлён у страниц, чьи
-`sources` затронуты; у `howto/layers` и `components/overview` в `sources` добавлены новые
-модули. [[status]] не правился: он называет версией в коде 2.1.0, а в коде 2.4.0, и сверять
-его — отдельная работа, а не попутная правка.
+маркеров и карта новых модулей — [[components/overview]]. У `howto/layers` и
+`components/overview` в `sources` добавлены новые модули.
+
+*Поправка от того же дня (ревью):* здесь было написано «`verified` обновлён у страниц, чьи
+`sources` затронуты». Это неточно в обе стороны. Дата поднималась у страниц, где правился
+текст (`concepts/methodology`, `decisions/explicit-type`, `howto/layers`, `howto/recipes`,
+`howto/upload`, `components/overview`), и сверены при этом были только изменённые разделы, а
+не страницы целиком — у `howto/recipes` и `howto/upload` дата закрыла и старые расхождения,
+которые никто не проверял. А страницы, чьи `sources` этот диапазон тоже задел
+(`backlog-audit`, `proposals`, `howto/migration`, `howto/contribute`, `howto/enterprise`),
+не правились вовсе. Полная сверка — в записи выше. [[status]] тогда не правился: он называл
+версией в коде 2.1.0 при коде 2.4.0.
 
 ## 2026-09-23 · update · сверка перед 2.0.0 и даты `verified`
 

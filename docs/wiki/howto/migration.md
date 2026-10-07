@@ -1,7 +1,7 @@
 ---
 title: Migration between partest versions
 status: current
-verified: 2026-09-24
+verified: 2026-10-07
 sources: [partest/test_types.py, partest/__init__.py, partest/conf.py, partest/tls.py, partest/http/client.py, partest/pytest_plugin.py, partest/methodology/__init__.py, partest/methodology/_moved.py, partest/methodology/api/__init__.py, partest/methodology/api/overrides.py, partest/methodology/ui/__init__.py]
 audience: user
 ships_in_wheel: true
@@ -18,7 +18,34 @@ pip install -U partest
 pip install -U 'partest[ui]'   # UI suites
 ```
 
-## Unreleased — your own httpx clients can stay inside the TLS policy
+## Unreleased — helpers a suite used to write for itself, and two behaviour notes
+
+Nothing here breaks a suite that does not use the new names. Two behaviours change:
+
+| What | Before | Now | Do |
+|---|---|---|---|
+| `make_request(expected_status_code=(200, 400))` without `type=` | `TypeError` from type inference, before the request was sent | recorded; a set whose statuses imply different types is `unknown` | nothing — or pass `type=`, which was always the rule |
+| a status set together with a broken raw body or list parameters | the body/parameter signal decided, the set was not looked at | every status goes through every rule; `(404,)` is exactly `404`, `(200, 404)` with a broken body is `unknown` | pass `type=` where the recorded cell matters |
+| `sideeffects.wait_for` | could sleep past its deadline and gave up without a last look | the last sleep is cut to the deadline and the probe is called once more there | nothing |
+
+What a suite can now delete from its own code, if it carried a copy:
+
+- a polling loop → `partest.polling.poll_until` / `poll_until_sync` ([[howto/layers]]). Put a
+  token refresh inside `fetch`, not in `on_tick`.
+- "value = formula of rounded inputs" with a hand-picked tolerance → `partest.rounding`
+  ([[howto/layers]]).
+- a `pytest_collection_modifyitems` that keeps a marker set out of plain runs → the ini option
+  `partest_optin_markers` ([[components/overview]]). Behaviour to check against your copy:
+  `-m "set or other"` selects a test marked with both, sub-markers are taken by prefix.
+- per-test cleanup that deletes what a lazy session cache created → `CreatedRegistry.owned_by` /
+  `adopt` / `cleanup_owned` ([[howto/recipes]]).
+- re-zipping generated files for a stable checksum → `partest.files.deterministic_xlsx` /
+  `deterministic_zip`, stored by default ([[howto/upload]]).
+
+Working from a clone of the repository rather than from PyPI: `partest.env` was missing from
+git until now (a `.gitignore` rule swallowed it). Wheels were not affected.
+
+## 2.2.0 — your own httpx clients can stay inside the TLS policy
 
 Nothing here breaks. This is the upgrade a suite makes on purpose, and it is worth making if
 `grep -rn "httpx.Client(\|httpx.AsyncClient(" tests/` finds anything: every hit is a client
@@ -383,6 +410,9 @@ export PARTEST_PYTEST_PLUGIN=0
 # or
 pytest -p no:partest
 ```
+
+`-p no:partest` unloads everything, including the opt-in marker sets: if the project declares
+`partest_optin_markers`, those tests then run in every plain `pytest`. Prefer the flag.
 
 ### RiskProfile rewrite
 

@@ -144,8 +144,10 @@ PARTEST_COVERAGE_JSON=coverage.json PARTEST_COVERAGE_HTML=coverage_report.html p
 ```
 
 Check `meta.workers` and `meta.merged` in the JSON before trusting a number from a parallel
-run — and `meta.selection`, which is present when the run was filtered with `-m` or `-k`. A
+run — and `meta.selection`, which is present when the run was filtered with `-m` or `-k`, or
+when opt-in marker sets decided something (`meta.selection.optin`, one entry per set). A
 filter removes test *cases* rather than endpoints, so nothing else in the numbers reveals it.
+Both cross the shards: workers collect, and the controller reads the selection from them.
 For pipelines that publish coverage, `PARTEST_COVERAGE_REQUIRE_MERGE=1` turns an unmerged
 parallel run into a failed session instead of a quiet wrong number.
 

@@ -1,7 +1,7 @@
 ---
 title: Аудит внешнего бэклога и готовность к переезду
 status: current
-verified: 2026-09-24
+verified: 2026-10-07
 sources: [partest/tracking.py, partest/coverage.py, partest/methodology/api/classifier.py, partest/payloads.py, partest/call_storage.py, partest/reports/payload.py, partest/reports/analyzer.py, partest/pytest_plugin.py]
 audience: maintainer
 ships_in_wheel: false
@@ -22,7 +22,7 @@ allow_version_literals: true
 | | |
 |---|---|
 | **Документационные требования бэклога** | применены |
-| **Волна 1.6** | **реализована**, тесты в `tests/test_wave_1_6.py`; не выпущена |
+| **Волна 1.6** | **реализована и выпущена** в 1.7.0 вместе с 1.7, тесты в `tests/test_wave_1_6.py` |
 | **Волна 1.7** | P0-ядро **реализовано** (xdist-merge, `kind`, meta, timing, history keep=2); открыты витрина HTML, override подтипов, kind-aware compare |
 | **Можно ли переезжать консьюмеру** | да, после публикации: снимается overlay `resource_tracker.py`, чинятся ключи покрытия и классификация |
 | **Чего переезд не даст** | отчёта из теста под `-n`: слияние живёт на контроллере, `test_zorro` — на воркере. Нужен либо serial, либо `PARTEST_COVERAGE_JSON` |
@@ -59,6 +59,7 @@ allow_version_literals: true
 | **LIB-BODY-MARK** | `_cleanup_fields` + `get_json_required_marked()` | ✅ | `payloads.py` |
 | **LIB-PERM-QUAD** | подписи четырёх клеток | ✅ | `PERMISSION_CELLS`, `permission_cell_label` |
 | — | `CreatedRegistry.snapshot()` / `cleanup_since(n)` | ✅ | `tracking.py` |
+| — | владелец ресурса шире теста: `owned_by` / `adopt` / `cleanup_owned`; `cleanup_since` пропускает заявленное | ✅ не выпущено (2026-10-07) | `tracking.py`, [[howto/recipes]] |
 
 Acceptance-кейсы из спеки закреплены тестами: `/media-types` и `/mentions` больше не
 BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резолвится в

@@ -174,7 +174,7 @@ python -m partest.ui.capture_baselines --scenes scenes.json --dry-run
 | `PARTEST_PYTEST_PLUGIN=0` | disable partest Allure hooks — **titles and attachments only** |
 | `pytest_plugin = False` in confpartest | same |
 | `PARTEST_RUN_METADATA=0` / `run_metadata = False` | stop recording what the run selected (`meta.selection`); rarely what you want |
-| `pytest -p no:partest` | hard unload entry point — both of the above |
+| `pytest -p no:partest` | hard unload entry point — all of the above, **and** the opt-in marker sets (`partest_optin_markers`): their tests then run like any other |
 
 The first two are for projects that own their Allure hooks. They no longer take the run
 metadata with them: see [Coverage honesty — when the number lies](concepts-coverage-honesty.md) for what that signal is worth.

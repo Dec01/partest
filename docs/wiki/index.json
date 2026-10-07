@@ -6,7 +6,7 @@
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
-      "verified": "2026-09-24",
+      "verified": "2026-10-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7548
+      "chars": 7746
     },
     {
       "slug": "components/overview",
@@ -135,7 +135,7 @@
       "path": "docs/wiki/components/project-gen.md",
       "title": "partest-gen — генератор в соседнем репозитории",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-10-07",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [
@@ -304,7 +304,7 @@
       "path": "docs/wiki/decisions/distribution.md",
       "title": "ADR — как распространяется partest",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-10-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -341,7 +341,7 @@
           "text": "Что изменит решение"
         }
       ],
-      "chars": 3958
+      "chars": 4526
     },
     {
       "slug": "decisions/docs-architecture",
@@ -393,7 +393,7 @@
       "path": "docs/wiki/decisions/docs-in-wheel.md",
       "title": "ADR — документация внутри колеса и генерация partest/docs",
       "status": "current",
-      "verified": "2026-09-07",
+      "verified": "2026-10-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -501,7 +501,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-09-24",
+      "verified": "2026-10-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -540,7 +540,7 @@
           "text": "Where things are decided"
         }
       ],
-      "chars": 4145
+      "chars": 4602
     },
     {
       "slug": "howto/coverage-html",
@@ -603,7 +603,7 @@
       "path": "docs/wiki/howto/enterprise.md",
       "title": "Enterprise notes — shared client, retries, redaction, xdist",
       "status": "current",
-      "verified": "2026-09-24",
+      "verified": "2026-10-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -668,7 +668,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 7267
+      "chars": 7447
     },
     {
       "slug": "howto/layers",
@@ -750,7 +750,7 @@
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
       "status": "current",
-      "verified": "2026-09-24",
+      "verified": "2026-10-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -773,7 +773,11 @@
         },
         {
           "level": 2,
-          "text": "Unreleased — your own httpx clients can stay inside the TLS policy"
+          "text": "Unreleased — helpers a suite used to write for itself, and two behaviour notes"
+        },
+        {
+          "level": 2,
+          "text": "2.2.0 — your own httpx clients can stay inside the TLS policy"
         },
         {
           "level": 1,
@@ -912,14 +916,14 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 22915
+      "chars": 25100
     },
     {
       "slug": "howto/permissions",
       "path": "docs/wiki/howto/permissions.md",
       "title": "Permissions — four cells, not one 401",
       "status": "current",
-      "verified": "2026-09-08",
+      "verified": "2026-10-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -963,7 +967,7 @@
       "path": "docs/wiki/howto/quickstart.md",
       "title": "Quickstart — first green API test",
       "status": "current",
-      "verified": "2026-09-08",
+      "verified": "2026-10-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1036,7 +1040,7 @@
           "text": "Next"
         }
       ],
-      "chars": 5459
+      "chars": 5553
     },
     {
       "slug": "howto/recipes",
@@ -1150,7 +1154,7 @@
       "path": "docs/wiki/howto/release.md",
       "title": "Release checklist",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-10-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1197,7 +1201,7 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 4410
+      "chars": 4986
     },
     {
       "slug": "howto/reporting",
@@ -1272,7 +1276,7 @@
       "path": "docs/wiki/howto/security.md",
       "title": "Security cookbook — SecHttp, JWT, RiskProfile",
       "status": "current",
-      "verified": "2026-09-06",
+      "verified": "2026-10-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1316,14 +1320,14 @@
           "text": "Never in library"
         }
       ],
-      "chars": 2872
+      "chars": 3190
     },
     {
       "slug": "howto/ui",
       "path": "docs/wiki/howto/ui.md",
       "title": "UI quickstart (partest[ui])",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-10-07",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1533,6 +1537,10 @@
         },
         {
           "level": 2,
+          "text": "2026-10-07 · lint · ноль предупреждений для `--strict-docs`"
+        },
+        {
+          "level": 2,
           "text": "2026-10-07 · update · шесть возможностей, которые потребитель писал сам"
         },
         {
@@ -1632,14 +1640,14 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 27766
+      "chars": 29852
     },
     {
       "slug": "proposals",
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-09-24",
+      "verified": "2026-10-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1775,17 +1783,53 @@
         },
         {
           "level": 2,
+          "text": "D. Спорное из ревью выноса шести возможностей · 2026-10-07"
+        },
+        {
+          "level": 3,
+          "text": "D1. Отчёт о вызовах без `type=` с уверенностью ниже 0.99 (antagonist S1)"
+        },
+        {
+          "level": 3,
+          "text": "D2. `fetch_timeout` в `poll_until` (antagonist S2)"
+        },
+        {
+          "level": 3,
+          "text": "D3. `Interval.max` / `Interval.min` и подсказка про усечение (antagonist S3)"
+        },
+        {
+          "level": 3,
+          "text": "D4. Ронять ли проверку при лишних знаках (antagonist S4)"
+        },
+        {
+          "level": 3,
+          "text": "D5. `float_tol=` для значений, посчитанных во float (antagonist S5)"
+        },
+        {
+          "level": 3,
+          "text": "D6. Node id включает opt-in-набор (antagonist S7)"
+        },
+        {
+          "level": 3,
+          "text": "D7. Потокобезопасность `CreatedRegistry` (antagonist S8)"
+        },
+        {
+          "level": 3,
+          "text": "D8. `CreatedRegistry.cleanup`: квотирование id и редиректы (security, код вне диапазона)"
+        },
+        {
+          "level": 2,
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 20595
+      "chars": 24889
     },
     {
       "slug": "status",
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-10-07",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1808,6 +1852,10 @@
         {
           "level": 2,
           "text": "3. Что дальше"
+        },
+        {
+          "level": 3,
+          "text": "Не выпущено — шесть возможностей, которые потребитель писал сам (2026-10-07)"
         },
         {
           "level": 3,
@@ -1846,7 +1894,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 13616
+      "chars": 15149
     },
     {
       "slug": "WIKI",

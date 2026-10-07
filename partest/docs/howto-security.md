@@ -44,6 +44,11 @@ r = await sec.get("/admin", expected_status=403)
 r = await sec.post("/items", json={...}, expected_status=(400, 422))
 ```
 
+TLS follows the package policy ([Package map — what lives where](components-overview.md)): without `verify=` the client takes
+the project's decision (`PARTEST_TLS_VERIFY`, `tls_verify` in `confpartest`), and it is built
+through `partest.http.httpx_async_client`, so a host it reaches unverified is listed in
+`meta.tlsUnverifiedHosts` like any other.
+
 ## JWT craft
 
 ```python

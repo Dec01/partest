@@ -1,7 +1,7 @@
 ---
 title: Release checklist
 status: current
-verified: 2026-09-23
+verified: 2026-10-07
 sources: [setup.py, MANIFEST.in, partest/__init__.py, tools/docs_build_wheel.py]
 audience: maintainer
 ships_in_wheel: false
@@ -45,6 +45,13 @@ python -m partest.ui.capture_baselines --dry-run
       release. See [[components/project-gen]]
 - [ ] no secrets, stand URLs, absolute local paths, or consumer project names in anything with
       `ships_in_wheel: true` — the linter checks this, but read the diff too
+- [ ] the release adds code? Re-run the whole suite on Python 3.14 (`setup.py` claims it and CI
+      does not run it) — a local `.venv314/` is ignored by git — and update the dated line in
+      `setup.py`, or drop the classifier
+- [ ] the artifact is built from what git tracks: a wheel built from a working copy picks up
+      ignored files too, which is how `partest/env/` once shipped in wheels and was absent from
+      every clone. `tests/test_packaging.py` guards the package directory; for anything else,
+      compare `git ls-files` with the sdist listing below
 
 ## 3. Build and inspect the artifact
 
@@ -59,8 +66,7 @@ The wheel must contain exactly the pages marked `ships_in_wheel: true` — no st
 ships before the next release does it for you.
 
 ```bash
-python -c "import tarfile,glob; t=tarfile.open(glob.glob('dist/*.tar.gz')[0]); print('
-'.join(sorted(t.getnames())))"
+python -c "import tarfile,glob; t=tarfile.open(glob.glob('dist/*.tar.gz')[0]); print(*sorted(t.getnames()), sep=chr(10))"
 ```
 
 ## 4. Publish
