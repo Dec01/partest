@@ -12,25 +12,47 @@ different findings, and only the history tells them apart.
 
     from partest.polling import poll_until
 
+    async def fetch_job():
+        await tokens.refresh_if_needed()          # a long poll outlives a token: refresh HERE
+        return await api.make_request("GET", "/jobs", add_url1=f"/{job_id}",
+                                      expected_status_code=200, type=types.request_default)
+
     result = await poll_until(
-        lambda: api.make_request("GET", "/jobs", add_url1=f"/{job_id}",
-                                 expected_status_code=200, type=types.request_default),
+        fetch_job,
         lambda job: job["status"] in {"DONE", "FAILED"},
         timeout=300, interval=2,
         state=lambda job: job["status"],
+        on_tick=lambda tick: log.info("job %s: %s", job_id, tick.state),
         what=f"job {job_id}",
     )
     assert result.value["status"] == "DONE", result.history
 
+**Anything the next fetch needs belongs in** ``fetch``. ``on_tick`` runs *after* a fetch
+has succeeded, so a token refreshed there arrives one request too late: the first fetch
+after expiry fails with 401 before ``on_tick`` ever sees it. ``on_tick`` is for observing —
+logging, attaching, counting.
+
 On timeout :class:`PollTimeout` is raised with the last value, the states seen and the
-time spent. :func:`partest.sideeffects.wait_for` stays the small form — one synchronous
-probe, "truthy means done"; this is the form for a state machine you need the path of. An exception from ``fetch`` is not swallowed: a failing request is a failure
-of its own, not a reason to keep waiting.
+time spent. :func:`partest.sideeffects.wait_for` is the small form built on the same loop —
+one synchronous probe, "truthy means done"; this is the form for a state machine you need
+the path of.
+
+An exception from ``fetch``, ``state``, ``is_terminal`` or ``on_tick`` is not swallowed: a
+failing request is a finding of its own, not a reason to keep waiting. It propagates
+unchanged, carrying the poll so far — ``poll_history``, ``poll_attempts``,
+``poll_elapsed`` as attributes, and on Python 3.11+ a note shown under the traceback.
+
+``is_terminal``, ``state`` and ``on_tick`` may each be plain or async in
+:func:`poll_until`; so may ``fetch``.
 
 Timing: the clock is :func:`time.monotonic`; between two fetches the loop sleeps
 ``interval`` and never past the deadline, and one last fetch is made *at* the deadline,
 so a job that finishes during the final sleep is not reported as stuck. Nothing else
 waits — the total is ``timeout`` plus however long the last fetch takes.
+
+Messages carry values a test fetched, and values fetched from an API can carry tokens.
+Everything put into a message goes through :func:`partest.redact.redact_mapping` and is
+shortened; the attributes keep the originals.
 """
 
 from __future__ import annotations
@@ -41,9 +63,13 @@ import time
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Generic, List, Optional, Tuple, TypeVar, Union
 
+from partest.redact import redact_mapping
+
 T = TypeVar("T")
 
 _REPR_LIMIT = 200
+#: How many states from each end of the history a timeout message shows.
+MESSAGE_HISTORY_EDGE = 5
 
 # Indirections, so a test can drive the loop on a fake clock without patching the
 # event loop's own time source.
@@ -86,16 +112,17 @@ class PollResult(Generic[T]):
         return self.history[-1] if self.history else None
 
 
-class PollTimeout(AssertionError, TimeoutError):
+class PollTimeout(AssertionError):
     """The condition did not hold within ``timeout``.
 
     An ``AssertionError``, so pytest reports a failed test — as it does for
-    :func:`partest.sideeffects.wait_for` — and a ``TimeoutError``, so code that waits on
-    several things can catch the timeout by what it is.
+    :func:`partest.sideeffects.wait_for`. Deliberately *not* a ``TimeoutError``: that is an
+    ``OSError``, and a network ``except OSError`` around the poll would swallow it.
 
     Carries what a reader needs to tell "slow" from "stuck": ``last`` (the last value
     fetched), ``history`` (states seen, repeats collapsed), ``elapsed``, ``attempts`` and
-    the ``timeout`` that was set.
+    the ``timeout`` that was set. The message shows a shortened, redacted history; the
+    attributes keep everything.
     """
 
     def __init__(
@@ -110,50 +137,79 @@ class PollTimeout(AssertionError, TimeoutError):
     ) -> None:
         self.what = what
         self.last = last
-        self.history = history
+        self.history = tuple(history)
         self.elapsed = elapsed
         self.attempts = attempts
         self.timeout = timeout
-        seen = " → ".join(_short(s) for s in history) if history else "nothing"
+        last_state = history[-1] if history else None
         super().__init__(
             f"{what} did not reach a terminal state within {timeout:g} s "
             f"({elapsed:.1f} s, {attempts} attempt{'s' if attempts != 1 else ''}); "
-            f"last state {_short(history[-1]) if history else _short(None)}; seen: {seen}; "
+            f"last state {_short(last_state)}; seen: {_history_text(self.history)}; "
             f"last value: {_short(last)}"
         )
 
+    def __reduce__(self):
+        return (
+            _rebuild_timeout,
+            (self.what, self.last, self.history, self.elapsed, self.attempts, self.timeout),
+        )
+
+
+def _rebuild_timeout(what, last, history, elapsed, attempts, timeout) -> PollTimeout:
+    return PollTimeout(
+        what=what, last=last, history=history, elapsed=elapsed, attempts=attempts, timeout=timeout
+    )
+
 
 def _short(value: Any) -> str:
-    text = value if isinstance(value, str) else repr(value)
+    """Redacted and shortened text of a value, for a message."""
+    try:
+        safe = redact_mapping(value)
+    except Exception:  # an odd value must not turn a timeout into a different error
+        safe = value
+    text = safe if isinstance(safe, str) else repr(safe)
     if len(text) > _REPR_LIMIT:
         return text[: _REPR_LIMIT - 3] + "..."
     return text
 
 
+def _history_text(history: Tuple[Any, ...], edge: int = MESSAGE_HISTORY_EDGE) -> str:
+    if not history:
+        return "nothing"
+    if len(history) <= 2 * edge + 1:
+        shown = [_short(s) for s in history]
+    else:
+        hidden = len(history) - 2 * edge
+        shown = (
+            [_short(s) for s in history[:edge]]
+            + [f"… {hidden} more …"]
+            + [_short(s) for s in history[-edge:]]
+        )
+    return " → ".join(shown)
+
+
 def _validate(timeout: float, interval: float) -> None:
     if timeout < 0:
         raise ValueError(f"timeout must be >= 0, got {timeout!r}")
-    if interval <= 0:
-        raise ValueError(f"interval must be > 0, got {interval!r}")
+    if interval < 0:
+        raise ValueError(f"interval must be >= 0, got {interval!r}")
 
 
 class _Tracker:
     """The bookkeeping shared by the async and the sync loop."""
 
-    def __init__(self, state: Optional[Callable[[Any], Any]]) -> None:
-        self._state = state
+    def __init__(self) -> None:
         self.started = _monotonic()
         self.history: List[Any] = []
         self.attempts = 0
         self.last: Any = None
 
-    def observe(self, value: Any) -> PollTick:
-        self.attempts += 1
+    def observe(self, value: Any, state: Any) -> PollTick:
         self.last = value
-        current = self._state(value) if self._state is not None else value
-        if not self.history or not _same(self.history[-1], current):
-            self.history.append(current)
-        return PollTick(self.attempts, value, current, self.elapsed())
+        if not self.history or not _same(self.history[-1], state):
+            self.history.append(state)
+        return PollTick(self.attempts, value, state, self.elapsed())
 
     def elapsed(self) -> float:
         return _monotonic() - self.started
@@ -171,6 +227,29 @@ class _Tracker:
             timeout=timeout,
         )
 
+    def annotate(self, exc: BaseException, what: str) -> None:
+        """Attach the poll so far to an exception that is about to propagate."""
+        history = tuple(self.history)
+        elapsed = self.elapsed()
+        for name, value in (
+            ("poll_history", history),
+            ("poll_attempts", self.attempts),
+            ("poll_elapsed", elapsed),
+        ):
+            try:
+                setattr(exc, name, value)
+            except Exception:  # exceptions with __slots__ or read-only attributes
+                pass
+        add_note = getattr(exc, "add_note", None)
+        if add_note is not None:  # Python 3.11+
+            try:
+                add_note(
+                    f"while polling {what}: attempt {self.attempts}, {elapsed:.1f} s in; "
+                    f"seen: {_history_text(history)}"
+                )
+            except Exception:
+                pass
+
 
 def _same(a: Any, b: Any) -> bool:
     try:
@@ -179,9 +258,15 @@ def _same(a: Any, b: Any) -> bool:
         return a is b
 
 
+async def _maybe_await(value: Any) -> Any:
+    if inspect.isawaitable(value):
+        return await value
+    return value
+
+
 async def poll_until(
     fetch: Callable[[], Union[T, Awaitable[T]]],
-    is_terminal: Callable[[T], bool],
+    is_terminal: Callable[[T], Union[bool, Awaitable[bool]]],
     *,
     timeout: float,
     interval: float,
@@ -191,25 +276,29 @@ async def poll_until(
 ) -> PollResult[T]:
     """Call ``fetch`` until ``is_terminal(value)`` holds; raise :class:`PollTimeout` if it never does.
 
-    ``fetch`` takes no arguments and may be a coroutine function or a plain one.
-    ``on_tick`` (plain or async) receives a :class:`PollTick` after every fetch — log it,
-    attach it, refresh a token there. ``state`` maps a value to what ``history`` records;
-    without it the value itself is recorded. ``what`` names the thing in the timeout
-    message.
+    ``fetch`` takes no arguments. ``fetch``, ``is_terminal``, ``state`` and ``on_tick`` may
+    each be a plain or an async callable. ``state`` maps a value to what ``history``
+    records; without it the value itself is recorded. ``on_tick`` receives a
+    :class:`PollTick` after every successful fetch — for observing; anything the *next*
+    fetch needs, such as a fresh token, belongs inside ``fetch``. ``what`` names the thing
+    in messages.
     """
     _validate(timeout, interval)
-    tracker = _Tracker(state)
+    tracker = _Tracker()
     deadline = tracker.started + timeout
     while True:
-        value = fetch()
-        if inspect.isawaitable(value):
-            value = await value
-        tick = tracker.observe(value)
-        if on_tick is not None:
-            outcome = on_tick(tick)
-            if inspect.isawaitable(outcome):
-                await outcome
-        if is_terminal(value):
+        try:
+            tracker.attempts += 1
+            value = await _maybe_await(fetch())
+            current = value if state is None else await _maybe_await(state(value))
+            tick = tracker.observe(value, current)
+            if on_tick is not None:
+                await _maybe_await(on_tick(tick))
+            done = bool(await _maybe_await(is_terminal(value)))
+        except Exception as exc:
+            tracker.annotate(exc, what)
+            raise
+        if done:
             return tracker.result()
         remaining = deadline - _monotonic()
         if remaining <= 0:
@@ -229,14 +318,21 @@ def poll_until_sync(
 ) -> PollResult[T]:
     """:func:`poll_until` for synchronous code — same contract, ``time.sleep`` between fetches."""
     _validate(timeout, interval)
-    tracker = _Tracker(state)
+    tracker = _Tracker()
     deadline = tracker.started + timeout
     while True:
-        value = fetch()
-        tick = tracker.observe(value)
-        if on_tick is not None:
-            on_tick(tick)
-        if is_terminal(value):
+        try:
+            tracker.attempts += 1
+            value = fetch()
+            current = value if state is None else state(value)
+            tick = tracker.observe(value, current)
+            if on_tick is not None:
+                on_tick(tick)
+            done = bool(is_terminal(value))
+        except Exception as exc:
+            tracker.annotate(exc, what)
+            raise
+        if done:
             return tracker.result()
         remaining = deadline - _monotonic()
         if remaining <= 0:

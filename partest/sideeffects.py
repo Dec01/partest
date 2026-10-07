@@ -24,7 +24,6 @@ ever read. Cleanup belongs to the API and the tracking registry, never here.
 from __future__ import annotations
 
 import re
-import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
@@ -124,18 +123,22 @@ def wait_for(
     Asynchronous pipelines need a wait, and a bare ``sleep`` makes a suite slow when it
     passes and confusing when it fails. The timeout message carries the last value so
     the failure says what actually happened.
+
+    The loop is :func:`partest.polling.poll_until_sync`: monotonic clock, the last sleep
+    cut to the deadline and one more look *at* the deadline. For a state machine whose
+    path matters, use :func:`partest.polling.poll_until` directly.
     """
-    deadline = time.monotonic() + timeout
-    last: Any = None
-    while True:
-        last = probe()
-        if last:
-            return last
-        if time.monotonic() >= deadline:
-            raise AssertionError(
-                f"{description} did not happen within {timeout:g}s; last observation: {last!r}"
-            )
-        time.sleep(interval)
+    from partest.polling import PollTimeout, poll_until_sync
+    from partest.redact import redact_mapping
+
+    try:
+        return poll_until_sync(
+            probe, bool, timeout=timeout, interval=interval, what=description
+        ).value
+    except PollTimeout as exc:
+        raise AssertionError(
+            f"{description} did not happen within {timeout:g}s; last observation: {redact_mapping(exc.last)!r}"
+        ) from exc
 
 
 # --- Probes ---------------------------------------------------------------

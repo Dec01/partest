@@ -7,15 +7,21 @@
 - **`partest.polling.poll_until` / `poll_until_sync` — wait for a terminal state and keep the
   path.** A consumer had written the same loop three times, and the copies disagreed on the
   details: one ran on wall-clock time, one had earlier returned the last non-terminal value
-  as if it were the answer, one reported only the last state and not the way there. `poll_until(fetch, is_terminal, *, timeout, interval,
-  on_tick=None, state=None, what=...)` returns a `PollResult` (`value`, `history` — states
-  seen, consecutive repeats collapsed — `attempts`, `elapsed`) or raises `PollTimeout` with
-  `last`, `history`, `attempts`, `elapsed` and `timeout`, all named in its message.
-  `PollTimeout` is an `AssertionError` (a failed test, as with `sideeffects.wait_for`) and a
-  `TimeoutError`. Monotonic clock; the last sleep is cut to the deadline and one more fetch
-  is made there, so nothing waits beyond `interval` and a job finishing in the final sleep is
-  not reported stuck. `fetch` and `on_tick` may be plain or async; an exception from `fetch`
-  propagates. Also public: `PollTick`. See [[howto/layers]].
+  as if it were the answer, one reported only the last state and not the way there.
+  `poll_until(fetch, is_terminal, *, timeout, interval, on_tick=None, state=None, what=...)`
+  returns a `PollResult` (`value`, `history` — states seen, consecutive repeats collapsed —
+  `attempts`, `elapsed`) or raises `PollTimeout` with `last`, `history`, `attempts`,
+  `elapsed` and `timeout`. Its message shows the first and last five states with "… k more …"
+  between them, redacted through `partest.redact`; the attributes keep everything.
+  `PollTimeout` is an `AssertionError` — a failed test, as with `sideeffects.wait_for` — and
+  deliberately not a `TimeoutError`, which is an `OSError` that network `except OSError`
+  blocks would swallow; it pickles. Monotonic clock; the last sleep is cut to the deadline
+  and one more fetch is made there, so nothing waits beyond `interval` and a job finishing in
+  the final sleep is not reported stuck. `fetch`, `is_terminal`, `state` and `on_tick` may be
+  plain or async. An exception from any of them propagates unchanged, carrying
+  `poll_history`, `poll_attempts` and `poll_elapsed` (and a note on Python 3.11+).
+  `on_tick` runs after a successful fetch: whatever the next fetch needs — a fresh token —
+  belongs inside `fetch`. Also public: `PollTick`. See [[howto/layers]].
 
 - **`partest.rounding` — "this value is that formula of those values", with the tolerance
   derived from how each was rounded.** `agrees_with_formula(actual, formula, *inputs)` takes
@@ -66,6 +72,13 @@
   `FIXED_ZIP_TIME`, `FIXED_CORE_TIMESTAMP`. See [[howto/upload]].
 
 ### Fixed
+
+- **`sideeffects.wait_for` could sleep past its deadline and never looked at it.** It slept a
+  whole `interval` even when less remained, and gave up without a last look — a pipeline that
+  finished during that final sleep was reported as not having happened. It now runs on
+  `partest.polling.poll_until_sync`: the last sleep is cut to the deadline and the probe is
+  called once more there. Signature, return value, the `AssertionError` and its message are
+  unchanged; the message now redacts sensitive keys in the last observation.
 
 - **The repository did not contain `partest.env`.** `.gitignore` had a bare `env/` rule meant
   for a virtual environment, and it matched the package `partest/env/` as well (with

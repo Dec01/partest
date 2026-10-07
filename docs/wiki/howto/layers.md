@@ -125,7 +125,8 @@ is built to prevent.
 
 ### Waiting for a job to finish (`I5`)
 
-`wait_for` is the small form: one synchronous probe, truthy means done. A background job is
+`wait_for` is the small form: one synchronous probe, truthy means done (it runs on the same
+loop as below). A background job is
 a state machine, and when it does not finish, *where it stopped* is the finding — "did not
 finish in 300 s" and "sat in `QUEUED` for 300 s" send you to different teams.
 `partest.polling.poll_until` keeps the path:
@@ -133,32 +134,43 @@ finish in 300 s" and "sat in `QUEUED` for 300 s" send you to different teams.
 ```python
 from partest.polling import PollTimeout, poll_until
 
-result = await poll_until(
-    lambda: api_client.make_request(
+async def fetch_job():
+    await tokens.refresh_if_needed()   # a long poll outlives a token: refresh inside fetch
+    return await api_client.make_request(
         "GET", "/jobs", add_url1=f"/{job_id}",
         expected_status_code=200, type=types.request_default,
-    ),
+    )
+
+result = await poll_until(
+    fetch_job,
     lambda job: job["status"] in {"DONE", "FAILED"},
     timeout=300, interval=2,
     state=lambda job: job["status"],   # what the history records
+    on_tick=lambda tick: allure.attach(str(tick.state), name=f"poll {tick.attempt}"),
     what=f"job {job_id}",
 )
 assert result.value["status"] == "DONE", result.history   # ('QUEUED', 'RUNNING', 'FAILED')
 ```
 
-- `fetch` may be a coroutine function or a plain one; `on_tick` (plain or async) gets a
-  `PollTick(attempt, value, state, elapsed)` after every fetch — log it, attach it, refresh
-  a token there.
+- `fetch`, `is_terminal`, `state` and `on_tick` may each be plain or async.
+- `on_tick` gets a `PollTick(attempt, value, state, elapsed)` **after** every successful
+  fetch. It is for observing — log, attach, count. Anything the *next* fetch needs, a fresh
+  token above all, goes inside `fetch`: refreshed in `on_tick`, it arrives one request late,
+  and the first fetch after expiry fails with 401 before `on_tick` ever runs.
 - `PollResult` carries `value`, `history` (states seen, consecutive repeats collapsed),
   `attempts` and `elapsed`.
 - On timeout `PollTimeout` is raised with `last`, `history`, `attempts`, `elapsed` and the
-  `timeout`, and its message names them. It is an `AssertionError` (a failed test, like
-  `wait_for`) and a `TimeoutError`.
+  `timeout`. The message shows the first and last five states with "… k more …" between,
+  redacted (`partest.redact`); the attributes keep everything. It is an `AssertionError` —
+  a failed test, like `wait_for` — and not a `TimeoutError`: that is an `OSError`, and a
+  network `except OSError` around the poll would swallow it.
 - The clock is monotonic. Between fetches the loop sleeps `interval` and never past the
   deadline, then looks once more *at* the deadline — a job that finished during the last
   sleep is not reported as stuck. No other pause is added.
-- An exception from `fetch` propagates: a failing request is its own finding, not a reason
-  to keep waiting.
+- An exception from `fetch`, `state`, `is_terminal` or `on_tick` propagates unchanged: a
+  failing request is its own finding, not a reason to keep waiting. It carries the poll so
+  far — `poll_history`, `poll_attempts`, `poll_elapsed`, and on Python 3.11+ a note under
+  the traceback.
 - `poll_until_sync` is the same contract for synchronous code.
 
 ### Implementing a real probe
