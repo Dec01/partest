@@ -48,13 +48,27 @@ direction and is not covered.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
-from decimal import ROUND_CEILING, ROUND_FLOOR, Context, Decimal, InvalidOperation
+from decimal import ROUND_CEILING, ROUND_FLOOR, Context, Decimal, DecimalException, InvalidOperation
 from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
 
 Number = Union[int, float, str, Decimal]
 
 _PRECISION = 60
+#: Largest integer power an interval may be raised to; a formula needing more is not one
+#: this check was built for, and a huge exponent would only burn time.
+MAX_POWER = 64
+#: Largest ``abs(scale)``. Beyond it the half unit leaves the range ``decimal`` represents.
+MAX_SCALE = 10_000
+
+
+class RoundingNoteWarning(UserWarning):
+    """A remark on a check that passed or failed for its own reasons — read it anyway.
+
+    Emitted for every entry of :attr:`Agreement.notes`, so that a note is not lost on a
+    green run where nobody prints the protocol.
+    """
 _FLOOR = Context(prec=_PRECISION, rounding=ROUND_FLOOR)
 _CEIL = Context(prec=_PRECISION, rounding=ROUND_CEILING)
 
@@ -91,7 +105,15 @@ def half_unit(scale: Optional[int]) -> Decimal:
         return Decimal(0)
     if isinstance(scale, bool) or not isinstance(scale, int):
         raise TypeError(f"scale must be an int or None, got {scale!r}")
+    if abs(scale) > MAX_SCALE:
+        raise ValueError(f"scale {scale} is outside ±{MAX_SCALE}: no recorded number has that")
     return Decimal(5).scaleb(-scale - 1)
+
+
+_NO_COMPARISON = (
+    "intervals are not ordered: comparing one would pick an end silently; "
+    "use arithmetic only in the formula"
+)
 
 
 class Interval:
@@ -154,7 +176,8 @@ class Interval:
         return self._coerce(other) - self
 
     def __neg__(self) -> "Interval":
-        return Interval(-self.hi, -self.lo)
+        # copy_negate, never unary minus: ``-d`` rounds to the *default* context (28 digits).
+        return Interval(self.hi.copy_negate(), self.lo.copy_negate())
 
     def __pos__(self) -> "Interval":
         return self
@@ -164,7 +187,7 @@ class Interval:
             return self
         if self.hi <= 0:
             return -self
-        return Interval(0, max(-self.lo, self.hi))
+        return Interval(0, max(self.lo.copy_negate(), self.hi))
 
     def __mul__(self, other: Any) -> "Interval":
         o = self._coerce(other)
@@ -195,13 +218,18 @@ class Interval:
     def __pow__(self, exponent: Any) -> "Interval":
         if isinstance(exponent, bool) or not isinstance(exponent, int) or exponent < 0:
             raise TypeError("an interval can only be raised to a non-negative integer power")
+        if exponent > MAX_POWER:
+            raise ValueError(f"power {exponent} exceeds the supported maximum of {MAX_POWER}")
         if exponent == 0:
             return Interval.point(1)
         if exponent % 2 == 1 or self.lo >= 0:
             return Interval(_power(self.lo, exponent, up=False), _power(self.hi, exponent, up=True))
         if self.hi <= 0:  # even power of a non-positive interval: mirror it first
-            return Interval(_power(-self.hi, exponent, up=False), _power(-self.lo, exponent, up=True))
-        return Interval(0, _power(max(-self.lo, self.hi), exponent, up=True))
+            return Interval(
+                _power(self.hi.copy_negate(), exponent, up=False),
+                _power(self.lo.copy_negate(), exponent, up=True),
+            )
+        return Interval(0, _power(max(self.lo.copy_negate(), self.hi), exponent, up=True))
 
     # --- what an interval refuses to be ----------------------------------------
 
@@ -211,15 +239,22 @@ class Interval:
         )
 
     def _no_order(self, other: Any) -> bool:
-        raise TypeError(
-            "intervals are not ordered: comparing one would pick an end silently; "
-            "use arithmetic only in the formula"
-        )
+        raise TypeError(_NO_COMPARISON)
 
     __lt__ = __le__ = __gt__ = __ge__ = _no_order
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, Interval) and self.lo == other.lo and self.hi == other.hi
+        """Two intervals are equal when their bounds are; against a number it is refused.
+
+        ``x != 0`` inside a formula would otherwise be quietly true for an interval that
+        contains zero, and pick a branch the way a comparison picks an end.
+        """
+        if not isinstance(other, Interval):
+            raise TypeError(_NO_COMPARISON)
+        return self.lo == other.lo and self.hi == other.hi
+
+    def __ne__(self, other: Any) -> bool:
+        return not self.__eq__(other)
 
     def __hash__(self) -> int:
         return hash((self.lo, self.hi))
@@ -242,8 +277,8 @@ def _power(base: Decimal, exponent: int, *, up: bool) -> Decimal:
     """
     ctx = _CEIL if up else _FLOOR
     if base < 0:
-        magnitude = _power(-base, exponent, up=not up)
-        return -magnitude
+        magnitude = _power(base.copy_negate(), exponent, up=not up)
+        return magnitude.copy_negate()
     result = Decimal(1)
     for _ in range(exponent):
         result = ctx.multiply(result, base)
@@ -263,8 +298,12 @@ def _fmt(value: Decimal, digits: int = 12) -> str:
 class Rounded:
     """A number as it was recorded: its value and the scale it was rounded to.
 
-    ``scale`` is the number of decimals kept (``2`` for ``12.34``); ``None`` means the value
-    is exact. ``label`` names it in messages.
+    ``scale`` is the number of decimals kept (``2`` for ``12.34``). ``None`` means the value
+    is an **exact decimal** — a count, a constant from the specification, a number the
+    test wrote itself. A float the service *computed* is not exact even when it is not
+    rounded to a scale: its last digits are binary noise, and declaring it ``None`` makes
+    the check demand more than the arithmetic can give. Give such a value the scale it is
+    meaningful to. ``label`` names it in messages.
     """
 
     value: Number
@@ -288,9 +327,13 @@ class Rounded:
         """How many decimals the value carries beyond its declared scale (0 if none)."""
         if self.scale is None:
             return 0
-        exponent = self.decimal.normalize().as_tuple().exponent
+        sign, digits, exponent = self.decimal.as_tuple()
         if not isinstance(exponent, int):
             return 0
+        # Trailing zeros carry no information; strip them exactly (no context rounding).
+        while len(digits) > 1 and digits[-1] == 0:
+            digits = digits[:-1]
+            exponent += 1
         return max(0, -exponent - self.scale)
 
 
@@ -393,9 +436,15 @@ def agrees_with_formula(
                 f"got {type(item).__name__}"
             )
     name = label or actual.label
-    computed_iv = Interval._coerce(formula(*(Interval.point(i.decimal) for i in inputs)))
-    predicted = Interval._coerce(formula(*(i.interval for i in inputs)))
-    accepted = predicted.widen(actual.half_unit)
+    try:
+        computed_iv = Interval._coerce(formula(*(Interval.point(i.decimal) for i in inputs)))
+        predicted = Interval._coerce(formula(*(i.interval for i in inputs)))
+        accepted = predicted.widen(actual.half_unit)
+    except DecimalException as exc:
+        raise ValueError(
+            f"the formula left the range decimal arithmetic can represent "
+            f"({type(exc).__name__}); check the scales and the magnitudes of the inputs"
+        ) from exc
     value = actual.decimal
     computed = computed_iv.mid
     resolution: Optional[float] = None
@@ -410,6 +459,8 @@ def agrees_with_formula(
                 f"{who} = {item.value!r} has {extra} decimal(s) beyond its declared scale "
                 f"{item.scale}: either the scale is wrong or the value was not rounded to it"
             )
+    for note in notes:
+        warnings.warn(f"{name or 'value'}: {note}", RoundingNoteWarning, stacklevel=2)
     return Agreement(
         ok=accepted.contains(value),
         label=name,
@@ -438,6 +489,7 @@ __all__ = [
     "Agreement",
     "Interval",
     "Rounded",
+    "RoundingNoteWarning",
     "agrees_with_formula",
     "agrees_with_sum",
     "half_unit",

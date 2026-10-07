@@ -223,7 +223,9 @@ assert agrees_with_sum(Rounded(body["sum"], 2, "sum"), [Rounded(p, 2) for p in p
 How it decides:
 
 1. every input recorded at scale `s` stands for the interval `value ± ½·10^−s`
-   (`scale=None` — an exact value, no width);
+   (`scale=None` — an exact decimal, no width: a count, a constant, a number the test wrote.
+   A float the service *computed* is not exact even unrounded — its last digits are binary
+   noise — so give it the scale it is meaningful to rather than `None`);
 2. the formula is evaluated over those intervals with interval arithmetic — `decimal`,
    rounded outward, so the interval is never narrower than the truth;
 3. the result is widened by the output's own half unit;
@@ -236,14 +238,19 @@ attachment. **`resolution`** is half the width of the accepted interval relative
 computed value — how sharp the check was. `±0.002 %` means a real check; `±4 %` means the
 inputs are recorded too coarsely for the comparison to catch much, which is worth knowing
 before trusting the green. `notes` flags a value carrying more decimals than its declared
-scale: either the scale is wrong or the value was not rounded to it.
+scale: either the scale is wrong or the value was not rounded to it. Each note is also
+emitted as a `RoundingNoteWarning`, so it reaches pytest's warnings summary on a green run
+where nobody prints the protocol; `-W error::partest.rounding.RoundingNoteWarning` turns
+them into failures.
 
 Limits, on purpose:
 
 - the formula receives `Interval` objects and may use `+ − × ÷`, unary minus, `abs` and
   integer powers, with plain numbers mixed in (a float constant is read as the decimal it
-  prints as). `if`, `max`, `round`, `math.*` raise `TypeError` — each would silently pick
-  one end of an interval;
+  prints as). `if`, `max`, `round`, `math.*`, and `==`/`!=` against a number (`x != 0`)
+  raise `TypeError` — each would silently pick one end of an interval or one branch.
+  Powers above 64 are refused, and so is a scale beyond ±10000; arithmetic that leaves the
+  range `decimal` represents becomes a `ValueError` naming the cause;
 - a divisor whose interval contains zero raises `ZeroDivisionError`: at those scales the
   formula cannot be checked at all;
 - only round-to-nearest is modelled, with any tie rule. A value *truncated* to its scale is

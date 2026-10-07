@@ -12,7 +12,14 @@ from decimal import Decimal
 
 import pytest
 
-from partest.rounding import Interval, Rounded, agrees_with_formula, agrees_with_sum, half_unit
+from partest.rounding import (
+    Interval,
+    Rounded,
+    RoundingNoteWarning,
+    agrees_with_formula,
+    agrees_with_sum,
+    half_unit,
+)
 
 
 def D(text: str) -> Decimal:
@@ -80,8 +87,12 @@ def test_division_by_an_interval_around_zero_is_refused():
         lambda x: float(x),
         lambda x: math.sqrt(x),
         lambda x: x ** 0.5,
+        lambda x: x if x != 0 else 0,
+        lambda x: x == 0,
+        lambda x: 0 in [x],
     ],
-    ids=["compare", "bool", "max", "round", "float", "math", "fractional-power"],
+    ids=["compare", "bool", "max", "round", "float", "math", "fractional-power", "ne-number",
+         "eq-number", "membership"],
 )
 def test_what_would_silently_pick_an_end_raises(use):
     with pytest.raises(TypeError):
@@ -172,9 +183,10 @@ def test_constants_in_the_formula_are_exact_decimals():
 
 
 def test_a_value_with_more_decimals_than_its_scale_is_noted():
-    check = agrees_with_formula(
-        Rounded(0.30000000000000004, 2, "sum"), lambda a, b: a + b, Rounded(0.1, 1), Rounded(0.2, 1)
-    )
+    with pytest.warns(RoundingNoteWarning, match="beyond its declared scale 2"):
+        check = agrees_with_formula(
+            Rounded(0.30000000000000004, 2, "sum"), lambda a, b: a + b, Rounded(0.1, 1), Rounded(0.2, 1)
+        )
     assert check  # still sound: the declared interval is wider than the record
     assert any("sum" in note and "beyond its declared scale 2" in note for note in check.notes)
 
@@ -234,3 +246,81 @@ def test_the_predicted_interval_contains_every_point_of_the_input_box():
                 ctx.prec = 80
                 value = formula(*point)
             assert predicted.lo <= value <= predicted.hi
+
+
+def test_equality_with_a_number_says_why():
+    with pytest.raises(TypeError, match="intervals are not ordered"):
+        Interval(1, 2) != 0  # noqa: B015
+    assert Interval(1, 2) == Interval(1, 2)
+    assert Interval(1, 2) != Interval(1, 3)
+
+
+def test_a_clean_check_emits_no_warning():
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert agrees_with_formula(Rounded("6.0", 1), lambda a: a * 2, Rounded("3.0", 1))
+
+
+# --- outward rounding of every operation ----------------------------------------
+#
+# Operands of 40 significant digits make every exact result longer than the 60 digits the
+# arithmetic keeps, so the bounds must straddle it. With an ordinary rounding context both
+# bounds collapse onto one rounded value that lies on one side of the truth.
+
+from fractions import Fraction  # noqa: E402
+
+A = Decimal("1.234567890123456789012345678901234567891")
+B = Decimal("9.876543210987654321098765432109876543211")
+TINY = Decimal("1E-70")
+
+
+def _straddles(interval, exact):
+    return Fraction(interval.lo) < exact < Fraction(interval.hi)
+
+
+def test_multiplication_rounds_outward():
+    assert _straddles(Interval.point(A) * Interval.point(B), Fraction(A) * Fraction(B))
+
+
+def test_addition_rounds_outward():
+    assert _straddles(Interval.point(A) + Interval.point(TINY), Fraction(A) + Fraction(TINY))
+
+
+def test_subtraction_rounds_outward():
+    assert _straddles(Interval.point(A) - Interval.point(TINY), Fraction(A) - Fraction(TINY))
+
+
+def test_negation_is_exact_not_rounded_to_28_digits():
+    """``-Decimal`` rounds to the default context; a bound must never be rounded inward."""
+    product = Interval.point(A) * Interval.point(B)
+    assert (-product).lo == product.hi.copy_negate()
+    assert _straddles(-product, -(Fraction(A) * Fraction(B)))
+    assert _straddles(abs(-product), Fraction(A) * Fraction(B))
+
+
+def test_powers_round_outward():
+    assert _straddles(Interval.point(A) ** 3, Fraction(A) ** 3)
+    assert _straddles(Interval.point(A.copy_negate()) ** 3, -(Fraction(A) ** 3))
+
+
+# --- inputs that would only burn time or overflow --------------------------------
+
+
+def test_a_huge_power_is_refused():
+    with pytest.raises(ValueError, match="exceeds the supported maximum"):
+        Interval(1, 2) ** 10**9
+
+
+@pytest.mark.parametrize("scale", [10**6, -(10**6)])
+def test_an_absurd_scale_is_a_clear_error(scale):
+    with pytest.raises(ValueError, match="outside"):
+        agrees_with_formula(Rounded(1, scale), lambda a: a, Rounded(1, 2))
+
+
+def test_decimal_overflow_becomes_a_clear_error():
+    with pytest.raises(ValueError, match="range decimal arithmetic"):
+        agrees_with_formula(
+            Rounded(1, 0), lambda a: a ** 64 * a ** 64 * a ** 64 * a ** 64, Rounded("1E+9000", 0)
+        )

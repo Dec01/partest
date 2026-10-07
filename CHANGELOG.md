@@ -35,9 +35,13 @@
   the same claim as a pass at `±0.002 %`. Unlike `math.isclose`, no tolerance is chosen by
   eye: a fixed `rel_tol` passes a real defect where inputs are precise and fails a correct
   value where the formula amplifies rounding; both cases are in the tests. Comparisons,
-  `round()` and `math.*` on an interval raise `TypeError` rather than picking an end; a
-  divisor interval containing zero raises `ZeroDivisionError`. Also public: `Interval`,
-  `half_unit`. See [[howto/layers]].
+  `==`/`!=` against a number, `round()` and `math.*` on an interval raise `TypeError` rather
+  than picking an end or a branch; a divisor interval containing zero raises
+  `ZeroDivisionError`; powers above 64 and scales beyond ±10000 are refused. A value with
+  more decimals than its declared scale is noted in the protocol and emitted as a
+  `RoundingNoteWarning`, so the note survives a green run. `scale=None` means an exact
+  decimal — not a float the service computed. Also public: `Interval`, `half_unit`,
+  `RoundingNoteWarning`. See [[howto/layers]].
 
 - **Opt-in marker sets: `optin_markers = marker[:ENV_VAR] ...` in the ini file.** Tests with
   such a marker, or any `marker_*`, are **deselected** — not skipped — unless the `-m`
