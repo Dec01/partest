@@ -63,11 +63,14 @@ setup(
         # PYSEC-2026-1845. Fixed in 9.0.3, and in no 8.x release — there is nothing to
         # back-port to, so support for pytest 8 ends here rather than being deprecated.
         #
-        # The ceiling is the deliberate part. `partest` registers as a `pytest11` plugin on six
-        # hooks, so it loads in *every* session of the consumer, including runs that never
-        # touch partest; a hook whose signature a new major drops fails at plugin registration,
-        # before collection, and takes the whole session with it. `<10` says "this major was
-        # run, the next one was not" instead of promising a compatibility nobody checked.
+        # The ceiling is the deliberate part, for two reasons. First, `partest` registers as a
+        # `pytest11` plugin and implements pytest hooks, so it loads in *every* session of the
+        # consumer, including runs that never touch partest; a hook whose signature a new
+        # major drops fails at plugin registration, before collection, and takes the whole
+        # session with it. Second, the opt-in marker sets (`partest/optin.py`) evaluate `-m`
+        # with `_pytest.mark.expression` — a private module, with no promise across majors.
+        # `<10` says "this major was run, the next one was not" instead of promising a
+        # compatibility nobody checked.
         # The obligation that comes with it: the cap is lifted by a patch release as soon as
         # the suite passes on the next major, and it is never left to expire quietly — a stale
         # cap silently downgrades the consumer, which is the failure we just paid for.
