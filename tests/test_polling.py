@@ -191,4 +191,7 @@ async def test_real_clock_smoke():
     fetch = sequence("RUNNING", "DONE")
     result = await poll_until(fetch, lambda s: s in TERMINAL, timeout=2, interval=0.01)
     assert result.value == "DONE"
-    assert 0 < result.elapsed < 2
+    assert result.attempts == 2
+    # >= 0, not > 0: time.monotonic ticks every ~16 ms on Windows, so a 10 ms sleep can
+    # read as no time at all.
+    assert 0 <= result.elapsed < 2
