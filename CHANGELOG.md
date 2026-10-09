@@ -7,7 +7,8 @@
 - **A response body is masked only in the schema-failure message and its ERROR log line.**
   The text of the `AssertionError` raised when `validate_model` fails and the ERROR record
   that goes with it carry no input values and mask the body (see Fixed). These still show
-  the body, or values from it, as received: the pytest traceback, through the chained
+  the body, or values from it, as received, as in earlier releases — not a change in
+  2.5.0: the pytest traceback, through the chained
   pydantic `ValidationError` (`raise … from err`); the stdout of
   `PydanticResponseError.print_error`, which `BaseResponseValidator.validate_*` calls; the
   INFO request and response log (`Logger.log_request` / `log_response`); and the status
@@ -243,6 +244,11 @@
   `title`, `status`, `detail` and `instance`, and a body with `"type": "about:blank"` failed
   with `extra_forbidden`. It is now an optional string (`None` when absent). Members neither
   the RFC nor your model declares are still refused.
+
+- **`CreatedRegistry.cleanup` quotes resource ids in the DELETE path and does not follow
+  redirects with the auth header.** The default URL puts the id in as one percent-encoded
+  path segment; a custom `delete_builder` builds its URL as before. A redirect is followed
+  only within the origin of the request.
 
 ## 2.4.0 — 2026-09-24
 

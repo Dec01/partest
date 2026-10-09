@@ -5,6 +5,9 @@ from __future__ import annotations
 import contextvars
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Hashable, Iterator, List, Optional, Sequence, Tuple, Union
+from urllib.parse import quote
+
+import httpx
 
 from partest.client import ApiClient
 from partest.http.client import httpx_async_client
@@ -329,6 +332,12 @@ class CreatedRegistry:
 
         ``verify`` follows :mod:`partest.tls`; cleanup carries a bearer token like any
         other call and has no reason to trust a certificate the suite would not.
+
+        The id comes from a service response, so the default URL puts it in as one
+        percent-encoded path segment (``../x`` → ``..%2Fx``). A ``delete_builder`` builds
+        the URL itself and owns that encoding. Redirects are followed only within the
+        origin of the request; one to another origin is not followed, and the resource
+        counts as not deleted.
         """
         if not self._items:
             return
@@ -337,7 +346,7 @@ class CreatedRegistry:
         def _url(endpoint: str, rid: Any) -> str:
             if delete_builder:
                 return delete_builder(endpoint, rid)
-            return f"{endpoint.rstrip('/')}/{rid}"
+            return f"{endpoint.rstrip('/')}/{_id_segment(rid)}"
 
         headers = {auth_header: f"{auth_scheme} {token}".strip()}
         pending = list(reversed(self._items))
@@ -345,7 +354,7 @@ class CreatedRegistry:
             base_url=domain,
             verify=verify,
             timeout=timeout,
-            follow_redirects=True,
+            follow_redirects=False,
         ) as client:
             for _ in range(max_passes):
                 if not pending:
@@ -353,7 +362,9 @@ class CreatedRegistry:
                 still = []
                 for endpoint, rid in pending:
                     try:
-                        response = await client.delete(_url(endpoint, rid), headers=headers)
+                        response = await _delete_same_origin(
+                            client, _url(endpoint, rid), headers
+                        )
                     except Exception:
                         continue
                     if response.status_code == 409:
@@ -361,6 +372,53 @@ class CreatedRegistry:
                 pending = still
         self._items.clear()
         self._owner_list().clear()
+
+
+_CLEANUP_REDIRECTS = 5
+# A redirect that keeps the method. 303 means "GET this instead", which deletes nothing.
+_METHOD_KEEPING_REDIRECTS = frozenset({301, 302, 307, 308})
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _id_segment(rid: Any) -> str:
+    """A resource id as one path segment: it cannot add, drop or leave segments.
+
+    ``quote(..., safe="")`` encodes ``/``, ``?`` and ``#``; an id that is only dots is
+    encoded as well, because ``.`` and ``..`` are removed by URL normalisation and would
+    send the DELETE to the collection or above it.
+    """
+    segment = quote(str(rid), safe="")
+    if segment in (".", ".."):
+        segment = segment.replace(".", "%2E")
+    return segment
+
+
+def _origin(url: httpx.URL) -> Tuple[str, str, Optional[int]]:
+    return (url.scheme, url.host, url.port or _DEFAULT_PORTS.get(url.scheme))
+
+
+async def _delete_same_origin(
+    client: httpx.AsyncClient, url: str, headers: Dict[str, str]
+) -> httpx.Response:
+    """DELETE, following method-keeping redirects only within the first request's origin.
+
+    A redirect to another scheme, host or port is not followed: the credentials header —
+    whatever its name — never leaves the origin it was meant for. A same-origin redirect
+    (a trailing slash added by the framework) is still followed, as before.
+    """
+    response = await client.delete(url, headers=headers)
+    if response.status_code not in _METHOD_KEEPING_REDIRECTS:
+        return response
+    origin = _origin(response.request.url)
+    for _ in range(_CLEANUP_REDIRECTS):
+        location = response.headers.get("location")
+        if response.status_code not in _METHOD_KEEPING_REDIRECTS or not location:
+            break
+        target = response.request.url.join(location)
+        if _origin(target) != origin:
+            break
+        response = await client.delete(target, headers=headers)
+    return response
 
 
 class TrackingApiClient:

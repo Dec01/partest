@@ -1210,7 +1210,7 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 5696
+      "chars": 5689
     },
     {
       "slug": "howto/reporting",
@@ -1804,35 +1804,35 @@
         },
         {
           "level": 3,
-          "text": "D1. Отчёт о вызовах без `type=` с уверенностью ниже 0.99 (antagonist S1)"
+          "text": "D1. Отчёт о вызовах без `type=` с уверенностью ниже 0.99"
         },
         {
           "level": 3,
-          "text": "D2. `fetch_timeout` в `poll_until` (antagonist S2)"
+          "text": "D2. `fetch_timeout` в `poll_until`"
         },
         {
           "level": 3,
-          "text": "D3. `Interval.max` / `Interval.min` и подсказка про усечение (antagonist S3)"
+          "text": "D3. `Interval.max` / `Interval.min` и подсказка про усечение"
         },
         {
           "level": 3,
-          "text": "D4. Ронять ли проверку при лишних знаках (antagonist S4)"
+          "text": "D4. Ронять ли проверку при лишних знаках"
         },
         {
           "level": 3,
-          "text": "D5. `float_tol=` для значений, посчитанных во float (antagonist S5)"
+          "text": "D5. `float_tol=` для значений, посчитанных во float"
         },
         {
           "level": 3,
-          "text": "D6. Node id включает opt-in-набор (antagonist S7)"
+          "text": "D6. Node id включает opt-in-набор"
         },
         {
           "level": 3,
-          "text": "D7. Потокобезопасность `CreatedRegistry` (antagonist S8)"
+          "text": "D7. Потокобезопасность `CreatedRegistry`"
         },
         {
           "level": 3,
-          "text": "D8. `CreatedRegistry.cleanup`: квотирование id и редиректы (security, код вне диапазона)"
+          "text": "D8. `CreatedRegistry.cleanup`: id в пути и редиректы · ✅ исправлено в 2.5.0"
         },
         {
           "level": 2,
@@ -1855,7 +1855,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 29187
+      "chars": 28407
     },
     {
       "slug": "status",
@@ -1931,7 +1931,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 16666
+      "chars": 16676
     },
     {
       "slug": "WIKI",
