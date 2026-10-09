@@ -148,6 +148,11 @@ import partest.reporting as ah
 from partest.env import load_project_env, require_env
 ```
 
+Error bodies: `validate_model=ProblemDetailValidation()` checks the RFC core and refuses any
+other member. If the API adds its own (`code`, `errors[]`), declare them —
+`ProblemDetailValidation(ProblemDetailWithErrors)` or a subclass of `ProblemDetailBody` — rather
+than loosening the model; see `docs/wiki/howto/recipes.md`. Pass an instance, not the class.
+
 `TokenManager` takes an injected `credentials_provider(role) -> (user, password)` — roles and
 credentials stay in the project. The pytest plugin enriches Allure titles automatically; disable
 it with `PARTEST_PYTEST_PLUGIN=0` or `pytest_plugin = False` if the project owns Allure hooks.

@@ -1,7 +1,7 @@
 ---
 title: Package map — what lives where
 status: current
-verified: 2026-10-07
+verified: 2026-10-09
 sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/http/client.py, partest/call_storage.py, partest/reports/payload.py, partest/pytest_plugin.py, partest/optin.py, partest/polling.py, partest/rounding.py]
 audience: agent
 ships_in_wheel: true
@@ -26,7 +26,7 @@ partest/
   files.py             upload byte factories and mutation corpus; deterministic zip/xlsx bytes
   optin.py             opt-in marker sets for the pytest plugin (ini `partest_optin_markers`)
   payloads.py          BaseRequestBody
-  validation/          BaseResponseValidator, ProblemDetail*, raw IncorrectBody cases
+  validation/          BaseResponseValidator, ProblemDetail* (+ declared extensions), raw IncorrectBody cases
   data_marker.py       TEST_MARKER, marked_name/code/short — test-data naming
   env/                 project root, .env loading, require_env
   http/                Config, HeadersBind, httpx_client/httpx_async_client factory

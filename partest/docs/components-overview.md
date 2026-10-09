@@ -20,7 +20,7 @@ partest/
   files.py             upload byte factories and mutation corpus; deterministic zip/xlsx bytes
   optin.py             opt-in marker sets for the pytest plugin (ini `partest_optin_markers`)
   payloads.py          BaseRequestBody
-  validation/          BaseResponseValidator, ProblemDetail*, raw IncorrectBody cases
+  validation/          BaseResponseValidator, ProblemDetail* (+ declared extensions), raw IncorrectBody cases
   data_marker.py       TEST_MARKER, marked_name/code/short — test-data naming
   env/                 project root, .env loading, require_env
   http/                Config, HeadersBind, httpx_client/httpx_async_client factory

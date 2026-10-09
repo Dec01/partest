@@ -91,7 +91,7 @@ def _problem_detail_summary(body: Any) -> str:
     if not isinstance(body, dict):
         return ""
     parts = []
-    for key in ("status", "title", "detail", "type", "instance", "message", "error"):
+    for key in ("status", "title", "detail", "type", "instance", "code", "message", "error"):
         if key in body and body[key] is not None:
             parts.append(f"{key}={body[key]!r}")
     if "errors" in body:

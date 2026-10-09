@@ -683,7 +683,8 @@ class ApiClient:
                     validate_model.validate_success(data)
                 else:
                     validate_model.validate_error(data)
-            except ValueError:
+            except ValueError as err:
+                # pydantic's ValidationError is a ValueError: it lands here, not below.
                 if (
                     hasattr(validate_model, "ResponseSuccessBody")
                     and issubclass(validate_model.ResponseSuccessBody, RootModel)
@@ -706,20 +707,20 @@ class ApiClient:
                         raise AssertionError(
                             f"Response data validation failed for string response: {e}"
                         ) from e
+                elif isinstance(err, ValidationError):
+                    self.logger.error(
+                        ErrorDesc.validate(
+                            validateModel=validate_model,
+                            validateData=data,
+                            error=str(err),
+                        )
+                    )
+                    raise AssertionError(f"Response data validation failed: {err}") from err
                 else:
                     raise AssertionError(
                         f"Failed to parse JSON response and model does not expect a string: "
                         f"{_truncate(response.text)}"
                     )
-            except ValidationError as e:
-                self.logger.error(
-                    ErrorDesc.validate(
-                        validateModel=validate_model,
-                        validateData=data,
-                        error=str(e),
-                    )
-                )
-                raise AssertionError(f"Response data validation failed: {e}") from e
 
     def _handle_http_error(self, err: httpx.HTTPStatusError, request_data: Optional[Any]):
         error_description = ErrorDesc()

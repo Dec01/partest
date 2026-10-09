@@ -1,7 +1,7 @@
 ---
 title: Migration between partest versions
 status: current
-verified: 2026-10-07
+verified: 2026-10-09
 sources: [partest/test_types.py, partest/__init__.py, partest/conf.py, partest/tls.py, partest/http/client.py, partest/pytest_plugin.py, partest/methodology/__init__.py, partest/methodology/_moved.py, partest/methodology/api/__init__.py, partest/methodology/api/overrides.py, partest/methodology/ui/__init__.py]
 audience: user
 ships_in_wheel: true
@@ -20,7 +20,7 @@ pip install -U 'partest[ui]'   # UI suites
 
 ## Unreleased — helpers a suite used to write for itself, and two behaviour notes
 
-Nothing here breaks a suite that does not use the new names. Two behaviours change:
+Nothing here breaks a suite that does not use the new names. Behaviours that change:
 
 | What | Before | Now | Do |
 |---|---|---|---|
@@ -28,6 +28,7 @@ Nothing here breaks a suite that does not use the new names. Two behaviours chan
 | a **one-element** status set (`(404,)`, `[404]`) together with a broken raw body, files or list parameters | the body/files/parameter signal decided | the set is its status: `(404,)` is exactly `404` | pass `type=` where the recorded cell matters |
 | `expected_status_code=` a generator | every status check failed (`must not be empty`) | read once; works | nothing |
 | `sideeffects.wait_for` | could sleep past its deadline and gave up without a last look | the last sleep is cut to the deadline and the probe is called once more there | nothing |
+| a JSON body that fails `validate_model` | `Failed to parse JSON response and model does not expect a string` | `Response data validation failed: …` with the pydantic errors | update a test that matched the old text |
 
 What a suite can now delete from its own code, if it carried a copy:
 
@@ -42,6 +43,9 @@ What a suite can now delete from its own code, if it carried a copy:
   `adopt` / `cleanup_owned` ([[howto/recipes]]).
 - re-zipping generated files for a stable checksum → `partest.files.deterministic_xlsx` /
   `deterministic_zip`, stored by default ([[howto/upload]]).
+- a copy of `ProblemDetailBody` loosened to accept your API's extension members → subclass
+  it, or use `ProblemDetailWithErrors` (`code`, `errors[]`), and pass
+  `ProblemDetailValidation(model)`; undeclared members still fail ([[howto/recipes]]).
 
 Working from a clone of the repository rather than from PyPI: `partest.env` was missing from
 git until now (a `.gitignore` rule swallowed it). Wheels were not affected.

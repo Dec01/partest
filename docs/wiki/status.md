@@ -1,7 +1,7 @@
 ---
 title: Статус, версии и что дальше
 status: current
-verified: 2026-10-07
+verified: 2026-10-09
 sources: [partest/__init__.py, CHANGELOG.md]
 audience: maintainer
 ships_in_wheel: false
@@ -15,7 +15,7 @@ allow_version_literals: true
 
 | | |
 |---|---|
-| **Дата актуализации** | 2026-10-07 |
+| **Дата актуализации** | 2026-10-09 |
 | **Версия в коде** | **2.4.0** — совпадает с последним релизом. Поверх неё — раздел `Unreleased` в `CHANGELOG.md`, **не выпущено**: см. §3 «Не выпущено» |
 | **Последний релиз на PyPI** | **2.4.0** (2026-09-24; проверено `pip index versions partest` 2026-10-07). Минимальный Python — 3.10, pytest `>=9.0.3,<10` |
 | **Дистрибуция** | PyPI — пакет, GitHub — исходники и история; см. [[decisions/distribution]] |
@@ -46,7 +46,7 @@ allow_version_literals: true
 | `httpx_client` / `httpx_async_client` — свой клиент внутри политики TLS | 2.2.0 |
 | `meta.tlsUnverifiedHosts` / `tlsUnknownHosts`, `check_measured` | 2.3.0 |
 | `validate_coverage_payload` | 2.4.0 |
-| `poll_until`, `partest.rounding`, opt-in наборы маркеров, владелец ресурса в `CreatedRegistry`, детерминированные zip/xlsx | **не выпущено** |
+| `poll_until`, `partest.rounding`, opt-in наборы маркеров, владелец ресурса в `CreatedRegistry`, детерминированные zip/xlsx, расширения Problem Detail (`ProblemDetailWithErrors`, `ProblemDetailValidation(model)`) | **не выпущено** |
 
 ## 2. Волны — закрыты
 
@@ -85,6 +85,8 @@ allow_version_literals: true
 | `partest/env/` снова в git; страж от игнорируемых и забытых в `git add` файлов пакета | `.gitignore`, `tests/test_packaging.py` | [[howto/contribute]] |
 | генератор в `expected_status_code` больше не валит проверку статуса | `partest/client.py` | — |
 | `redact_text` — маскировка в тексте; ею закрыты сообщения опроса | `partest/redact.py` | [[howto/enterprise]] |
+| члены-расширения Problem Detail (RFC 9457): объявленные проходят, прочие по-прежнему запрещены | `partest/validation/problem_detail.py` | [[howto/recipes]] |
+| провал схемы на JSON-теле больше не выдаётся за «не удалось разобрать JSON» | `partest/client.py` | [[howto/migration]] |
 
 Для каскада: ключ `meta.selection.optin` в `coverage.json` — аддитивный, `partialRun` его не
 читает; его видят `partest-atlas` и другие читатели формата, если читают `meta.selection`.

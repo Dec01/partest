@@ -109,6 +109,24 @@
   `FIXED_CORE_TIMESTAMP`, `MAX_ENTRY_SIZE`, `MAX_TOTAL_SIZE`, `MAX_ENTRIES`.
   See [[howto/upload]].
 
+
+- **Problem Detail extension members: declare them, and the rest are still refused.**
+  `ProblemDetailBody` forbids every member it does not declare, and RFC 9457 lets an API add
+  its own; a consumer whose service sends `code` and `errors[]` saw a correct refusal fail
+  validation, twice, each time the error contract grew. `ProblemDetailValidation(model=None)`
+  now takes the model to check against — any pydantic model class; a non-class raises
+  `TypeError` — so an API declares its extensions in a subclass of `ProblemDetailBody` and
+  passes `ProblemDetailValidation(MyProblem)`; members it did not declare still fail with
+  `extra_forbidden`. The common shape is ready-made:
+  `ProblemDetailWithErrors` adds an optional `code` (string or integer) and an optional
+  `errors: list[ProblemDetailErrorItem]`; an element types `field`, `code` and `message`,
+  all optional, and **allows other keys** (kept in `model_extra`) because element shapes
+  differ between APIs — subclass the element with `extra="forbid"` to pin it down. Unchanged:
+  `ProblemDetailBody` and `ProblemDetailValidation()` behave exactly as before. The 409
+  message's Problem Detail summary now shows `code` as well. Also public, from `partest` and
+  `partest.validation`: `ProblemDetailWithErrors`, `ProblemDetailErrorItem`.
+  See [[howto/recipes]].
+
 ### Changed
 
 - **A one-element status set is inferred exactly like its status.** `(404,)`, `[404]` and
@@ -181,6 +199,16 @@
   of a one-shot iterator was empty: `ValueError: expected_status_code sequence must not be
   empty`, whatever the response was. A non-`Sized` iterable is now read once, at the start
   of `make_request`.
+
+- **A JSON body that failed `validate_model` was reported as unparseable.** pydantic's
+  `ValidationError` is a `ValueError`, so it fell into the handler for a body that is not
+  JSON, and the test read `Failed to parse JSON response and model does not expect a string`
+  — a contract drift reported as a broken body, with the real errors only on stdout. It now
+  reads `Response data validation failed: …` with pydantic's errors, as the code always
+  intended. A model whose root is `str` still gets the raw text when the body happens to
+  parse as JSON (`42`). A test that matched the old text has to be updated.
+  The recipe passed the class `ProblemDetailValidation` as `validate_model=`, which raises
+  `TypeError`; it passes an instance now.
 
 ## 2.4.0 — 2026-09-24
 

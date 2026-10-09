@@ -300,15 +300,83 @@ pytest src/ui/tests -q   # no swagger
 
 ## Problem Detail / custom error body
 
+`validate_model=` takes a validator **instance**: `ApiClient` calls `validate_error(body)` on it
+for a non-2xx status and `validate_success(body)` for a 2xx one.
+
 ```python
-from partest.validation import ProblemDetailValidation, BaseResponseValidator
+from partest.validation import ProblemDetailValidation
 
-# RFC7807 preset
-await api.make_request(..., expected_status_code=400, validate_model=ProblemDetailValidation)
+# RFC 9457 core: detail, instance, status, title — any other member fails
+await api.make_request(..., expected_status_code=400, validate_model=ProblemDetailValidation())
+```
 
-# custom consumer validator
+`ProblemDetailBody` forbids members it does not declare (`extra="forbid"`), and RFC 9457 lets an
+API add its own. Declare the ones your API sends — the rest still fail, so a member that
+appears or disappears is still caught:
+
+```python
+from typing import Optional
+from partest.validation import ProblemDetailBody, ProblemDetailValidation
+
+class OrderProblem(ProblemDetailBody):
+    code: str                       # required extension
+    retry_after: Optional[int] = None
+
+validate_model=ProblemDetailValidation(OrderProblem)
+```
+
+The common shape — a top-level `code` and per-field `errors[]` — is ready-made:
+
+```python
+from partest.validation import ProblemDetailValidation, ProblemDetailWithErrors
+
+validate_model=ProblemDetailValidation(ProblemDetailWithErrors)
+# {"detail": …, "instance": …, "status": 400, "title": …,
+#  "code": "VALIDATION_FAILED",
+#  "errors": [{"field": "name", "code": "required", "message": "must not be blank"}]}
+```
+
+| Member | Rule in `ProblemDetailWithErrors` |
+|---|---|
+| `code` | optional; string or integer |
+| `errors` | optional; a list of `ProblemDetailErrorItem` |
+| element `field`, `code`, `message` | optional; typed (`code` string or integer) |
+| other keys in an element | **allowed** and kept in `item.model_extra` — element shapes differ (`pointer`, `rejectedValue` …) |
+| any other top-level member | **rejected** (`extra_forbidden`) |
+
+Tighten what you know — make `code` required, or forbid unknown keys in an element:
+
+```python
+from typing import List, Optional
+from pydantic import ConfigDict
+from partest.validation import ProblemDetailErrorItem, ProblemDetailWithErrors
+
+class StrictItem(ProblemDetailErrorItem):
+    model_config = ConfigDict(extra="forbid")
+
+class ApiProblem(ProblemDetailWithErrors):
+    code: str
+    errors: Optional[List[StrictItem]] = None
+```
+
+A body that fails reads `Response data validation failed: …` with the offending member's path
+(`('errors', 0, 'pointer')`). On a 409, `ErrorTemplates.conflict_409` prints the Problem Detail
+summary — `status`, `title`, `detail`, `type`, `instance`, `code`, `message`, `error`, `errors` —
+whatever the model.
+
+An error body that is not a Problem Detail at all gets its own validator:
+
+```python
+from partest.validation import BaseModelWithConfig, BaseResponseValidator
+
+class MyErrorBody(BaseModelWithConfig):
+    code: str
+    message: str
+
 class MyErrorValidation(BaseResponseValidator):
-    class ResponseErrorBody(BaseModelWithConfig):
-        code: str
-        message: str
+    @property
+    def ResponseSuccessBody(self):
+        return MyErrorBody
+
+validate_model=MyErrorValidation()
 ```

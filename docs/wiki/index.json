@@ -68,7 +68,7 @@
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -128,7 +128,7 @@
           "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 16220
+      "chars": 16244
     },
     {
       "slug": "components/project-gen",
@@ -431,7 +431,7 @@
       "path": "docs/wiki/decisions/explicit-type.md",
       "title": "ADR — явный type= вместо автоинференса",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -501,7 +501,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -603,7 +603,7 @@
       "path": "docs/wiki/howto/enterprise.md",
       "title": "Enterprise notes — shared client, retries, redaction, xdist",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -750,7 +750,7 @@
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -916,7 +916,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 25180
+      "chars": 25648
     },
     {
       "slug": "howto/permissions",
@@ -967,7 +967,7 @@
       "path": "docs/wiki/howto/quickstart.md",
       "title": "Quickstart — first green API test",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1047,13 +1047,14 @@
       "path": "docs/wiki/howto/recipes.md",
       "title": "Recipes — consumer-side adapters",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
         "partest/collections/base.py",
         "partest/http/config.py",
         "partest/validation/incorrect_body.py",
+        "partest/validation/problem_detail.py",
         "partest/tracking.py",
         "partest/data_marker.py"
       ],
@@ -1140,21 +1141,29 @@
         },
         {
           "level": 1,
-          "text": "RFC7807 preset"
+          "text": "RFC 9457 core: detail, instance, status, title — any other member fails"
         },
         {
           "level": 1,
-          "text": "custom consumer validator"
+          "text": "{\"detail\": …, \"instance\": …, \"status\": 400, \"title\": …,"
+        },
+        {
+          "level": 1,
+          "text": "\"code\": \"VALIDATION_FAILED\","
+        },
+        {
+          "level": 1,
+          "text": "\"errors\": [{\"field\": \"name\", \"code\": \"required\", \"message\": \"must not be blank\"}]}"
         }
       ],
-      "chars": 11638
+      "chars": 14202
     },
     {
       "slug": "howto/release",
       "path": "docs/wiki/howto/release.md",
       "title": "Release checklist",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1429,7 +1438,7 @@
       "path": "docs/wiki/howto/upload.md",
       "title": "Testing file upload endpoints",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1829,7 +1838,7 @@
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1894,7 +1903,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 15681
+      "chars": 16054
     },
     {
       "slug": "WIKI",
@@ -2210,6 +2219,9 @@
     "partest/validation/incorrect_body.py": [
       "howto/recipes",
       "howto/security"
+    ],
+    "partest/validation/problem_detail.py": [
+      "howto/recipes"
     ],
     "partest/zorro_report.py": [
       "howto/quickstart"
