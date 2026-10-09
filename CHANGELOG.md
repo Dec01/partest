@@ -245,10 +245,12 @@
   with `extra_forbidden`. It is now an optional string (`None` when absent). Members neither
   the RFC nor your model declares are still refused.
 
-- **`CreatedRegistry.cleanup` quotes resource ids in the DELETE path and does not follow
-  redirects with the auth header.** The default URL puts the id in as one percent-encoded
-  path segment; a custom `delete_builder` builds its URL as before. A redirect is followed
-  only within the origin of the request.
+- **`CreatedRegistry.cleanup` quotes resource ids in the DELETE path and follows redirects
+  only within the origin of the request.** The default URL puts the id in as one
+  percent-encoded path segment. A blank id (`""`, whitespace) is not tracked, like `None`,
+  and is never sent as a DELETE. A custom `delete_builder` gets the id exactly as the
+  service sent it and encodes the segment itself — `urllib.parse.quote(str(rid), safe="")`;
+  if it returns an absolute URL on another host, the auth header goes there.
 
 ## 2.4.0 — 2026-09-24
 

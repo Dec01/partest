@@ -115,3 +115,31 @@ def test_a_redirect_loop_stops(transport):
     registry.track("/items", 1)
     _clean(registry, max_passes=1)
     assert len(transport["seen"]) == 1 + tracking._CLEANUP_REDIRECTS
+
+
+@pytest.mark.parametrize("rid", ["", "  ", "\t\n", None])
+def test_a_blank_id_is_not_tracked(rid):
+    registry = CreatedRegistry()
+    registry.track("/items", rid)
+    assert registry.count == 0
+    assert registry.adopt(rid, "session", endpoint="/items") == 0
+    assert registry.count == 0
+
+
+@pytest.mark.parametrize("rid", ["", "  "])
+@pytest.mark.parametrize("builder", [None, lambda endpoint, rid: f"{endpoint}/{rid}"])
+def test_a_blank_id_that_got_in_anyway_sends_no_delete(transport, caplog, rid, builder):
+    registry = CreatedRegistry()
+    registry.track("/items", 1)
+    registry._items.append(("/items", rid))  # past track(): a subclass filling _items
+    registry._owners.append(tracking.TEST_OWNER)
+    with caplog.at_level("WARNING", logger="partest.tracking"):
+        _clean(registry, delete_builder=builder)
+    assert [r.url.path for r in transport["seen"]] == ["/api/items/1"]
+    assert "blank id" in caplog.text
+    assert registry.count == 0
+
+
+def test_the_segment_helper_refuses_a_blank_id():
+    with pytest.raises(ValueError):
+        tracking._id_segment(" ")

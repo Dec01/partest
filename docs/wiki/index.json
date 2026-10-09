@@ -1156,7 +1156,7 @@
           "text": "\"errors\": [{\"field\": \"name\", \"code\": \"required\", \"message\": \"must not be blank\"}]}"
         }
       ],
-      "chars": 16321
+      "chars": 16593
     },
     {
       "slug": "howto/release",
@@ -1855,7 +1855,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 28407
+      "chars": 28462
     },
     {
       "slug": "status",

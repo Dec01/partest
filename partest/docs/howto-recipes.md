@@ -184,7 +184,7 @@ Who cleans up what:
 |---|---|
 | `cleanup_since(mark, ...)` | what the test owns after `mark`; claimed entries stay, in order |
 | `cleanup_owned(owner, ...)` | everything `owner` owns, wherever it sits — the teardown of a module or class area |
-| `cleanup(...)` | everything — the session pass, unchanged |
+| `cleanup(...)` | everything — the session pass, unchanged. The id goes into the DELETE path as one encoded segment; a blank id is never sent. A `delete_builder=` gets the id as the service sent it and encodes it itself — `urllib.parse.quote(str(rid), safe="")`; an absolute URL on another host from it takes the auth header there |
 
 The owner is any hashable: `"session"`, `("module", request.module.__name__)`. A module-level
 area claims with its key and drains in its own teardown:

@@ -443,7 +443,7 @@ event loop, гонок нет; `run_in_executor` или потоки в тест
 
 ### D8. `CreatedRegistry.cleanup`: id в пути и редиректы · ✅ исправлено в 2.5.0
 
-См. `CHANGELOG.md` 2.5.0, Fixed.
+См. `CHANGELOG.md` 2.5.0, Fixed. Свой `delete_builder` кодирует id и выбирает хост сам.
 
 ## E. Спорное из ревью расширений Problem Detail · 2026-10-09
 

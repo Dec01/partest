@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextvars
+import logging
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Hashable, Iterator, List, Optional, Sequence, Tuple, Union
 from urllib.parse import quote
@@ -14,6 +15,16 @@ from partest.http.client import httpx_async_client
 from partest.tls import VerifySetting, resolve_verify
 
 IdExtractor = Callable[[Any, str, str], Optional[Tuple[str, Any]]]
+
+_log = logging.getLogger(__name__)
+
+
+def _blank_id(resource_id: Any) -> bool:
+    """``None``, ``""`` or whitespace: nothing was created, and nothing may be deleted.
+
+    A blank id in a DELETE URL addresses the collection itself (``/items/``).
+    """
+    return resource_id is None or not str(resource_id).strip()
 
 _UNSET: Any = object()
 
@@ -144,9 +155,10 @@ class CreatedRegistry:
         """Register a created resource.
 
         ``owner`` defaults to the one set by an enclosing :meth:`owned_by`, else
-        :data:`TEST_OWNER`.
+        :data:`TEST_OWNER`. A blank id — ``None``, ``""`` or whitespace — means nothing was
+        created and is not registered.
         """
-        if resource_id is not None:
+        if not _blank_id(resource_id):
             if owner is _UNSET:
                 owner = _CURRENT_OWNER.get().get(id(self), TEST_OWNER)
             owners = self._owner_list()
@@ -247,6 +259,8 @@ class CreatedRegistry:
                 f"resource {resource_id!r} is not tracked; pass endpoint= to track it "
                 f"under {owner!r}"
             )
+        if _blank_id(resource_id):
+            return 0  # nothing was created, so nothing is tracked
         self.track(endpoint, resource_id, owner=owner)
         return 1
 
@@ -334,10 +348,14 @@ class CreatedRegistry:
         other call and has no reason to trust a certificate the suite would not.
 
         The id comes from a service response, so the default URL puts it in as one
-        percent-encoded path segment (``../x`` → ``..%2Fx``). A ``delete_builder`` builds
-        the URL itself and owns that encoding. Redirects are followed only within the
-        origin of the request; one to another origin is not followed, and the resource
-        counts as not deleted.
+        percent-encoded path segment (``../x`` → ``..%2Fx``). A ``delete_builder`` gets the
+        id exactly as the service sent it and must encode the segment itself —
+        ``urllib.parse.quote(str(rid), safe="")``; if it returns an absolute URL on another
+        host, the auth header goes there. A blank id (``""``, whitespace) is never sent:
+        it would address the collection; it is skipped with a warning in the
+        ``partest.tracking`` log. Redirects are followed only within the origin of the
+        request; one to another origin is not followed, and the resource counts as not
+        deleted.
         """
         if not self._items:
             return
@@ -361,6 +379,13 @@ class CreatedRegistry:
                     break
                 still = []
                 for endpoint, rid in pending:
+                    if _blank_id(rid):
+                        _log.warning(
+                            "cleanup skipped a blank id under %r: a DELETE would address "
+                            "the collection",
+                            endpoint,
+                        )
+                        continue
                     try:
                         response = await _delete_same_origin(
                             client, _url(endpoint, rid), headers
@@ -385,8 +410,10 @@ def _id_segment(rid: Any) -> str:
 
     ``quote(..., safe="")`` encodes ``/``, ``?`` and ``#``; an id that is only dots is
     encoded as well, because ``.`` and ``..`` are removed by URL normalisation and would
-    send the DELETE to the collection or above it.
+    send the DELETE to the collection or above it. A blank id has no segment at all.
     """
+    if _blank_id(rid):
+        raise ValueError("a blank resource id has no path segment")
     segment = quote(str(rid), safe="")
     if segment in (".", ".."):
         segment = segment.replace(".", "%2E")
