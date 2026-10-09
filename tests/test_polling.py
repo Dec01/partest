@@ -342,7 +342,7 @@ def test_a_model_with_a_token_is_shown_by_its_repr_masked():
     model = _timeout_message(Session(access_token="SECRET-1", status="RUNNING"))
     assert "SECRET-1" not in model
     assert "Session(" in model and "RUNNING" in model
-    record = _timeout_message(Job(status="RUNNING", token="SECRET-2"))
+    record = _timeout_message(Job("RUNNING", "SECRET-2"))  # fields: status, token
     assert "SECRET-2" not in record and "Job(" in record
 
 
@@ -361,7 +361,7 @@ def test_mapping_subclasses_and_namedtuples_keep_their_type_in_the_message():
     import collections
 
     Point = collections.namedtuple("Point", "status token")
-    ordered = collections.OrderedDict(status="RUNNING", token="SECRET-4")
+    ordered = collections.OrderedDict([("status", "RUNNING"), ("token", "SECRET-4")])
     message = _timeout_message([Point("RUNNING", "SECRET-5"), ordered])
     assert "Point(" in message and "OrderedDict" in message
     assert "SECRET-4" not in message and "SECRET-5" not in message

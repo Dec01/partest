@@ -90,7 +90,7 @@ allow_version_literals: true
 | opt-in наборы маркеров, `meta.selection.optin` | `partest/optin.py`, `partest/call_storage.py`, `partest/reports/compare.py` | [[components/overview]] |
 | владелец ресурса шире теста | `partest/tracking.py` | [[howto/recipes]] |
 | детерминированные байты zip/xlsx | `partest/files.py` | [[howto/upload]] |
-| `partest/env/` снова в git; страж от игнорируемых и забытых в `git add` файлов пакета | `.gitignore`, `tests/test_packaging.py` | [[howto/contribute]] |
+| `partest/env/` снова в git; проверка от игнорируемых и забытых в `git add` файлов пакета | `.gitignore`, `tests/test_packaging.py` | [[howto/contribute]] |
 | генератор в `expected_status_code` больше не валит проверку статуса | `partest/client.py` | — |
 | `redact_text` — маскировка в тексте; ею закрыты сообщения опроса | `partest/redact.py` | [[howto/enterprise]] |
 | члены-расширения Problem Detail (RFC 9457): объявленные проходят, прочие по-прежнему запрещены | `partest/validation/problem_detail.py` | [[howto/recipes]] |

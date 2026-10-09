@@ -42,7 +42,7 @@ allow_version_literals: true
 - [[howto/security]] — `SecHttp` в политике TLS; [[howto/enterprise]],
   [[concepts/coverage-honesty]], [[howto/coverage-html]] — `meta.selection.optin`;
 - [[backlog-audit]] — волна 1.6 выпущена в 1.7.0 (было «не выпущена»), строка про владельцев;
-- [[howto/contribute]] — страж `.gitignore` для пакета;
+- [[howto/contribute]] — проверка `.gitignore` для пакета;
 - `components/project-gen`, `decisions/docs-in-wheel`, `howto/permissions`, `howto/ui` —
   сверены, расхождений нет, только дата;
 - [[proposals]] — новый раздел D со спорным из ревью.
