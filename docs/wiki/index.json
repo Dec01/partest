@@ -6,7 +6,7 @@
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
