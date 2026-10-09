@@ -166,7 +166,7 @@ class ErrorTemplates:
             "HTTP 409 Conflict — data conflict (not authz / not found).",
             f"  Request: {method.upper()} {path}",
             f"  Expected status: {expected}",
-            f"  Actual status: 409",
+            "  Actual status: 409",
         ]
         if entity_hint:
             lines.append(f"  Entity context: {entity_hint}")

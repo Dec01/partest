@@ -312,7 +312,7 @@ for a non-2xx status and `validate_success(body)` for a 2xx one.
 ```python
 from partest.validation import ProblemDetailValidation
 
-# RFC 9457 core: detail, instance, status, title — any other member fails
+# RFC 9457 core: detail, instance, status, title, optional type — any other member fails
 await api.make_request(..., expected_status_code=400, validate_model=ProblemDetailValidation())
 ```
 

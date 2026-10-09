@@ -916,7 +916,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 25648
+      "chars": 25847
     },
     {
       "slug": "howto/permissions",
@@ -1141,7 +1141,7 @@
         },
         {
           "level": 1,
-          "text": "RFC 9457 core: detail, instance, status, title — any other member fails"
+          "text": "RFC 9457 core: detail, instance, status, title, optional type — any other member fails"
         },
         {
           "level": 1,
@@ -1156,7 +1156,7 @@
           "text": "\"errors\": [{\"field\": \"name\", \"code\": \"required\", \"message\": \"must not be blank\"}]}"
         }
       ],
-      "chars": 14202
+      "chars": 14217
     },
     {
       "slug": "howto/release",
@@ -1735,6 +1735,10 @@
           "text": "A14. Сетевая ветка `parparser` — кандидат в устаревшие, и это минус зависимость"
         },
         {
+          "level": 3,
+          "text": "A15. Подкласс `RootModel[str]` не получает сырой текст ответа · 2026-10-09"
+        },
+        {
           "level": 2,
           "text": "B. Средняя стоимость, снимает системные проблемы"
         },
@@ -1831,7 +1835,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 24889
+      "chars": 25786
     },
     {
       "slug": "status",

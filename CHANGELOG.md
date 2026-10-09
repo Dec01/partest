@@ -210,6 +210,11 @@
   The recipe passed the class `ProblemDetailValidation` as `validate_model=`, which raises
   `TypeError`; it passes an instance now.
 
+- **`ProblemDetailBody` refused the standard member `type`.** RFC 9457 defines `type` next to
+  `title`, `status`, `detail` and `instance`, and a body with `"type": "about:blank"` failed
+  with `extra_forbidden`. It is now an optional string (`None` when absent). Members neither
+  the RFC nor your model declares are still refused.
+
 ## 2.4.0 — 2026-09-24
 
 ### Added

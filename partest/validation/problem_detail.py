@@ -25,13 +25,15 @@ from partest.validation.base import BaseModelWithConfig, BaseResponseValidator
 class ProblemDetailBody(BaseModelWithConfig):
     """Common 4xx/5xx error body (RFC 7807). Override fields if your API differs.
 
-    Undeclared members are rejected. Subclass to declare the extensions your API sends.
+    ``type`` is a standard member (RFC 9457) and optional. Undeclared members are rejected.
+    Subclass to declare the extensions your API sends.
     """
 
     detail: str = Field(...)
     instance: str = Field(...)
     status: int = Field(...)
     title: str = Field(...)
+    type: Optional[str] = None
 
 
 class ProblemDetailErrorItem(BaseModel):

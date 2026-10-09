@@ -33,6 +33,23 @@ def test_default_body_still_forbids_extension_members():
     assert _extra_locs(info.value) == [("code",)]
 
 
+def test_default_body_accepts_the_standard_type_member():
+    m = ProblemDetailBody.model_validate({**CORE, "type": "about:blank"})
+    assert m.type == "about:blank"
+    assert ProblemDetailBody.model_validate(CORE).type is None
+
+
+def test_type_does_not_open_the_body_to_other_members():
+    with pytest.raises(ValidationError) as info:
+        ProblemDetailBody.model_validate({**CORE, "type": "about:blank", "trace_id": "abc"})
+    assert _extra_locs(info.value) == [("trace_id",)]
+
+
+def test_type_must_be_a_string():
+    with pytest.raises(ValidationError):
+        ProblemDetailBody.model_validate({**CORE, "type": 1})
+
+
 def test_default_validator_checks_the_core_model():
     v = ProblemDetailValidation()
     assert v.ResponseSuccessBody is ProblemDetailBody

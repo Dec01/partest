@@ -21,6 +21,7 @@ Nothing here breaks a suite that does not use the new names. Behaviours that cha
 | a **one-element** status set (`(404,)`, `[404]`) together with a broken raw body, files or list parameters | the body/files/parameter signal decided | the set is its status: `(404,)` is exactly `404` | pass `type=` where the recorded cell matters |
 | `expected_status_code=` a generator | every status check failed (`must not be empty`) | read once; works | nothing |
 | `sideeffects.wait_for` | could sleep past its deadline and gave up without a last look | the last sleep is cut to the deadline and the probe is called once more there | nothing |
+| a Problem Detail body with `"type": …` against `ProblemDetailBody` | `extra_forbidden` | accepted; `type` is a standard member, optional | drop a local workaround that stripped or allowed `type` |
 | a JSON body that fails `validate_model` | `Failed to parse JSON response and model does not expect a string` | `Response data validation failed: …` with the pydantic errors | update a test that matched the old text |
 
 What a suite can now delete from its own code, if it carried a copy:
