@@ -61,7 +61,7 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7746
+      "chars": 7727
     },
     {
       "slug": "components/overview",
@@ -773,7 +773,7 @@
         },
         {
           "level": 2,
-          "text": "Unreleased — helpers a suite used to write for itself, and two behaviour notes"
+          "text": "2.5.0 — helpers a suite used to write for itself, and behaviour notes"
         },
         {
           "level": 2,
@@ -916,7 +916,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 26544
+      "chars": 26535
     },
     {
       "slug": "howto/permissions",
@@ -1546,6 +1546,10 @@
         },
         {
           "level": 2,
+          "text": "2026-10-09 · update · выпуск 2.5.0 подготовлен"
+        },
+        {
+          "level": 2,
           "text": "2026-10-07 · lint · ноль предупреждений для `--strict-docs`"
         },
         {
@@ -1649,7 +1653,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 29852
+      "chars": 30505
     },
     {
       "slug": "proposals",
@@ -1884,7 +1888,11 @@
         },
         {
           "level": 3,
-          "text": "Не выпущено — шесть возможностей, которые потребитель писал сам (2026-10-07)"
+          "text": "Следующий патч — маскировка тела во всех каналах"
+        },
+        {
+          "level": 3,
+          "text": "2.5.0 — шесть возможностей, которые потребитель писал сам · **выпуск подготовлен 2026-10-09**"
         },
         {
           "level": 3,
@@ -1923,7 +1931,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 16120
+      "chars": 16663
     },
     {
       "slug": "WIKI",

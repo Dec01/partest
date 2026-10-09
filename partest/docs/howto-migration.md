@@ -11,7 +11,7 @@ pip install -U partest
 pip install -U 'partest[ui]'   # UI suites
 ```
 
-## Unreleased — helpers a suite used to write for itself, and two behaviour notes
+## 2.5.0 — helpers a suite used to write for itself, and behaviour notes
 
 Nothing here breaks a suite that does not use the new names. Behaviours that change:
 

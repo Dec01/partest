@@ -59,7 +59,7 @@ allow_version_literals: true
 | **LIB-BODY-MARK** | `_cleanup_fields` + `get_json_required_marked()` | ✅ | `payloads.py` |
 | **LIB-PERM-QUAD** | подписи четырёх клеток | ✅ | `PERMISSION_CELLS`, `permission_cell_label` |
 | — | `CreatedRegistry.snapshot()` / `cleanup_since(n)` | ✅ | `tracking.py` |
-| — | владелец ресурса шире теста: `owned_by` / `adopt` / `cleanup_owned`; `cleanup_since` пропускает заявленное | ✅ не выпущено (2026-10-07) | `tracking.py`, [[howto/recipes]] |
+| — | владелец ресурса шире теста: `owned_by` / `adopt` / `cleanup_owned`; `cleanup_since` пропускает заявленное | ✅ 2.5.0 | `tracking.py`, [[howto/recipes]] |
 
 Acceptance-кейсы из спеки закреплены тестами: `/media-types` и `/mentions` больше не
 BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резолвится в
