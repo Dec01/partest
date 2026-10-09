@@ -46,7 +46,7 @@ python -m partest.ui.capture_baselines --dry-run
       release. See [[components/project-gen]]
 - [ ] touched the `coverage.json` format (`partest/reports/payload.py`,
       `partest.call_storage.dump_storage`)? Its readers live in other repositories —
-      `partest-atlas` and every other consumer of the format — and each needs a line in its own
+      `partest-atlas` and other readers of the format — and each needs a line in its own
       `CHANGELOG.md`, even for an additive key
 - [ ] no secrets, stand URLs, absolute local paths, or consumer project names in anything with
       `ships_in_wheel: true` — the linter checks this, but read the diff too

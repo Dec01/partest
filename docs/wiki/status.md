@@ -96,7 +96,7 @@ allow_version_literals: true
 | члены-расширения Problem Detail (RFC 9457): объявленные проходят, прочие по-прежнему запрещены | `partest/validation/problem_detail.py` | [[howto/recipes]] |
 | провал схемы на JSON-теле больше не выдаётся за «не удалось разобрать JSON»; сообщение и лог без значений из тела, тело маскировано и усечено | `partest/client.py` | [[howto/migration]] |
 
-Для каскада: ключ `meta.selection.optin` в `coverage.json` — аддитивный, `partialRun` его не
+Для читателей формата: ключ `meta.selection.optin` в `coverage.json` — аддитивный, `partialRun` его не
 читает; его видят `partest-atlas` и другие читатели формата, если читают `meta.selection`.
 У `compare` новый мягкий список `notes`. Спорное из ревью —
 [[proposals]] §D.
