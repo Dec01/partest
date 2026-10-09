@@ -135,7 +135,7 @@
       "path": "docs/wiki/components/project-gen.md",
       "title": "partest-gen — генератор в соседнем репозитории",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [
@@ -304,7 +304,7 @@
       "path": "docs/wiki/decisions/distribution.md",
       "title": "ADR — как распространяется partest",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -393,7 +393,7 @@
       "path": "docs/wiki/decisions/docs-in-wheel.md",
       "title": "ADR — документация внутри колеса и генерация partest/docs",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1660,7 +1660,7 @@
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-10-07",
+      "verified": "2026-10-09",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
