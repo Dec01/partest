@@ -22,7 +22,9 @@ Nothing here breaks a suite that does not use the new names. Behaviours that cha
 | `expected_status_code=` a generator | every status check failed (`must not be empty`) | read once; works | nothing |
 | `sideeffects.wait_for` | could sleep past its deadline and gave up without a last look | the last sleep is cut to the deadline and the probe is called once more there | nothing |
 | a Problem Detail body with `"type": …` against `ProblemDetailBody` | `extra_forbidden` | accepted; `type` is a standard member, optional | drop a local workaround that stripped or allowed `type` |
-| a JSON body that fails `validate_model` | `Failed to parse JSON response and model does not expect a string` | `Response data validation failed: …` with the pydantic errors | update a test that matched the old text |
+| `ProblemDetailBody(...).model_dump()` | no `type` key | `'type': None` when the body had none | compare with `exclude_none=True`, or expect the key |
+| a JSON body that fails `validate_model` | `Failed to parse JSON response and model does not expect a string` | `Response data validation failed (N errors):`, one `path [type]: message` line per error, no values; then `Response body: …`, masked and shortened | update a test that matched the old text; match on the `path [type]` line |
+| the empty-body and string-model failures | `… for empty response: <pydantic text with input values>` | same format as above, `failed for empty response (N errors):` | as above |
 
 What a suite can now delete from its own code, if it carried a copy:
 
@@ -39,7 +41,8 @@ What a suite can now delete from its own code, if it carried a copy:
   `deterministic_zip`, stored by default ([Testing file upload endpoints](howto-upload.md)).
 - a copy of `ProblemDetailBody` loosened to accept your API's extension members → subclass
   it, or use `ProblemDetailWithErrors` (`code`, `errors[]`), and pass
-  `ProblemDetailValidation(model)`; undeclared members still fail ([Recipes — consumer-side adapters](howto-recipes.md)).
+  `ProblemDetailValidation(model)`; undeclared members still fail, in an `errors[]` element
+  too — declare the element's extra keys in a subclass ([Recipes — consumer-side adapters](howto-recipes.md)).
 
 Working from a clone of the repository rather than from PyPI: `partest.env` was missing from
 git until now (a `.gitignore` rule swallowed it). Wheels were not affected.

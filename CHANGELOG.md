@@ -109,7 +109,6 @@
   `FIXED_CORE_TIMESTAMP`, `MAX_ENTRY_SIZE`, `MAX_TOTAL_SIZE`, `MAX_ENTRIES`.
   See [[howto/upload]].
 
-
 - **Problem Detail extension members: declare them, and the rest are still refused.**
   `ProblemDetailBody` forbids every member it does not declare, and RFC 9457 lets an API add
   its own; a consumer whose service sends `code` and `errors[]` saw a correct refusal fail
@@ -120,10 +119,16 @@
   `extra_forbidden`. The common shape is ready-made:
   `ProblemDetailWithErrors` adds an optional `code` (string or integer) and an optional
   `errors: list[ProblemDetailErrorItem]`; an element types `field`, `code` and `message`,
-  all optional, and **allows other keys** (kept in `model_extra`) because element shapes
-  differ between APIs — subclass the element with `extra="forbid"` to pin it down. Unchanged:
-  `ProblemDetailBody` and `ProblemDetailValidation()` behave exactly as before. The 409
-  message's Problem Detail summary now shows `code` as well. Also public, from `partest` and
+  all optional, and **rejects any other key**, like every model here — with all its fields
+  optional, an element that took anything would let `field` renamed to `fieldName` pass.
+  Element shapes differ between APIs: declare yours in a subclass of the element (a
+  `pointer` field), or open it with `extra="allow"` there. Both extensions are optional, so
+  their absence is not caught; an endpoint that must return `errors` declares it required in
+  a subclass. A subclass of `ProblemDetailValidation` may set `_model` on the class; the
+  constructor without an argument keeps it. Unchanged: a body without extension members
+  validates against `ProblemDetailBody` and `ProblemDetailValidation()` as before — apart
+  from the standard member `type`, accepted now (see Fixed). The 409 message's Problem Detail
+  summary now shows `code` as well. Also public, from `partest` and
   `partest.validation`: `ProblemDetailWithErrors`, `ProblemDetailErrorItem`.
   See [[howto/recipes]].
 
@@ -204,9 +209,15 @@
   `ValidationError` is a `ValueError`, so it fell into the handler for a body that is not
   JSON, and the test read `Failed to parse JSON response and model does not expect a string`
   — a contract drift reported as a broken body, with the real errors only on stdout. It now
-  reads `Response data validation failed: …` with pydantic's errors, as the code always
-  intended. A model whose root is `str` still gets the raw text when the body happens to
-  parse as JSON (`42`). A test that matched the old text has to be updated.
+  reads `Response data validation failed (N errors):`, then one line per error — path as
+  `errors.0.pointer`, type, message, **never the value** — then `Response body: …`, masked
+  (`redact_mapping` over the parsed JSON and `redact_text` over the result, so a secret below
+  the mapping depth is covered too) and shortened; the error list is bounded as well. The
+  same rule now holds for the empty-body and string-model failures, for the body in the
+  `Failed to parse JSON` message, and for the ERROR log line of each: before, a secret in an
+  unexpected member (`{"token": …}`) reached the assertion text and the log whole. A model
+  whose root is `str` still gets the raw text when the body happens to parse as JSON (`42`).
+  A test that matched the old text has to be updated.
   The recipe passed the class `ProblemDetailValidation` as `validate_model=`, which raises
   `TypeError`; it passes an instance now.
 

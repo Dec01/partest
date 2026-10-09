@@ -317,8 +317,8 @@ await api.make_request(..., expected_status_code=400, validate_model=ProblemDeta
 ```
 
 `ProblemDetailBody` forbids members it does not declare (`extra="forbid"`), and RFC 9457 lets an
-API add its own. Declare the ones your API sends — the rest still fail, so a member that
-appears or disappears is still caught:
+API add its own. Declare the ones your API sends — the rest still fail. A member that appears
+is caught; one that disappears is caught only if you declare it required:
 
 ```python
 from typing import Optional
@@ -345,30 +345,43 @@ validate_model=ProblemDetailValidation(ProblemDetailWithErrors)
 | Member | Rule in `ProblemDetailWithErrors` |
 |---|---|
 | `code` | optional; string or integer |
-| `errors` | optional; a list of `ProblemDetailErrorItem` |
+| `errors` | optional; a list of `ProblemDetailErrorItem` — a body **without** `errors` passes |
 | element `field`, `code`, `message` | optional; typed (`code` string or integer) |
-| other keys in an element | **allowed** and kept in `item.model_extra` — element shapes differ (`pointer`, `rejectedValue` …) |
+| other keys in an element | **rejected** (`extra_forbidden`) — with every element field optional, this is what notices `field` renamed to `fieldName` |
 | any other top-level member | **rejected** (`extra_forbidden`) |
 
-Tighten what you know — make `code` required, or forbid unknown keys in an element:
+Both extensions are optional, so their disappearance is not caught. If the endpoint must return
+`errors`, or `code`, declare it required in a subclass. Element shapes differ between APIs
+(`pointer`, `rejectedValue` …): declare the extra keys of yours in a subclass of the element:
 
 ```python
 from typing import List, Optional
-from pydantic import ConfigDict
 from partest.validation import ProblemDetailErrorItem, ProblemDetailWithErrors
 
-class StrictItem(ProblemDetailErrorItem):
-    model_config = ConfigDict(extra="forbid")
+class PointerItem(ProblemDetailErrorItem):
+    pointer: Optional[str] = None        # e.g. {"field": "age", "pointer": "#/age", …}
 
 class ApiProblem(ProblemDetailWithErrors):
-    code: str
-    errors: Optional[List[StrictItem]] = None
+    code: str                            # required: its absence fails
+    errors: List[PointerItem]            # required: a missing list fails
 ```
 
-A body that fails reads `Response data validation failed: …` with the offending member's path
-(`('errors', 0, 'pointer')`). On a 409, `ErrorTemplates.conflict_409` prints the Problem Detail
-summary — `status`, `title`, `detail`, `type`, `instance`, `code`, `message`, `error`, `errors` —
-whatever the model.
+An element that should take anything can be opened with
+`model_config = ConfigDict(extra="allow")` in the subclass; the extra keys land in
+`item.model_extra`. The top level stays closed either way.
+
+A body that fails reads, one line per error — path, type, message, never the value — then the
+body, secrets masked and shortened. Against `ProblemDetailWithErrors`:
+
+```text
+Response data validation failed (2 errors):
+  errors.0.pointer [extra_forbidden]: Extra inputs are not permitted
+  token [extra_forbidden]: Extra inputs are not permitted
+Response body: {"detail": "Validation failed", "instance": "/orders", "status": 400, "title": "Bad Request", "token": '***', "errors": [{"field": "age", "pointer": "#/age"}]}
+```
+
+On a 409, `ErrorTemplates.conflict_409` prints the Problem Detail summary — `status`, `title`,
+`detail`, `type`, `instance`, `code`, `message`, `error`, `errors` — whatever the model.
 
 An error body that is not a Problem Detail at all gets its own validator:
 

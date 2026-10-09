@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from partest.validation.base import BaseModelWithConfig, BaseResponseValidator
 
@@ -36,15 +36,14 @@ class ProblemDetailBody(BaseModelWithConfig):
     type: Optional[str] = None
 
 
-class ProblemDetailErrorItem(BaseModel):
+class ProblemDetailErrorItem(BaseModelWithConfig):
     """One element of ``errors[]``: ``field``, ``code``, ``message``, all optional.
 
-    Other keys in an element are allowed and kept — element shapes differ between APIs
-    (``pointer``, ``detail``, ``rejectedValue`` …). Subclass with
-    ``model_config = ConfigDict(extra="forbid")`` to pin an element down.
+    Any other key in an element is rejected, as everywhere in this package: with every field
+    optional, an element that accepted anything would let ``field`` → ``fieldName`` pass
+    unnoticed. Element shapes differ between APIs (``pointer``, ``rejectedValue`` …) —
+    declare yours in a subclass, or subclass with ``model_config = ConfigDict(extra="allow")``.
     """
-
-    model_config = ConfigDict(extra="allow")
 
     field: Optional[str] = None
     code: Optional[Union[str, int]] = None
@@ -75,7 +74,8 @@ class ProblemDetailValidation(BaseResponseValidator):
     def __init__(self, model: Optional[Type[BaseModel]] = None) -> None:
         if model is not None and not (isinstance(model, type) and issubclass(model, BaseModel)):
             raise TypeError(f"model must be a pydantic model class, got {model!r}")
-        self._model = model
+        if model is not None:
+            self._model = model
 
     @property
     def ResponseSuccessBody(self) -> Type[BaseModel]:

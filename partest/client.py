@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import warnings
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Sized, Tuple, Type, Union
 
@@ -12,7 +13,7 @@ from partest.allure_step import allure_step as _step
 from partest.coverage import track_api_calls
 from partest.http.client import httpx_async_client
 from partest.http_retry import RetryPolicy
-from partest.redact import redact_headers
+from partest.redact import redact_headers, redact_mapping, redact_text
 from partest.tls import (
     VerifySetting,
     certificate_error,
@@ -71,6 +72,45 @@ def _truncate(text: Any, limit: int = 2000) -> str:
     if len(s) <= limit:
         return s
     return s[:limit] + f"... [truncated, {len(s)} chars total]"
+
+
+_NO_BODY = object()
+
+
+def _redacted_body(data: Any = _NO_BODY, text: str = "", limit: int = 1000) -> str:
+    """A response body fit for a message or a log: secrets masked, then shortened.
+
+    Parsed JSON goes through ``redact_mapping`` and the serialised result through
+    ``redact_text`` as well, so a secret nested below ``redact_mapping``'s depth or
+    under a prefix-keeping mask is still covered. Raw text gets ``redact_text``.
+    """
+    if data is not _NO_BODY:
+        try:
+            text = json.dumps(redact_mapping(data), ensure_ascii=False, default=str)
+        except (TypeError, ValueError):
+            text = str(data)
+    return _truncate(redact_text(text), limit)
+
+
+def _validation_failure(
+    err: ValidationError, *, data: Any = _NO_BODY, text: str = "", what: str = ""
+) -> str:
+    """Schema failure message without input values: path, type and message per error."""
+    try:
+        errors = err.errors(include_input=False, include_url=False)
+    except TypeError:  # pydantic before include_input
+        errors = err.errors()
+    lines = []
+    for e in errors:
+        loc = ".".join(str(part) for part in e.get("loc", ())) or "<root>"
+        # "loc [type]: msg" — "loc: msg" would read as key: value to redact_text
+        lines.append(f"  {loc} [{e.get('type', '')}]: {e.get('msg', '')}")
+    count = len(errors)
+    noun = "error" if count == 1 else "errors"
+    head = f"Response data validation failed{what} ({count} {noun}):"
+    body = _redacted_body(data, text)
+    detail = _truncate(redact_text("\n".join(lines)))
+    return f"{head}\n{detail}\nResponse body: {body}"
 
 
 def _mask_headers(headers: Optional[Dict[str, str]]) -> Dict[str, str]:
@@ -665,16 +705,15 @@ class ApiClient:
                     else:
                         validate_model.validate_error({})
                 except ValidationError as e:
+                    msg = _validation_failure(e, data={}, what=" for empty response")
                     self.logger.error(
                         ErrorDesc.validate(
                             validateModel=validate_model,
                             validateData={},
-                            error=str(e),
+                            error=msg,
                         )
                     )
-                    raise AssertionError(
-                        f"Response data validation failed for empty response: {e}"
-                    ) from e
+                    raise AssertionError(msg) from e
                 return
 
             try:
@@ -697,29 +736,31 @@ class ApiClient:
                         else:
                             validate_model.validate_error(response.text)
                     except ValidationError as e:
+                        msg = _validation_failure(
+                            e, text=response.text, what=" for string response"
+                        )
                         self.logger.error(
                             ErrorDesc.validate(
                                 validateModel=validate_model,
-                                validateData=response.text,
-                                error=str(e),
+                                validateData=_redacted_body(text=response.text),
+                                error=msg,
                             )
                         )
-                        raise AssertionError(
-                            f"Response data validation failed for string response: {e}"
-                        ) from e
+                        raise AssertionError(msg) from e
                 elif isinstance(err, ValidationError):
+                    msg = _validation_failure(err, data=data)
                     self.logger.error(
                         ErrorDesc.validate(
                             validateModel=validate_model,
-                            validateData=data,
-                            error=str(err),
+                            validateData=_redacted_body(data),
+                            error=msg,
                         )
                     )
-                    raise AssertionError(f"Response data validation failed: {err}") from err
+                    raise AssertionError(msg) from err
                 else:
                     raise AssertionError(
                         f"Failed to parse JSON response and model does not expect a string: "
-                        f"{_truncate(response.text)}"
+                        f"{_redacted_body(text=response.text, limit=2000)}"
                     )
 
     def _handle_http_error(self, err: httpx.HTTPStatusError, request_data: Optional[Any]):

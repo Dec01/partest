@@ -84,6 +84,14 @@ def test_declared_extension_can_be_required():
     assert [e["loc"] for e in info.value.errors()] == [("code",)]
 
 
+def test_class_level_model_of_a_subclass_survives_default_init():
+    class CodedValidation(ProblemDetailValidation):
+        _model = _CodedProblem
+
+    assert CodedValidation().ResponseSuccessBody is _CodedProblem
+    assert CodedValidation(ProblemDetailWithErrors).ResponseSuccessBody is ProblemDetailWithErrors
+
+
 def test_validator_rejects_a_non_model():
     with pytest.raises(TypeError):
         ProblemDetailValidation({"code": str})
@@ -120,15 +128,19 @@ def test_with_errors_still_forbids_other_top_level_members():
     assert _extra_locs(info.value) == [("trace_id",)]
 
 
-def test_unknown_key_in_an_error_item_is_allowed_and_kept():
-    body = {
-        **CORE,
-        "errors": [{"field": "age", "message": "too low", "pointer": "#/age", "min": 18}],
-    }
-    m = ProblemDetailWithErrors.model_validate(body)
-    item = m.errors[0]
-    assert isinstance(item, ProblemDetailErrorItem)
-    assert item.model_extra == {"pointer": "#/age", "min": 18}
+def test_unknown_key_in_an_error_item_is_rejected():
+    with pytest.raises(ValidationError) as info:
+        ProblemDetailWithErrors.model_validate(
+            {**CORE, "errors": [{"field": "a", "message": "m", "pointer": "#/a"}]}
+        )
+    assert _extra_locs(info.value) == [("errors", 0, "pointer")]
+
+
+def test_renamed_item_key_is_caught():
+    # every element field is optional, so only extra=forbid notices field -> fieldName
+    with pytest.raises(ValidationError) as info:
+        ProblemDetailWithErrors.model_validate({**CORE, "errors": [{"fieldName": "a"}]})
+    assert _extra_locs(info.value) == [("errors", 0, "fieldName")]
 
 
 def test_known_item_keys_are_still_typed():
@@ -142,17 +154,44 @@ def test_errors_must_be_a_list():
         ProblemDetailWithErrors.model_validate({**CORE, "errors": {"field": "name"}})
 
 
-def test_item_can_be_pinned_down_by_subclassing():
-    class StrictItem(ProblemDetailErrorItem):
-        model_config = ConfigDict(extra="forbid")
+def test_item_extension_is_declared_by_subclassing():
+    class PointerItem(ProblemDetailErrorItem):
+        pointer: Optional[str] = None
 
-    class StrictProblem(ProblemDetailWithErrors):
-        errors: Optional[List[StrictItem]] = None
+    class PointerProblem(ProblemDetailWithErrors):
+        errors: Optional[List[PointerItem]] = None
 
-    StrictProblem.model_validate({**CORE, "errors": [{"field": "a", "message": "m"}]})
+    m = PointerProblem.model_validate(
+        {**CORE, "errors": [{"field": "age", "message": "too low", "pointer": "#/age"}]}
+    )
+    assert m.errors[0].pointer == "#/age"
     with pytest.raises(ValidationError) as info:
-        StrictProblem.model_validate({**CORE, "errors": [{"field": "a", "pointer": "#/a"}]})
-    assert _extra_locs(info.value) == [("errors", 0, "pointer")]
+        PointerProblem.model_validate({**CORE, "errors": [{"pointer": "#/a", "min": 18}]})
+    assert _extra_locs(info.value) == [("errors", 0, "min")]
+
+
+def test_item_can_be_opened_by_subclassing():
+    class OpenItem(ProblemDetailErrorItem):
+        model_config = ConfigDict(extra="allow")
+
+    class OpenProblem(ProblemDetailWithErrors):
+        errors: Optional[List[OpenItem]] = None
+
+    m = OpenProblem.model_validate({**CORE, "errors": [{"field": "a", "pointer": "#/a"}]})
+    assert isinstance(m.errors[0], ProblemDetailErrorItem)
+    assert m.errors[0].model_extra == {"pointer": "#/a"}
+    with pytest.raises(ValidationError):  # the top level stays closed
+        OpenProblem.model_validate({**CORE, "trace_id": "abc"})
+
+
+def test_required_errors_catch_a_missing_list():
+    class MustList(ProblemDetailWithErrors):
+        errors: List[ProblemDetailErrorItem]
+
+    ProblemDetailWithErrors.model_validate(CORE)  # optional in the ready-made model
+    with pytest.raises(ValidationError) as info:
+        MustList.model_validate(CORE)
+    assert [e["loc"] for e in info.value.errors()] == [("errors",)]
 
 
 # --- through ApiClient ------------------------------------------------------------
@@ -181,7 +220,7 @@ async def test_api_client_accepts_declared_extensions():
 
 @pytest.mark.asyncio
 async def test_api_client_default_validator_fails_on_extensions():
-    with pytest.raises(AssertionError, match="validation failed(.|\n)*Extra inputs are not permitted"):
+    with pytest.raises(AssertionError, match=r"validation failed \(1 error\):\n  code \[extra_forbidden\]: Extra"):
         await _call({**CORE, "code": "E1"}, ProblemDetailValidation())
 
 

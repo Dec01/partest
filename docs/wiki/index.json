@@ -916,7 +916,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 25847
+      "chars": 26378
     },
     {
       "slug": "howto/permissions",
@@ -1156,7 +1156,7 @@
           "text": "\"errors\": [{\"field\": \"name\", \"code\": \"required\", \"message\": \"must not be blank\"}]}"
         }
       ],
-      "chars": 14217
+      "chars": 15211
     },
     {
       "slug": "howto/release",
@@ -1832,10 +1832,22 @@
         },
         {
           "level": 2,
+          "text": "E. Спорное из ревью расширений Problem Detail · 2026-10-09"
+        },
+        {
+          "level": 3,
+          "text": "E1. Предупреждать о модели с `extra != \"forbid\"`; индексатор и `#` в коде"
+        },
+        {
+          "level": 3,
+          "text": "E2. Тело ответа без маскировки в других каналах · кандидат в исправление"
+        },
+        {
+          "level": 2,
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 25786
+      "chars": 28296
     },
     {
       "slug": "status",
@@ -1907,7 +1919,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 16054
+      "chars": 16120
     },
     {
       "slug": "WIKI",
