@@ -1,6 +1,6 @@
 """Problem Detail extension members (RFC 9457): declared ones pass, the rest still fail."""
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import httpx
 import pytest
@@ -131,9 +131,37 @@ def test_with_errors_still_forbids_other_top_level_members():
 def test_unknown_key_in_an_error_item_is_rejected():
     with pytest.raises(ValidationError) as info:
         ProblemDetailWithErrors.model_validate(
-            {**CORE, "errors": [{"field": "a", "message": "m", "pointer": "#/a"}]}
+            {**CORE, "errors": [{"field": "a", "message": "m", "rejectedValue": -1}]}
         )
-    assert _extra_locs(info.value) == [("errors", 0, "pointer")]
+    assert _extra_locs(info.value) == [("errors", 0, "rejectedValue")]
+
+
+RFC9457_SECTION_3 = {
+    "type": "https://example.net/validation-error",
+    "title": "Your request is not valid.",
+    "errors": [
+        {"detail": "must be a positive integer", "pointer": "#/age"},
+        {"detail": "must be 'green', 'red' or 'blue'", "pointer": "#/profile/color"},
+    ],
+}
+
+
+def test_rfc9457_error_elements_pass_the_ready_made_model():
+    m = ProblemDetailWithErrors.model_validate({**CORE, **RFC9457_SECTION_3})
+    assert [e.pointer for e in m.errors] == ["#/age", "#/profile/color"]
+    assert m.errors[0].detail == "must be a positive integer"
+    assert m.type == "https://example.net/validation-error"
+
+
+def test_rfc9457_example_verbatim_misses_only_the_core_members_this_model_requires():
+    # RFC 9457 makes every member optional; ProblemDetailBody requires detail, instance and
+    # status. That is the only complaint — not the errors[] elements, not type.
+    with pytest.raises(ValidationError) as info:
+        ProblemDetailWithErrors.model_validate(RFC9457_SECTION_3)
+    assert sorted(e["loc"] for e in info.value.errors()) == [
+        ("detail",), ("instance",), ("status",)
+    ]
+    assert {e["type"] for e in info.value.errors()} == {"missing"}
 
 
 def test_renamed_item_key_is_caught():
@@ -155,18 +183,18 @@ def test_errors_must_be_a_list():
 
 
 def test_item_extension_is_declared_by_subclassing():
-    class PointerItem(ProblemDetailErrorItem):
-        pointer: Optional[str] = None
+    class RejectedItem(ProblemDetailErrorItem):
+        rejectedValue: Optional[Union[str, int]] = None
 
-    class PointerProblem(ProblemDetailWithErrors):
-        errors: Optional[List[PointerItem]] = None
+    class RejectedProblem(ProblemDetailWithErrors):
+        errors: Optional[List[RejectedItem]] = None
 
-    m = PointerProblem.model_validate(
-        {**CORE, "errors": [{"field": "age", "message": "too low", "pointer": "#/age"}]}
+    m = RejectedProblem.model_validate(
+        {**CORE, "errors": [{"field": "age", "message": "too low", "rejectedValue": -1}]}
     )
-    assert m.errors[0].pointer == "#/age"
+    assert m.errors[0].rejectedValue == -1
     with pytest.raises(ValidationError) as info:
-        PointerProblem.model_validate({**CORE, "errors": [{"pointer": "#/a", "min": 18}]})
+        RejectedProblem.model_validate({**CORE, "errors": [{"rejectedValue": 1, "min": 18}]})
     assert _extra_locs(info.value) == [("errors", 0, "min")]
 
 
@@ -177,9 +205,9 @@ def test_item_can_be_opened_by_subclassing():
     class OpenProblem(ProblemDetailWithErrors):
         errors: Optional[List[OpenItem]] = None
 
-    m = OpenProblem.model_validate({**CORE, "errors": [{"field": "a", "pointer": "#/a"}]})
+    m = OpenProblem.model_validate({**CORE, "errors": [{"field": "a", "rejectedValue": -1}]})
     assert isinstance(m.errors[0], ProblemDetailErrorItem)
-    assert m.errors[0].model_extra == {"pointer": "#/a"}
+    assert m.errors[0].model_extra == {"rejectedValue": -1}
     with pytest.raises(ValidationError):  # the top level stays closed
         OpenProblem.model_validate({**CORE, "trace_id": "abc"})
 
@@ -220,7 +248,7 @@ async def test_api_client_accepts_declared_extensions():
 
 @pytest.mark.asyncio
 async def test_api_client_default_validator_fails_on_extensions():
-    with pytest.raises(AssertionError, match=r"validation failed \(1 error\):\n  code \[extra_forbidden\]: Extra"):
+    with pytest.raises(AssertionError, match=r"validation failed for ProblemDetailBody \(1 error\):\n  code \[extra_forbidden\]: Extra"):
         await _call({**CORE, "code": "E1"}, ProblemDetailValidation())
 
 

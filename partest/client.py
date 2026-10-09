@@ -92,25 +92,63 @@ def _redacted_body(data: Any = _NO_BODY, text: str = "", limit: int = 1000) -> s
     return _truncate(redact_text(text), limit)
 
 
+_CONTEXT_ERRORS = 5
+
+
+def _parent_at(data: Any, loc: Sequence[Any]) -> Any:
+    """The object holding the failing member, or ``_NO_BODY`` when the path does not resolve.
+
+    ``loc[:-1]`` is walked through dicts by key and lists by index. A path through a union
+    branch or a validator tag does not exist in the data and resolves to nothing.
+    """
+    node = data
+    for part in loc[:-1]:
+        if isinstance(node, dict) and part in node:
+            node = node[part]
+        elif isinstance(node, list) and isinstance(part, int) and -len(node) <= part < len(node):
+            node = node[part]
+        else:
+            return _NO_BODY
+    return node
+
+
 def _validation_failure(
     err: ValidationError, *, data: Any = _NO_BODY, text: str = "", what: str = ""
 ) -> str:
-    """Schema failure message without input values: path, type and message per error."""
+    """Schema failure message without input values: path, type and message per error.
+
+    The first few errors nested below the top level also show their parent object, masked
+    and shortened like the body, because the failing element often lies beyond the cut.
+    """
     try:
         errors = err.errors(include_input=False, include_url=False)
     except TypeError:  # pydantic before include_input
         errors = err.errors()
     lines = []
-    for e in errors:
-        loc = ".".join(str(part) for part in e.get("loc", ())) or "<root>"
+    for i, e in enumerate(errors):
+        path = tuple(e.get("loc", ()))
+        loc = ".".join(str(part) for part in path) or "<root>"
         # "loc [type]: msg" — "loc: msg" would read as key: value to redact_text
         lines.append(f"  {loc} [{e.get('type', '')}]: {e.get('msg', '')}")
+        if i < _CONTEXT_ERRORS and len(path) > 1 and data is not _NO_BODY:
+            parent = _parent_at(data, path)
+            if parent is not _NO_BODY:
+                where = ".".join(str(part) for part in path[:-1])
+                lines.append(f"    in {where} = {_redacted_body(parent, limit=200)}")
     count = len(errors)
     noun = "error" if count == 1 else "errors"
-    head = f"Response data validation failed{what} ({count} {noun}):"
+    head = f"Response data validation failed for {err.title}{what} ({count} {noun}):"
     body = _redacted_body(data, text)
     detail = _truncate(redact_text("\n".join(lines)))
     return f"{head}\n{detail}\nResponse body: {body}"
+
+
+def _model_name(validate_model: Any) -> str:
+    """The model's name for a log line — not the validator instance's repr."""
+    model = getattr(validate_model, "ResponseSuccessBody", None)
+    if isinstance(model, type):
+        return model.__name__
+    return type(validate_model).__name__
 
 
 def _mask_headers(headers: Optional[Dict[str, str]]) -> Dict[str, str]:
@@ -705,10 +743,10 @@ class ApiClient:
                     else:
                         validate_model.validate_error({})
                 except ValidationError as e:
-                    msg = _validation_failure(e, data={}, what=" for empty response")
+                    msg = _validation_failure(e, data={}, what=" on empty response")
                     self.logger.error(
                         ErrorDesc.validate(
-                            validateModel=validate_model,
+                            validateModel=_model_name(validate_model),
                             validateData={},
                             error=msg,
                         )
@@ -737,11 +775,11 @@ class ApiClient:
                             validate_model.validate_error(response.text)
                     except ValidationError as e:
                         msg = _validation_failure(
-                            e, text=response.text, what=" for string response"
+                            e, text=response.text, what=" on string response"
                         )
                         self.logger.error(
                             ErrorDesc.validate(
-                                validateModel=validate_model,
+                                validateModel=_model_name(validate_model),
                                 validateData=_redacted_body(text=response.text),
                                 error=msg,
                             )
@@ -751,7 +789,7 @@ class ApiClient:
                     msg = _validation_failure(err, data=data)
                     self.logger.error(
                         ErrorDesc.validate(
-                            validateModel=validate_model,
+                            validateModel=_model_name(validate_model),
                             validateData=_redacted_body(data),
                             error=msg,
                         )

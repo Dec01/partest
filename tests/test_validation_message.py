@@ -55,7 +55,7 @@ async def test_schema_failure_on_json_body_is_reported_as_validation():
     with pytest.raises(AssertionError) as info:
         await _call(httpx.Response(200, json={"id": 1, "extra": True}), _ItemValidation())
     text = str(info.value)
-    assert text.startswith("Response data validation failed (1 error):\n")
+    assert text.startswith("Response data validation failed for _Item (1 error):\n")
     assert "  extra [extra_forbidden]: Extra inputs are not permitted" in text
     assert "Failed to parse JSON" not in text
     assert text.splitlines()[-1] == 'Response body: {"id": 1, "extra": true}'
@@ -116,9 +116,61 @@ async def test_failure_message_is_bounded_and_counts_every_error():
     with pytest.raises(AssertionError) as info:
         await _call(httpx.Response(200, json=body), ItemsValidation())
     text = str(info.value)
-    assert text.startswith("Response data validation failed (1000 errors):\n  0.extra [extra_forbidden]: ")
+    assert text.startswith(
+        "Response data validation failed for Items (1000 errors):\n  0.extra [extra_forbidden]: "
+    )
     assert "truncated" in text
     assert len(text) < 4000
+
+
+class _Row(BaseModelWithConfig):
+    id: int
+    token: str
+
+
+class _Rows(RootModel):
+    root: list[_Row]
+
+
+class _RowsValidation(BaseResponseValidator):
+    @property
+    def ResponseSuccessBody(self):
+        return _Rows
+
+
+@pytest.mark.asyncio
+async def test_error_beyond_the_body_cut_shows_its_masked_parent(caplog):
+    caplog.set_level(logging.DEBUG)
+    body = [{"id": i, "token": MARKER} for i in range(500)]
+    body[420] = {"id": "four-twenty", "token": MARKER}
+    with pytest.raises(AssertionError) as info:
+        await _call(httpx.Response(200, json=body), _RowsValidation())
+    text = str(info.value)
+    assert text.startswith("Response data validation failed for _Rows (1 error):\n")
+    assert "  420.id [int_parsing]: " in text
+    assert "    in 420 = {\"id\": \"four-twenty\", \"token\": '***'}" in text
+    body_line = text.rpartition("\nResponse body: ")[2]
+    assert "four-twenty" not in body_line  # element 420 lies beyond the cut
+    assert MARKER not in text and MARKER[:8] not in text
+    assert MARKER not in _error_logs(caplog)
+
+
+@pytest.mark.asyncio
+async def test_only_the_first_errors_get_a_parent():
+    body = [{"id": "bad", "token": "t"} for _ in range(8)]
+    with pytest.raises(AssertionError) as info:
+        await _call(httpx.Response(200, json=body), _RowsValidation())
+    assert str(info.value).count("\n    in ") == 5
+
+
+@pytest.mark.asyncio
+async def test_error_log_names_the_model_not_the_validator(caplog):
+    caplog.set_level(logging.DEBUG)
+    with pytest.raises(AssertionError):
+        await _call(httpx.Response(200, json={"id": 1, "extra": True}), _ItemValidation())
+    logged = _error_logs(caplog)
+    assert "'_Item'" in logged
+    assert "object at 0x" not in logged
 
 
 @pytest.mark.asyncio

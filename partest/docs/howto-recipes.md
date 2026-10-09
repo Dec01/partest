@@ -340,39 +340,52 @@ validate_model=ProblemDetailValidation(ProblemDetailWithErrors)
 |---|---|
 | `code` | optional; string or integer |
 | `errors` | optional; a list of `ProblemDetailErrorItem` — a body **without** `errors` passes |
+| element `detail`, `pointer` | optional strings — the element shape RFC 9457 §3 shows: `{"detail": "must be a positive integer", "pointer": "#/age"}` |
 | element `field`, `code`, `message` | optional; typed (`code` string or integer) |
 | other keys in an element | **rejected** (`extra_forbidden`) — with every element field optional, this is what notices `field` renamed to `fieldName` |
 | any other top-level member | **rejected** (`extra_forbidden`) |
 
+The RFC 9457 §3 example itself fails on its top level, not on its elements: it has no
+`detail`, `instance` or `status`, which `ProblemDetailBody` requires and the RFC does not.
+
 Both extensions are optional, so their disappearance is not caught. If the endpoint must return
-`errors`, or `code`, declare it required in a subclass. Element shapes differ between APIs
-(`pointer`, `rejectedValue` …): declare the extra keys of yours in a subclass of the element:
+`errors`, or `code`, declare it required in a subclass. Element keys beyond those five differ
+between APIs (`rejectedValue` …): declare yours in a subclass of the element:
 
 ```python
-from typing import List, Optional
+from typing import List, Optional, Union
 from partest.validation import ProblemDetailErrorItem, ProblemDetailWithErrors
 
-class PointerItem(ProblemDetailErrorItem):
-    pointer: Optional[str] = None        # e.g. {"field": "age", "pointer": "#/age", …}
+class RejectedItem(ProblemDetailErrorItem):
+    rejectedValue: Optional[Union[str, int]] = None   # {"field": "age", "rejectedValue": -1}
 
 class ApiProblem(ProblemDetailWithErrors):
     code: str                            # required: its absence fails
-    errors: List[PointerItem]            # required: a missing list fails
+    errors: List[RejectedItem]           # required: a missing list fails
 ```
 
 An element that should take anything can be opened with
 `model_config = ConfigDict(extra="allow")` in the subclass; the extra keys land in
 `item.model_extra`. The top level stays closed either way.
 
-A body that fails reads, one line per error — path, type, message, never the value — then the
-body, secrets masked and shortened. Against `ProblemDetailWithErrors`:
+A body that fails reads: the model, the number of errors, one `path [type]: message` line per
+error without the value; for the first five errors below the top level, the object holding the
+failing member (`in …`, at most 200 characters), because it often lies beyond the cut of the
+body; then the body. Bodies and parents are masked by key (`token`, `password`, `secret` …) and
+shortened. Against `ProblemDetailWithErrors`:
 
 ```text
-Response data validation failed (2 errors):
-  errors.0.pointer [extra_forbidden]: Extra inputs are not permitted
+Response data validation failed for ProblemDetailWithErrors (2 errors):
+  errors.0.rejectedValue [extra_forbidden]: Extra inputs are not permitted
+    in errors.0 = {"field": "age", "message": "must be positive", "rejectedValue": -1}
   token [extra_forbidden]: Extra inputs are not permitted
-Response body: {"detail": "Validation failed", "instance": "/orders", "status": 400, "title": "Bad Request", "token": '***', "errors": [{"field": "age", "pointer": "#/age"}]}
+Response body: {"detail": "Validation failed", "instance": "/orders", "status": 400, "title": "Bad Request", "token": '***', "errors": [{"field": "age", "message": "must be positive", "rejectedValue": -1}]}
 ```
+
+Masking covers this message and its ERROR log line **only**. The pytest traceback (through the
+chained pydantic error), the stdout of `PydanticResponseError.print_error`, the INFO
+request/response log and the status-mismatch message still show the body as received — see
+Known issues in `CHANGELOG.md`. A value under a key the masking does not know is shown as is.
 
 On a 409, `ErrorTemplates.conflict_409` prints the Problem Detail summary — `status`, `title`,
 `detail`, `type`, `instance`, `code`, `message`, `error`, `errors` — whatever the model.

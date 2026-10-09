@@ -37,17 +37,21 @@ class ProblemDetailBody(BaseModelWithConfig):
 
 
 class ProblemDetailErrorItem(BaseModelWithConfig):
-    """One element of ``errors[]``: ``field``, ``code``, ``message``, all optional.
+    """One element of ``errors[]``, every member optional.
 
-    Any other key in an element is rejected, as everywhere in this package: with every field
-    optional, an element that accepted anything would let ``field`` → ``fieldName`` pass
-    unnoticed. Element shapes differ between APIs (``pointer``, ``rejectedValue`` …) —
-    declare yours in a subclass, or subclass with ``model_config = ConfigDict(extra="allow")``.
+    ``detail`` and ``pointer`` are the shape RFC 9457 §3 shows (``{"detail": "must be a
+    positive integer", "pointer": "#/age"}``); ``field``, ``code`` and ``message`` the common
+    one. Any other key is rejected, as everywhere in this package: with every field optional,
+    an element that accepted anything would let ``field`` → ``fieldName`` pass unnoticed.
+    Declare yours (``rejectedValue`` …) in a subclass, or open one with
+    ``model_config = ConfigDict(extra="allow")``.
     """
 
     field: Optional[str] = None
     code: Optional[Union[str, int]] = None
     message: Optional[str] = None
+    detail: Optional[str] = None
+    pointer: Optional[str] = None
 
 
 class ProblemDetailWithErrors(ProblemDetailBody):

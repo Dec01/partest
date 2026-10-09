@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Known issues
+
+- **A response body is masked only in the schema-failure message and its ERROR log line.**
+  The text of the `AssertionError` raised when `validate_model` fails and the ERROR record
+  that goes with it carry no input values and mask the body (see Fixed). These still show
+  the body, or values from it, as received: the pytest traceback, through the chained
+  pydantic `ValidationError` (`raise … from err`); the stdout of
+  `PydanticResponseError.print_error`, which `BaseResponseValidator.validate_*` calls; the
+  INFO request and response log (`Logger.log_request` / `log_response`); and the status
+  mismatch message (`format_status_mismatch`, `ErrorDesc.status`). Treat a CI log of a
+  failed run as carrying whatever the service sent. Masking these is planned for the next
+  patch.
+
 ### Added
 
 - **`partest.polling.poll_until` / `poll_until_sync` — wait for a terminal state and keep the
@@ -118,11 +131,12 @@
   passes `ProblemDetailValidation(MyProblem)`; members it did not declare still fail with
   `extra_forbidden`. The common shape is ready-made:
   `ProblemDetailWithErrors` adds an optional `code` (string or integer) and an optional
-  `errors: list[ProblemDetailErrorItem]`; an element types `field`, `code` and `message`,
-  all optional, and **rejects any other key**, like every model here — with all its fields
-  optional, an element that took anything would let `field` renamed to `fieldName` pass.
-  Element shapes differ between APIs: declare yours in a subclass of the element (a
-  `pointer` field), or open it with `extra="allow"` there. Both extensions are optional, so
+  `errors: list[ProblemDetailErrorItem]`; an element types the RFC 9457 §3 members `detail`
+  and `pointer` and the common `field`, `code` and `message`, all optional, and **rejects
+  any other key**, like every model here — with all its fields optional, an element that
+  took anything would let `field` renamed to `fieldName` pass. Element shapes differ between
+  APIs: declare yours in a subclass of the element (a `rejectedValue` field), or open it with
+  `extra="allow"` there. Both extensions are optional, so
   their absence is not caught; an endpoint that must return `errors` declares it required in
   a subclass. A subclass of `ProblemDetailValidation` may set `_model` on the class; the
   constructor without an argument keeps it. Unchanged: a body without extension members
@@ -209,15 +223,19 @@
   `ValidationError` is a `ValueError`, so it fell into the handler for a body that is not
   JSON, and the test read `Failed to parse JSON response and model does not expect a string`
   — a contract drift reported as a broken body, with the real errors only on stdout. It now
-  reads `Response data validation failed (N errors):`, then one line per error — path as
-  `errors.0.pointer`, type, message, **never the value** — then `Response body: …`, masked
-  (`redact_mapping` over the parsed JSON and `redact_text` over the result, so a secret below
-  the mapping depth is covered too) and shortened; the error list is bounded as well. The
-  same rule now holds for the empty-body and string-model failures, for the body in the
-  `Failed to parse JSON` message, and for the ERROR log line of each: before, a secret in an
-  unexpected member (`{"token": …}`) reached the assertion text and the log whole. A model
-  whose root is `str` still gets the raw text when the body happens to parse as JSON (`42`).
-  A test that matched the old text has to be updated.
+  reads `Response data validation failed for <Model> (N errors):`, then one line per error —
+  path as `errors.0.pointer`, type, message, without the value; for the first five errors
+  below the top level, the object holding the failing member (`in errors.0 = {…}`, masked,
+  200 characters at most), because that element often lies beyond the cut of the body —
+  then `Response body: …`. Every body and parent shown is masked (`redact_mapping` over the
+  parsed JSON and `redact_text` over the result, so a secret below the mapping depth is
+  covered too) and shortened; the error list is bounded as well. The same rule holds for the
+  empty-body and string-model failures (`… for <Model> on empty response (N errors):`), for
+  the body in the `Failed to parse JSON` message, and for the ERROR log line of each, which
+  now names the model rather than printing the validator object. **Only the exception text
+  and that ERROR line are masked** — other channels still show the body as received; see
+  Known issues. A model whose root is `str` still gets the raw text when the body happens to
+  parse as JSON (`42`). A test that matched the old text has to be updated.
   The recipe passed the class `ProblemDetailValidation` as `validate_model=`, which raises
   `TypeError`; it passes an instance now.
 
