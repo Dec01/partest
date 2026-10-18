@@ -120,11 +120,14 @@ def _from_confpartest() -> Optional[VerifySetting]:
     # module through ``default_verify(env_only=True)``, and a UI job must not load
     # ``confpartest`` at all (AGENTS.md red line 8, tests/test_ui_isolation.py). Keeping
     # the import inside the branch that is never taken there makes that structural.
-    from partest.conf import conf_attr
+    from partest.conf import _find_confpartest, _resolve_relative
 
-    return _coerce(
-        conf_attr(VERIFY_CONF_ATTR), source=f"confpartest.{VERIFY_CONF_ATTR}"
-    )
+    module = _find_confpartest(reading=VERIFY_CONF_ATTR)
+    value = getattr(module, VERIFY_CONF_ATTR, None) if module is not None else None
+    if isinstance(value, (str, Path)) and coerce_bool(str(value).strip()) is None:
+        # A CA bundle path relative to the project: also tried from confpartest's directory.
+        value = _resolve_relative(str(value).strip(), module)
+    return _coerce(value, source=f"confpartest.{VERIFY_CONF_ATTR}")
 
 
 def default_verify(*, env_only: bool = False) -> VerifySetting:

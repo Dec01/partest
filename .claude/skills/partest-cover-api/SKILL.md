@@ -36,7 +36,8 @@ description: >
 5. **Create/update endpoints need a vertical case** (`request_new_object` /
    `request_update_object`), not just a Default on seed data.
 6. **Assertion depth: status → `validate_model` → values.** Status-only does not count for
-   Default, Elements or Benchmark.
+   Default, Elements or Benchmark — by the methodology. The report does not score depth: a
+   status-only call with the right `type=` fills the cell, so depth is checked in review.
 7. **Domain stays in the project**: entity paths, DTO, roles, PROFILES, SQL cleanup.
 8. **Only delete test data carrying the marker** (`marked_name` / `TEST_MARKER`).
 
@@ -90,11 +91,11 @@ types = TypesTestCases
 
 await api_client.make_request(
     "GET",
-    "/items/{id}",
+    "/items",                        # concrete prefix: the URL is endpoint + add_url*, as is
     add_url1=f"/{item_id}",
     defining_url="/items/{id}",      # OpenAPI template — makes coverage match
     expected_status_code=200,
-    validate_model=ItemValidation,
+    validate_model=ItemValidation(), # a BaseResponseValidator instance, not the class
     type=types.request_default,
 )
 ```

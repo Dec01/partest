@@ -221,7 +221,10 @@ def classify_endpoint(
 ) -> MethodSubtype:
     """Heuristic subtype for a single HTTP method + path.
 
-    Pure function — no I/O. Prefer explicit consumer overrides when certainty
+    A heuristic over method and path, with one exception to "no I/O": the first call in a
+    session consults ``confpartest.subtype_overrides`` (see
+    :mod:`partest.methodology.api.overrides`), which may import the project file and raise
+    ``ConfpartestError`` if it is broken. Prefer explicit consumer overrides when certainty
     is low (returned UNKNOWN only if method is empty).
     """
     m = (method or "").upper().strip()

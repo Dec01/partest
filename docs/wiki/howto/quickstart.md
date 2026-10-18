@@ -1,8 +1,8 @@
 ---
 title: Quickstart — first green API test
 status: current
-verified: 2026-10-09
-sources: [partest/client.py, partest/conf.py, partest/env/__init__.py, partest/zorro_report.py, partest/tls.py, partest/pytest_plugin.py]
+verified: 2026-10-18
+sources: [partest/client.py, partest/conf.py, partest/coverage.py, partest/call_storage.py, partest/env/__init__.py, partest/zorro_report.py, partest/tls.py, partest/pytest_plugin.py]
 audience: user
 ships_in_wheel: true
 ---
@@ -23,10 +23,30 @@ pip install partest[ui] && playwright install chromium
 
 ```text
 my-suite/
+  pytest.ini
   confpartest.py
   conftest.py
   test_health.py
 ```
+
+**pytest.ini**
+
+```ini
+[pytest]
+pythonpath = .
+asyncio_mode = auto
+```
+
+`pythonpath = .` puts the suite root on `sys.path`, so `confpartest` and your own modules import
+the same way under a console `pytest` as under `python -m pytest`. Without it — and without a
+`conftest.py` next to the ini file — partest still loads `confpartest.py` from the ini file's
+directory for coverage and says so in a `partest: confpartest` summary section, but nothing
+else of yours is importable from there, and the plugin's own switches (`pytest_plugin`,
+`run_metadata`) are not read from it. If no `confpartest` is found at all, a coverage report
+built in that run counts nothing and the pytest summary says why in a
+`partest: coverage NOT COUNTED` section. Without any ini file pytest's rootdir is searched
+instead, and an IDE that passes `--rootdir=<suite>/tests` then points it at the wrong
+directory — keep a `pytest.ini`, or `pythonpath = .`.
 
 **confpartest.py**
 
@@ -68,12 +88,14 @@ def domain():
 def api_client(domain):
     return ApiClient(domain)
 
-@pytest.fixture(autouse=True)
-def _coverage_reset():
-    reset_storage()
+@pytest.fixture(scope="session", autouse=True)
+def _coverage_session():
+    reset_storage()   # once, at the start: the counters belong to the whole run
     yield
-    reset_storage()
 ```
+
+Reset the counters once per session, never per test. The report is built from what the whole
+run recorded; a reset after each test leaves nothing for it to read.
 
 **test_health.py**
 
@@ -94,8 +116,12 @@ async def test_health(api_client):
 ```
 
 ```bash
-pytest test_health.py -q --asyncio-mode=auto
+PARTEST_COVERAGE_JSON=coverage.json PARTEST_COVERAGE_HTML=coverage_report.html pytest -q
 ```
+
+The two variables make the plugin write `coverage.json` and the interactive HTML when the run
+ends, from every test's calls (and from every worker's under `pytest -n`). Building the report
+inside a test instead is in [[howto/coverage-html]].
 
 ## 3. Scaffold monorepo (recommended)
 
@@ -180,10 +206,11 @@ python -m partest.ui.capture_baselines --scenes scenes.json --dry-run
 | `PARTEST_PYTEST_PLUGIN=0` | disable partest Allure hooks — **titles and attachments only** |
 | `pytest_plugin = False` in confpartest | same |
 | `PARTEST_RUN_METADATA=0` / `run_metadata = False` | stop recording what the run selected (`meta.selection`); rarely what you want |
-| `pytest -p no:partest` | hard unload entry point — all of the above, **and** the opt-in marker sets (`partest_optin_markers`): their tests then run like any other |
+| `pytest -p no:partest` | hard unload entry point — all of the above, **and** the opt-in marker sets (`partest_optin_markers`): their tests then run like any other; **and** everything the plugin does for coverage: no `confpartest.py` lookup in the pytest root, no `partest: coverage NOT COUNTED` section, no report from `PARTEST_COVERAGE_JSON`, no merge of counters under pytest-xdist |
 
-The first two are for projects that own their Allure hooks. They no longer take the run
-metadata with them: see [[concepts/coverage-honesty]] for what that signal is worth.
+The first two are for projects that own their Allure hooks — use `PARTEST_PYTEST_PLUGIN=0`
+rather than `-p no:partest` for that. They do not take the run metadata or the coverage
+machinery with them: see [[concepts/coverage-honesty]] for what those signals are worth.
 
 ## 9. TLS
 
@@ -197,6 +224,8 @@ Certificates are verified. For a stand with a self-signed certificate:
 | `ApiClient(domain, verify=False)` | off for this client only |
 
 Whichever you use, the run says once that it is unverified.
+A relative bundle path in `tls_verify` that does not exist from the current directory is
+taken from the directory of `confpartest.py`.
 
 ## Next
 

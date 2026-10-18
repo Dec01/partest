@@ -1,7 +1,7 @@
 ---
 title: Journeys, invariants, integrations, e2e
 status: current
-verified: 2026-10-07
+verified: 2026-10-16
 sources: [partest/sideeffects.py, partest/polling.py, partest/rounding.py, partest/test_types.py, partest/methodology/api/matrix.py]
 audience: user
 ships_in_wheel: true
@@ -135,9 +135,12 @@ finish in 300 s" and "sat in `QUEUED` for 300 s" send you to different teams.
 from partest.polling import PollTimeout, poll_until
 
 async def fetch_job():
-    await tokens.refresh_if_needed()   # a long poll outlives a token: refresh inside fetch
+    # A long poll outlives a token: ask for it on every tick. TokenManager.get_token()
+    # returns the cached one and goes to the identity provider only once it has expired.
+    token = await tokens.get_token()
     return await api_client.make_request(
         "GET", "/jobs", add_url1=f"/{job_id}",
+        headers={"Authorization": f"Bearer {token}"},
         expected_status_code=200, type=types.request_default,
     )
 

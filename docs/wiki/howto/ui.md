@@ -1,7 +1,7 @@
 ---
 title: UI quickstart (partest[ui])
 status: current
-verified: 2026-10-07
+verified: 2026-10-18
 sources: [partest/methodology/ui/__init__.py, partest/ui/__init__.py, partest/ui/base_page.py, partest/ui/page_monitor.py, partest/ui/visual.py, partest/ui/capture_baselines.py, partest/ui/hooks.py, partest/tls.py]
 audience: user
 ships_in_wheel: true
@@ -126,11 +126,16 @@ the ticket, next to the acceptance criteria.
 ### Assert a state, not a pixel and not a presence
 
 ```python
-# not enough: the element exists
-page.expect_visible("[data-testid=order-status]")
+from playwright.sync_api import expect
 
-# what the item actually claims
-page.expect_text("[data-testid=order-status]", "Cancelled")
+base = BasePage(page, frontend_url)          # page is Playwright's; BasePage wraps it
+status = base.by_test_id("order-status")      # BasePage helpers take a locator, not a selector
+
+# not enough: the element exists
+base.expect_visible(status)
+
+# what the item actually claims — BasePage has no text helper, Playwright's expect has
+expect(status).to_have_text("Cancelled")
 ```
 
 "An element is visible" passes on a screen that renders a stale value. Assert the value,

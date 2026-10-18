@@ -1,7 +1,7 @@
 ---
 title: Reporting cookbook — checks, steps, attaches
 status: current
-verified: 2026-09-24
+verified: 2026-10-16
 sources: [partest/reporting/__init__.py, partest/reporting/checks.py, partest/reporting/measured.py, partest/reporting/steps.py, partest/reporting/attach.py, partest/reporting/instrument.py]
 audience: user
 ships_in_wheel: true
@@ -35,12 +35,12 @@ All checks attach `check:field` JSON when Allure is available and raise
 
 ```python
 ah.check_eq(body["name"], "Acme", field="name")
-ah.check_status_in(response_status, (200, 201), field="status")
+ah.check_status_in(response_status, (200, 201), method="POST", path="/items")
 ```
 
 ## The third outcome: «not measured»
 
-Those seventeen checks have two outcomes, and two outcomes are enough only while there is
+Those sixteen checks have two outcomes, and two outcomes are enough only while there is
 something to measure. When the data the assertion reads was never collected — the file is
 absent, the broker is unreachable, the sample is empty — the comparison still runs and
 still passes, and the report shows a green nobody earned. Aggregates are the sharp case: a
@@ -134,7 +134,9 @@ ah.attach_json("seed", seed)
 ah.attach_failure(msg, exc)
 ```
 
-Authorization headers are **masked** in `attach_request`.
+Authorization headers are **masked** in `attach_request`, and so is the body unless
+`redact_body=False`. `attach_response` attaches the body **as is** unless you pass
+`redact_body=True`.
 
 ## Testcase decorator
 

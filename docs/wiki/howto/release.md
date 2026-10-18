@@ -1,7 +1,7 @@
 ---
 title: Release checklist
 status: current
-verified: 2026-10-09
+verified: 2026-10-18
 sources: [setup.py, MANIFEST.in, partest/__init__.py, tools/docs_build_wheel.py]
 audience: maintainer
 ships_in_wheel: false

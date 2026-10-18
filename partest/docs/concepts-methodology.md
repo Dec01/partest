@@ -104,6 +104,11 @@ Status-only is not coverage for Default, Elements or Benchmark cases. A test tha
 and nothing else passes while the payload is empty. Steps are described in
 `partest/methodology/api/steps.py`.
 
+**The report does not score this axis.** Each recorded call notes whether it carried a status
+check and a `validate_model` (`has_status_check`, `has_validate_model` in `call_meta`), but the
+percentage is computed from axes A and B only: a status-only call of the right `type=` fills its
+cell exactly like a call that checks every value. Depth is for review, not for the number.
+
 ## Type inference and why `type=` still matters
 
 `partest/methodology/api/inference.py` can guess the TC type from the request/response, but it is
@@ -128,8 +133,25 @@ A call that accepts either outcome does not say which case it tests — that is 
 
 ## What "100% covered" means here
 
-The required P1 set for the endpoint's subtype is present, with correct `type=`, and each case
-asserts to the depth axis C requires. A file existing, or a call being made, is not coverage.
+**What the report computes** for one endpoint: the share of its required set — the P1 cases of
+its subtype, or up to `max_priority` if you raise it — whose `type=` was recorded against that
+endpoint in this run. That is axes A and B and nothing else.
+
+**What covered means by this methodology** adds axis C: each of those cases also asserts to the
+depth it requires. The report cannot see that, so its 100 % is necessary, not sufficient — a
+suite of status-only calls with the right `type=` reaches it. A file existing, or a call being
+made, is not coverage either way.
+
+**Exception endpoints are scored, not excluded.** An endpoint on which a call recorded an
+exception type — `health` built in, plus whatever `test_types_exception` in `confpartest`
+lists — gets status `exception` and **100 %**. That row counts in the average and among a
+service's `covered` endpoints; it is not taken out of the denominator. One health call on an
+operation therefore lifts the average as much as a fully tested one does.
+
+The definition above is the methodology; where the report falls short of it — depth not
+scored, exception endpoints in the average — that is an open defect of the report, recorded in
+the proposals page of the partest repository on GitHub (F1) for a decision, not a change of the
+definition.
 
 `request_permissions` deserves special mention: it is one type covering four security layers
 (allowed, foreign object, disabled account, no session). One 401 is not the type covered —

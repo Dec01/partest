@@ -1,8 +1,8 @@
 ---
 title: Migration between partest versions
 status: current
-verified: 2026-10-09
-sources: [partest/test_types.py, partest/__init__.py, partest/conf.py, partest/tls.py, partest/http/client.py, partest/pytest_plugin.py, partest/methodology/__init__.py, partest/methodology/_moved.py, partest/methodology/api/__init__.py, partest/methodology/api/overrides.py, partest/methodology/ui/__init__.py]
+verified: 2026-10-18
+sources: [partest/test_types.py, partest/__init__.py, partest/conf.py, partest/tls.py, partest/http/client.py, partest/pytest_plugin.py, partest/methodology/__init__.py, partest/methodology/_moved.py, partest/methodology/api/__init__.py, partest/methodology/api/overrides.py, partest/methodology/ui/__init__.py, partest/coverage.py, partest/reports/analyzer.py]
 audience: user
 ships_in_wheel: true
 allow_version_literals: true
@@ -17,6 +17,32 @@ the public API and what a suite has to do about it.
 pip install -U partest
 pip install -U 'partest[ui]'   # UI suites
 ```
+
+## 2.6.0 — coverage reads the project file when it is used, not on import
+
+Nothing to change in a suite whose coverage report has numbers in it today and whose
+`confpartest.py` imports cleanly. Behaviours that change:
+
+| What | Before | Now | Do |
+|---|---|---|---|
+| `import partest` / `import partest.ui` next to a `confpartest` | read `confpartest` and fetched every spec in `swagger_files`; an unreachable URL broke the import | no project file read, no network | nothing |
+| `partest.coverage.SWAGGER_AVAILABLE` / `swagger_files` / `paths_info` right after import | filled | `None` / `None` / empty until the first tracked call or report; `paths_info` is then filled in place | call `partest.coverage.get_paths_info()` |
+| `monkeypatch.setattr(coverage, "SWAGGER_AVAILABLE", False)` | counting off | counting off | nothing |
+| `SWAGGER_AVAILABLE = True` set by hand, nothing else | counted against what was loaded on import | not taken as "set by hand": the spec is loaded as usual | set `paths_info` / `swagger_files` too if you meant to replace the spec |
+| a spec in `swagger_files` that cannot be loaded, `confpartest` on `sys.path` | the import raised, the whole session errored | `ConfpartestError` from every tracked call, `get_paths_info()` and the report; the message names the `swagger_files` key, without URL credentials or query | fix the source, as before |
+| an `ImportError` raised from inside `confpartest.py` | coverage silently off | `ConfpartestError` from the first tracked call, `get_paths_info()`, `active_overrides()`, `classify_endpoint` | fix the file; `python -c "import confpartest"` from the suite root |
+| console `pytest`, `confpartest.py` next to the ini file, no `pythonpath = .`, no `conftest.py` beside it | coverage silently off, empty report | the file is loaded from the ini file's directory (not from an IDE's `--rootdir`); the summary names it; coverage counts. `tls_verify` from that file is read too, a relative CA path from its directory — `pytest_plugin` and `run_metadata` are not, even after the file was loaded | nothing; `pythonpath = .` is still the plain way to say it |
+| the same, with `-p no:partest`, `--noconftest`, `-p no:conftest`, or an ini (`-c`) whose directory contains neither the current directory nor the test paths | as above | as before: not found. The coverage reason says where it looked | `pythonpath = .` |
+| no ini file at all, and `--rootdir` pointing below the suite root (some IDEs) | as above | rootdir is searched, the file is not there: not found | keep a `pytest.ini` next to `confpartest.py`, or `pythonpath = .` |
+| a bad `subtype_overrides` in a `confpartest` loaded that way | not read | `ValueError` from every classification, as for any other `confpartest` | fix the entry |
+| a spec that cannot be loaded behind a `confpartest` found only in the pytest root | coverage silently off | a `NOT COUNTED` line naming the failure; the run is not failed | fix the source |
+| `confpartest.py` in the root that fails to load by location | silently not read | a line in the `partest: confpartest` summary section: `pythonpath = .` for an `ImportError`, "failed while executing" for anything else | as the line says |
+| a coverage report that counts nothing | zeros, nothing else | a `partest: coverage NOT COUNTED` summary section with the reason (workers' lines included under pytest-xdist); a `UserWarning` only when the partest plugin is not loaded | read the reason |
+| a `swagger_files` kind written `file`, `path` or in upper case | the import failed (`Invalid source type`) | read as `local` / `url` | nothing |
+| a relative `local` spec path or `subtype_overrides` file, run from a subdirectory | not found | also tried from the directory of `confpartest.py` | nothing |
+| `subtype_overrides` in `confpartest` | read when `partest` was imported — dropped when the root was not on `sys.path` yet | read on the first classification; an explicit `set_subtype_overrides` / `clear_subtype_overrides` wins whichever came first; overrides from `confpartest` end with the pytest session | nothing |
+| `load_confpartest()` on a file that raises something other than `ImportError` | that exception, raw | `ConfpartestError` with it chained | catch `ConfpartestError` |
+| `filterwarnings = error` | — | nothing in the plugin's hooks warns; the report from `PARTEST_COVERAGE_JSON` is written either way | nothing |
 
 ## 2.5.0 — helpers a suite used to write for itself, and behaviour notes
 

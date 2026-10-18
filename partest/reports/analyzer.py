@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -83,23 +84,36 @@ class CoverageReport:
     by_swagger: Dict[str, Dict[str, Any]]
 
 
-def _load_required_from_conf() -> Optional[List[str]]:
-    """Optional flat list from confpartest (legacy mode)."""
-    try:
-        from confpartest import test_types_coverage
+def _conf_list(name: str) -> Optional[list]:
+    """A list from confpartest, found the way every other setting is (``conf_attr``).
 
-        return [canonicalize_type(t) for t in test_types_coverage]
-    except Exception:
+    A report must still be written when the project file is broken: the reason is already
+    in the coverage state (:func:`partest.coverage._coverage_unavailable_reason`), so a
+    failure here is the library default, not a second error.
+    """
+    from partest.conf import ConfpartestError, conf_attr
+
+    try:
+        value = conf_attr(name)
+    except ConfpartestError:
+        return None
+    if value is None or isinstance(value, (str, bytes)):
+        return None
+    try:
+        return list(value)
+    except TypeError:
         return None
 
 
-def _load_exceptions_from_conf() -> Set[str]:
-    try:
-        from confpartest import test_types_exception
+def _load_required_from_conf() -> Optional[List[str]]:
+    """Optional flat list from confpartest (legacy mode)."""
+    values = _conf_list("test_types_coverage")
+    return None if values is None else [canonicalize_type(t) for t in values]
 
-        return {canonicalize_type(t) for t in test_types_exception} | set(EXCEPTION_TYPES)
-    except Exception:
-        return set(EXCEPTION_TYPES)
+
+def _load_exceptions_from_conf() -> Set[str]:
+    values = _conf_list("test_types_exception") or []
+    return {canonicalize_type(t) for t in values} | set(EXCEPTION_TYPES)
 
 
 class CoverageAnalyzer:
@@ -281,21 +295,55 @@ class CoverageAnalyzer:
         )
 
 
+def _say_what_was_not_counted(report: CoverageReport) -> None:
+    """A report with nothing behind it is a finding, not a result: say so where it is read.
+
+    Under pytest with the partest plugin: a line in the ``partest: coverage NOT COUNTED``
+    section of the terminal summary — not a warning, because reports are written from
+    ``pytest_sessionfinish`` too, where ``filterwarnings = error`` would turn a warning into
+    a lost ``coverage.json``. Without the plugin there is no such section, so a
+    ``UserWarning``.
+
+    Checked even when the report has rows: under pytest-xdist the controller merges the
+    workers' counters but loads the specification itself, and when that fails the merged
+    calls alone produce a report whose percentage nobody can trust.
+    """
+    from partest import conf as _conf
+    from partest.coverage import _coverage_unavailable_reason
+
+    reason = _coverage_unavailable_reason()
+    if reason:
+        what = "has no endpoints" if not report.endpoints else "was built without the specification"
+        message = f"the coverage report {what} — {reason}"
+    elif not report.endpoints:
+        message = "the coverage report has no endpoints — no OpenAPI operations are loaded"
+    else:
+        return
+    if _conf._project_roots:
+        _conf._note(_conf.NOTES_COVERAGE, message)
+    else:
+        warnings.warn(f"partest: {message}", UserWarning, stacklevel=3)
+
+
 def analyze_coverage(
     paths_info: Sequence[Any] = None,
     *,
     use_matrix: bool = True,
     max_priority: CoveragePriority = CoveragePriority.P1,
 ) -> CoverageReport:
-    if paths_info is None:
+    from_project = paths_info is None
+    if from_project:
         try:
             from partest.coverage import get_paths_info
 
             paths_info = get_paths_info()
         except Exception:
             paths_info = []
-    return CoverageAnalyzer(
+    report = CoverageAnalyzer(
         paths_info,
         use_matrix=use_matrix,
         max_priority=max_priority,
     ).analyze()
+    if from_project:
+        _say_what_was_not_counted(report)
+    return report

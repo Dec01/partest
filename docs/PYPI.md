@@ -27,23 +27,48 @@ pip install 'partest[ui]'     # + Playwright and Pillow for UI suites
 
 ## A first test
 
+`confpartest.py` next to `pytest.ini` names the specification coverage is measured against —
+`swagger_files = {"api": ["url", "https://api.example.com/openapi.json"]}` — and
+`pythonpath = .` in `pytest.ini` keeps the suite root importable.
+
 ```python
-from partest import ApiClient, TypesTestCases
+import pytest
+
+from partest import ApiClient, BaseModelWithConfig, BaseResponseValidator, TypesTestCases
 from partest.zorro_report import zorro
 
 types = TypesTestCases
 
+
+class Item(BaseModelWithConfig):
+    id: int
+    name: str
+
+
+class ItemValidation(BaseResponseValidator):
+    @property
+    def ResponseSuccessBody(self):
+        return Item
+
+
+@pytest.fixture(scope="session")               # usually in conftest.py
+def api_client():
+    return ApiClient("https://api.example.com")
+
+
+@pytest.mark.asyncio
 async def test_get_item(api_client):
     """Item is returned by id."""
     await api_client.make_request(
         "GET",
-        "/items/{id}",
-        add_url1="/1",
+        "/items",
+        add_url1="/1",                    # on the wire: /items/1
         defining_url="/items/{id}",       # OpenAPI template — this is what coverage matches
         expected_status_code=200,
-        validate_model=ItemValidation,
+        validate_model=ItemValidation(),  # an instance, not the class
         type=types.request_default,       # explicit type beats inference
     )
+
 
 def test_zorro():
     report = zorro()                      # Allure summary + coverage HTML

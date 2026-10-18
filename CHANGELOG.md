@@ -1,5 +1,121 @@
 # Changelog
 
+## 2.6.0 — 2026-10-18
+
+### Added
+
+- **`confpartest.py` next to the ini file is found when that directory is not on `sys.path`.**
+  A console `pytest` without `pythonpath = .` and without a `conftest.py` beside the ini file
+  does not put it on `sys.path`, so a plain import does not see the project file. The plugin
+  now reports the directory (`pytest_configure`: the ini file's, else pytest's rootdir — an
+  IDE's `--rootdir` does not move it), and the coverage specification, subtype overrides,
+  report settings, `conf_attr` (so `tls_verify`) and `load_confpartest` load
+  `<dir>/confpartest.py` by location in that case. The summary names the file it loaded, in a
+  `partest: confpartest` section. Limits: not with `--noconftest` or `-p no:conftest`; only
+  when the directory contains the current directory or every test path (an ini named with
+  `-c` elsewhere belongs to another project); never for the plugin's own switches
+  (`pytest_plugin`, `run_metadata`) — they are read in every session, a UI-only one included,
+  and do not see a module loaded this way even after something else loaded it. The module is
+  unloaded when the session ends. A file there that fails to load is not an error: the summary
+  says why — `pythonpath = .` is suggested only for an `ImportError` — and the run goes on
+  without it. What a loaded file *says* is checked as anywhere else: a bad `subtype_overrides`
+  in it raises. With `-p no:partest` no directory is reported, so none of this happens.
+- **A coverage report that counts nothing says why.** When `analyze_coverage` — and so `zorro`,
+  `zorro_enhanced`, the plugin's `PARTEST_COVERAGE_JSON` report — builds a report with no
+  specification behind it (no `confpartest`, `swagger_files` empty, the spec failed to load,
+  counting switched off by hand), the terminal summary gets a `partest: coverage NOT COUNTED`
+  section with the reason and where the lookup looked. This holds when the report still has
+  rows: under pytest-xdist the controller merges the workers' calls but loads the spec itself.
+  Under pytest-xdist the workers' lines reach the controller's summary. Outside the plugin,
+  where there is no such section, it is a `UserWarning`. The report and `coverage.json` are
+  unchanged, and are still written under `filterwarnings = error`.
+
+### Changed
+
+- **The coverage specification and `subtype_overrides` are read on first use, not when
+  `partest` is imported** — on the first tracked call, report, classification or
+  `active_overrides()`. Importing `partest`, `partest.ui` or anything from them now reads no
+  project file and does no network I/O; before, an unreachable spec URL broke
+  `from partest import httpx_client` and every pytest session the plugin loaded into.
+  Consequences for code that reached into `partest.coverage`: `SWAGGER_AVAILABLE` is `None`
+  until something asks (`True`/`False` after), `swagger_files` is `None`, `paths_info` is an
+  empty list that is filled in place — call `get_paths_info()` rather than reading the names
+  right after import. Setting `SWAGGER_AVAILABLE = False` yourself still switches counting off;
+  `True` alone is not taken as "set by hand". A pytest session starts from what was decided
+  before it and puts that back when it ends: sequential sessions in one process each read their
+  own project, and a nested in-process session (`pytester`) hands the outer one its state
+  back. A `confpartest` imported from `sys.path` is not part of that state — it stays in
+  `sys.modules`, and a later or nested session sees it.
+- **Failures move to where coverage is used, and stay loud.** A `confpartest` that raises while
+  importing — an `ImportError` from inside it included, which used to switch coverage off
+  without a word — and a spec in `swagger_files` that cannot be loaded raise
+  `ConfpartestError` from the first tracked call, `get_paths_info()`, `active_overrides()` or
+  `classify_endpoint`, and again on every later call (the failure is kept; the fetch is not
+  retried). The message names the source by its `swagger_files` key; URL credentials and
+  query strings are removed from it, and the original exception is not chained, so a traceback,
+  junit XML or Allure result does not print it either; the raw sources are not among the locals
+  `pytest -l` shows. The same holds for `openapi.resolve_swagger` failing to fetch — not for a
+  spec it fetched but cannot parse: that error quotes a piece of the document and keeps the
+  parser's exception chained. `resolve_swagger` also moves `user:password@` from the URL into
+  `auth=` and keeps the query string out of httpx's INFO `HTTP Request:` line (a filter on the
+  `httpx` logger for that one request; the consumer's logging setup is not changed). Loading the
+  spec for coverage goes through `requests`, whose INFO output is clean but whose `urllib3`
+  DEBUG line shows the path with its query string. Exception: a `confpartest` found only by
+  location turns a spec failure into a `NOT COUNTED` line instead — such a run was green
+  before.
+- **Relative paths in `confpartest` are also tried from its own directory.** A local spec in
+  `swagger_files`, a `subtype_overrides` file and a `tls_verify` CA bundle path that do not
+  exist from the current directory are taken relative to the directory of `confpartest.py`, so
+  `cd tests && pytest` and IDE runs find them; `openapi.resolve_from_confpartest()` without
+  `project_root` does the same. A path that exists from the current directory keeps its
+  meaning. Source kinds are read as `validate_confpartest` accepts them — `local`, `file`,
+  `path`, `url`, in any case — where the coverage loader took only `local` and `url`.
+- **`load_confpartest` / `require_confpartest` raise `ConfpartestError` for any failure of the
+  file**, not only `ImportError`; a `SyntaxError` or a failing statement came out raw. Every
+  reader of `confpartest` in the package — `conf_attr`, `load_confpartest`,
+  `openapi.resolve_from_confpartest`, the coverage loader, subtype overrides and the report's
+  `test_types_coverage` / `test_types_exception` — now finds it the same way.
+
+### Fixed
+
+- **Coverage was silently empty when `confpartest` was not importable at plugin load.** The
+  plugin is an entry point, so `partest` was imported — and `confpartest` read — before pytest
+  had put the suite root on `sys.path`. See Added and Changed above.
+- Loading the specification is serialised between threads: two threads making the first
+  tracked call at once load it once. A thread that only reads a switch does not wait for it.
+- Cleaning error text of URL credentials takes linear time; it was quadratic on text built to
+  look like many half-URLs (a 64 KB response body quoted in a message took seconds). An object
+  address (`<... at 0x...>`) is dropped from the text, so one failure seen by several xdist
+  workers is one summary line.
+
+### Not changed: the UI isolation rule in a pytest session
+
+Importing `partest.ui` reads no project file and does no network I/O — guaranteed and tested
+in a fresh interpreter. A pytest session whose root is on `sys.path` (`pythonpath = .`, a root
+`conftest.py`) still imports `confpartest` to read the plugin's `pytest_plugin` switch, a UI-only
+session included, exactly as in 2.5.0; the lookup by location above does not add to that. Whether the
+rule should forbid it is open (`docs/wiki/proposals.md`).
+
+### Documentation
+
+- Examples that did not run, checked by calling them: `make_request(case.method, case.path,
+  add_url1=…)` in [[howto/permissions]] and on the PyPI page sent `/items/{id}/5` — the concrete
+  prefix goes in `endpoint`, the template in `defining_url`; the PyPI first test used an undefined
+  `ItemValidation`, passed the class instead of an instance, and had neither the fixture nor the
+  asyncio marker. The quickstart reset the coverage counters after every test, which left the
+  report empty; it now resets once per session, adds `pytest.ini` with `pythonpath = .`, and
+  shows how the report is written. `ah.check_status_in` has no `field=` ([[howto/reporting]]),
+  `BasePage` has no `expect_text` and its helpers take a locator, not a selector ([[howto/ui]]),
+  `TokenManager` has no `refresh_if_needed()` — `get_token()` already refreshes only an expired
+  token ([[howto/layers]]).
+- [[concepts/methodology]] keeps its definition of "covered" and now says what the report's
+  number is: axes A and B only — depth (axis C) is not scored, and an `exception` endpoint
+  counts as 100 % in the average instead of leaving it. That the code falls short of the
+  methodology here is recorded as an open defect in `docs/wiki/proposals.md`; the code is
+  unchanged. [[concepts/coverage-honesty]] said `exception` was excluded from scoring; fixed.
+- 2.5.0 Known issues listed fewer unmasked channels than there are; completed below. 2.3.0 said
+  "seventeen" `check_*` helpers; there were sixteen.
+
 ## 2.5.0 — 2026-10-09
 
 ### Known issues
@@ -13,8 +129,33 @@
   `PydanticResponseError.print_error`, which `BaseResponseValidator.validate_*` calls; the
   INFO request and response log (`Logger.log_request` / `log_response`); and the status
   mismatch message (`format_status_mismatch`, `ErrorDesc.status`). Treat a CI log of a
-  failed run as carrying whatever the service sent. Masking these is planned for the next
-  patch.
+  failed run as carrying whatever the service sent. These channels are not masked by any
+  released version.
+
+  *Completed after the release:* the list above is about the response body, and it is not the
+  only thing shown as is. Also unmasked, as in earlier releases:
+
+  - the **request** body — in the status mismatch message (`format_status_mismatch`: the
+    `AssertionError` and its `status_mismatch` Allure attachment) and in the INFO request log
+    (`Logger.log_request`; request headers are masked there, the body is not);
+  - the **response** body in the ERROR log line of a status mismatch (`ErrorDesc.status`, from
+    `ApiClient._check_status_code` and `_handle_http_error`);
+  - the **response headers and cookies**, `Set-Cookie` included, in the INFO response log
+    (`Logger.log_response`);
+  - **Allure attachments** made by `reporting.attach_response` (its `redact_body` defaults to
+    `False`) — and so by `reporting.instrumented_make_request`, which `TrackingApiClient` uses
+    when instrumentation is on: the response body of every call, the `status_mismatch` JSON
+    with request and response bodies, and `failure_details` with both;
+  - `reporting.format_http_status_failure` (used by `instrumented_make_request` for the
+    `AssertionError` and `failure_details`): request and response bodies and the original
+    error text (`Original error: …`);
+  - `reporting.attach_request` masks headers and the body, but not `params` or `path`;
+  - the HTTP-error branch of `make_request`: `HTTP error <code>: <body>` in the ERROR log and
+    `Server returned <code>: <body>` in the `AssertionError`, with the response body as is;
+    and `Network/request error: …` with the transport exception's text, URL included;
+  - the **URL with its query string**, and `params=`, in the INFO request log and the status
+    mismatch message: a token passed as a query parameter is shown as is — and so is
+    `user:password@` in the client's base URL, wherever the address is echoed.
 
 ### Added
 
@@ -312,7 +453,7 @@
   `partest.tls.default_verify(env_only=True)` and hand the result back in as `verify=`. It is
   passed straight through to `resolve_verify`; the default is unchanged.
 
-- **A third outcome for checks: «not measured».** The seventeen `ah.check_*` helpers have two
+- **A third outcome for checks: «not measured».** The sixteen `ah.check_*` helpers have two
   outcomes, and two are enough only while there is something to measure. When the data an
   assertion reads was never collected, the comparison still runs and still passes: a
   dependency audit that read the wrong file reported «passed» over 24 vulnerabilities and
@@ -337,7 +478,7 @@
   sample is not a defect of the service under test — but a project that wants it strict sets
   `filterwarnings = error::partest.reporting.NotMeasuredWarning`. Also public:
   `mark_not_measured`, `not_measured_records`, `reset_not_measured`, `Premise`, `NotMeasured`
-  and `attach_not_measured`. The existing seventeen checks are untouched. See
+  and `attach_not_measured`. The existing sixteen checks are untouched. See
   [[howto/reporting]].
 
 ### Changed
@@ -691,6 +832,12 @@ green run started failing on certificates, that section is the answer.
   `confpartest` on the path returns the default as before, while a `confpartest` that is
   found and raises while importing raises `ConfpartestError`, naming the switch that was
   being read and the original exception.
+
+  *Correction:* through 2.5.0 this held for `conf_attr` only. `load_confpartest` /
+  `require_confpartest` wrapped only `ImportError`; the coverage loader, subtype overrides and
+  the report's settings did a bare import that swallowed an `ImportError` from inside the file.
+  All of them raise `ConfpartestError` for a file that fails since 2.6.0
+  (the report's settings fall back to defaults instead, so that a report is still written).
 
   **This is a deliberate trade and it is not a cheap one.** A project whose `confpartest.py`
   is broken now fails on every read of a switch, including the `ApiClient` constructor, and

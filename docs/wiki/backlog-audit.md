@@ -1,7 +1,7 @@
 ---
 title: Аудит внешнего бэклога и готовность к переезду
 status: current
-verified: 2026-10-09
+verified: 2026-10-18
 sources: [partest/tracking.py, partest/coverage.py, partest/methodology/api/classifier.py, partest/payloads.py, partest/call_storage.py, partest/reports/payload.py, partest/reports/analyzer.py, partest/pytest_plugin.py]
 audience: maintainer
 ships_in_wheel: false
@@ -23,7 +23,7 @@ allow_version_literals: true
 |---|---|
 | **Документационные требования бэклога** | применены |
 | **Волна 1.6** | **реализована и выпущена** в 1.7.0 вместе с 1.7, тесты в `tests/test_wave_1_6.py` |
-| **Волна 1.7** | P0-ядро **реализовано** (xdist-merge, `kind`, meta, timing, history keep=2); открыты витрина HTML, override подтипов, kind-aware compare |
+| **Волна 1.7** | **реализована** (xdist-merge, `kind`, meta, timing, history keep=2, витрина HTML, override подтипов, kind-aware compare — таблица в §1.7) |
 | **Можно ли переезжать консьюмеру** | да, после публикации: снимается overlay `resource_tracker.py`, чинятся ключи покрытия и классификация |
 | **Чего переезд не даст** | отчёта из теста под `-n`: слияние живёт на контроллере, `test_zorro` — на воркере. Нужен либо serial, либо `PARTEST_COVERAGE_JSON` |
 
@@ -81,7 +81,7 @@ BY SELF, `POST /items/{id}/publish` — ACTION, `/orders/customer/5` резол�
 | **LIB-COV-TIMING** | `elapsed_ms` → avg/p50/p95 по типам | ✅ | замер в `track_api_calls`, агрегат `timing_of` |
 | **LIB-COV-HIST-2** | история, `keep=2` | ✅ | `append_snapshot(keep=2)`, `prune_snapshots`, `previous_snapshot` |
 | **LIB-COV-HTML** | целевой UX витрины | ✅ | баннер, `unseen` в KPI с кликом в фильтр, видимый сброс, пресеты без доменных имён, колонка p95 с порогами, фильтры в hash URL, экспорт CSV/JSON/markdown. Не сделаны: палитра Ctrl+K и отдельный drawer — вместо него раскрывающаяся строка |
-| **LIB-SUBTYPE-OVERRIDE** | YAML-map + rebind | ✅ | `partest/methodology/api/overrides.py`; проверка внутри `classify_endpoint`, а не подменой ссылки |
+| **LIB-SUBTYPE-OVERRIDE** | YAML-map + rebind | ✅ | `partest/methodology/api/overrides.py`; проверка внутри `classify_endpoint`, а не подменой ссылки; `subtype_overrides` из `confpartest` читается при первой классификации, не на импорте |
 | **LIB-COV-CMP kind-aware** | дельта прогона vs дельта suite | ✅ | `not_run`, `comparable`, `warnings`, флаг `--strict` в CLI |
 
 Контракт слияния из спеки соблюдён: `calls` суммируются, `types` объединяются — поздний

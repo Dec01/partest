@@ -1,7 +1,7 @@
 ---
 title: Coverage honesty — when the number lies
 status: current
-verified: 2026-10-07
+verified: 2026-10-18
 sources: [partest/call_storage.py, partest/coverage.py, partest/reports/analyzer.py, partest/reports/compare.py, partest/reports/payload.py, partest/pytest_plugin.py]
 audience: agent
 ships_in_wheel: true
@@ -49,7 +49,7 @@ a `kind` alongside the legacy `status`:
 | `empty` | it was called, but no required cell was executed |
 | `partial` | some required cells present |
 | `full` | the required set for the subtype is covered |
-| `exception` | the endpoint is excluded from scoring |
+| `exception` | a call recorded an exception type (`health`, `test_types_exception`): scored as 100 % and counted in the average — not excluded from it |
 
 `meta.unseenRatio` and `meta.partialRun` summarise it: a run is flagged partial when a fifth of
 the endpoints went untouched, when workers were not merged, or when the run selected a subset
@@ -73,6 +73,16 @@ first.
 every message built on it says "some endpoints were never called", which is false, not true,
 when there are no endpoints. Deciding whether a run that measured nothing may be compared at
 all is the reader's call, and `unseenRatio: null` is the field that gives it the fact.
+
+The run says it out loud as well. A report built without a specification behind it adds a
+`partest: coverage NOT COUNTED` section to the pytest summary (a `UserWarning` when the partest
+plugin is not loaded), with the reason: no `confpartest` found and where the lookup looked,
+`swagger_files` empty, or the spec failed to load. That is checked even when the report has
+rows — under pytest-xdist the controller merges the workers' calls but loads the spec itself,
+and merged calls without the spec give a percentage over an unknown denominator. The commonest
+cause of an empty report, a console `pytest` that never read the project file, is closed:
+the spec is read when first used, and a `confpartest.py` in the pytest root is found without
+`pythonpath = .` ([[components/overview]]).
 
 ### A filter removes cells, not endpoints
 

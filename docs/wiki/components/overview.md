@@ -1,8 +1,8 @@
 ---
 title: Package map — what lives where
 status: current
-verified: 2026-10-09
-sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/http/client.py, partest/call_storage.py, partest/reports/payload.py, partest/pytest_plugin.py, partest/optin.py, partest/polling.py, partest/rounding.py]
+verified: 2026-10-18
+sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/http/client.py, partest/call_storage.py, partest/reports/payload.py, partest/pytest_plugin.py, partest/conf.py, partest/optin.py, partest/polling.py, partest/rounding.py]
 audience: agent
 ships_in_wheel: true
 ---
@@ -15,7 +15,7 @@ only says where to look.
 ```text
 partest/
   client.py            ApiClient — async HTTP + coverage tracking + rich status errors
-  coverage.py          track_api_calls, endpoint classification entry point
+  coverage.py          track_api_calls, endpoint classification entry point; spec loaded on first use
   call_storage.py      per-process counters; dump/merge for xdist
   test_types.py        TypesTestCases, canonicalize_type, TYPE_LABELS
   conf.py              load/validate confpartest
@@ -115,6 +115,26 @@ subset of the suite ([[concepts/coverage-honesty]]). The deselected count is a s
 so a parallel run merges them: workers deselect the *same* tests, and sets merge where counts
 would double. The same representation makes a second run in one process harmless.
 When the change landed is in [[howto/migration]].
+
+### Where `confpartest` is found, and when
+
+Importing `partest` reads no project file and touches no network. The OpenAPI spec is loaded on
+the first tracked call or report, `subtype_overrides` on the first classification; what was
+decided is forgotten when the pytest session ends (`pytest_unconfigure`).
+
+Every reader finds the file the same way (`partest.conf._find_confpartest`): already imported;
+importable from `sys.path` (`pythonpath = .`, or a `conftest.py` beside the ini file); else
+`confpartest.py` in the ini file's directory (pytest's rootdir when there is no ini file), loaded
+by location. That last step needs the plugin — it reports the directory in `pytest_configure` —
+and is skipped with `--noconftest` / `-p no:conftest`, when the directory contains neither the
+current directory nor the test paths, and for the plugin's own switches (`pytest_plugin`,
+`run_metadata`): they are read in every session, so they neither execute a file nobody else
+asked for nor read one loaded that way. A session starts from a clean slate and puts back what
+was decided before it, so nested and sequential sessions in one process do not see each other's
+specification; under pytest-xdist the workers' summary lines reach the controller. A file loaded that way, or one that failed to load, is named in a
+`partest: confpartest` section of the terminal summary; a report that counts nothing gets a
+`partest: coverage NOT COUNTED` section with the reason. Neither is a warning: both come from
+hooks where `filterwarnings = error` would make a warning an internal error.
 
 ### Opt-in marker sets
 

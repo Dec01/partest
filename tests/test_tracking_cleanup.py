@@ -127,7 +127,9 @@ def test_a_blank_id_is_not_tracked(rid):
 
 
 @pytest.mark.parametrize("rid", ["", "  "])
-@pytest.mark.parametrize("builder", [None, lambda endpoint, rid: f"{endpoint}/{rid}"])
+@pytest.mark.parametrize(
+    "builder", [None, lambda endpoint, rid: f"{endpoint}/{rid}"], ids=["default", "custom"]
+)
 def test_a_blank_id_that_got_in_anyway_sends_no_delete(transport, caplog, rid, builder):
     registry = CreatedRegistry()
     registry.track("/items", 1)

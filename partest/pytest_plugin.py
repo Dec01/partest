@@ -35,7 +35,11 @@ A third, independent piece: opt-in marker sets (``partest_optin_markers`` in the
 from __future__ import annotations
 
 import os
+import warnings
+from pathlib import Path
 from typing import Any, Iterable, List, Optional
+
+import pytest
 
 from partest.flags import coerce_bool, env_bool
 
@@ -56,7 +60,9 @@ def _conf_flag(name: str) -> Optional[bool]:
     """
     from partest.conf import conf_attr
 
-    return coerce_bool(conf_attr(name))
+    # No root lookup: these switches are read in every session, a UI-only one included,
+    # and must not execute a confpartest nothing else in the run asked for.
+    return coerce_bool(conf_attr(name, fallback=False))
 
 
 def _switch(env_name: str, conf_name: str, *, default: bool) -> bool:
@@ -217,6 +223,117 @@ def pytest_configure(config) -> None:
     from partest.optin import configure
 
     configure(config)
+    _begin_session_state(config)
+    _push_project_root(config)
+
+
+def _rootpath(config) -> Optional[str]:
+    """The directory searched for ``confpartest.py``: the ini file's, else pytest's rootdir.
+
+    The ini file's directory, because that is where the documentation puts the project file
+    and where ``pythonpath = .`` points; ``--rootdir`` (IDEs set it) can name another one.
+    """
+    inipath = getattr(config, "inipath", None)
+    if inipath is not None:
+        return str(Path(inipath).parent)
+    root = getattr(config, "rootpath", None) or getattr(config, "rootdir", None)
+    return str(root) if root is not None else None
+
+
+def _inside(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+def _root_usable(config, root: Path) -> "tuple[bool, str]":
+    """Whether ``<root>/confpartest.py`` may be loaded by location in this session.
+
+    The root lookup exists for one layout — a suite run from inside its own root without
+    ``pythonpath`` — and is kept to it. Not when the run asked for no project code
+    (``--noconftest``), and not when the root pytest chose contains neither the current
+    directory nor the test paths (``--rootdir``, ``-c`` pointing elsewhere): a file there
+    belongs to some other project.
+    """
+    option = getattr(config, "option", None)
+    if getattr(option, "noconftest", False):
+        return False, "--noconftest is set"
+    try:
+        if config.pluginmanager.is_blocked("conftest"):
+            return False, "-p no:conftest is set"
+    except Exception:
+        pass
+    params = getattr(config, "invocation_params", None)
+    cwd = Path(getattr(params, "dir", None) or Path.cwd())
+    if _inside(cwd, root):
+        return True, ""
+    args = [str(a).split("::", 1)[0] for a in (getattr(config, "args", None) or [])]
+    paths = [Path(a) if Path(a).is_absolute() else cwd / a for a in args if a]
+    if paths and all(_inside(path, root) for path in paths):
+        return True, ""
+    return False, (
+        f"{root} contains neither the current directory ({cwd}) nor the test paths"
+    )
+
+
+def _push_project_root(config) -> None:
+    """Tell :mod:`partest.conf` the pytest root (see :func:`partest.conf._find_confpartest`).
+
+    A console ``pytest`` puts neither the current directory nor the root on ``sys.path``;
+    ``pythonpath = .`` or a ``conftest.py`` in the root does. Without either, a
+    ``confpartest.py`` next to the ini file is invisible to a plain import.
+    """
+    root = _rootpath(config)
+    if root is None:
+        return
+    from partest.conf import _push_project_root as push
+
+    usable, why = _root_usable(config, Path(root))
+    push(root, usable=usable, why=why)
+
+
+_STATE_KEY = pytest.StashKey[tuple]()
+
+
+def _begin_session_state(config) -> None:
+    """Keep what was decided before this session, and start it from a clean slate.
+
+    Paired with :func:`pytest_unconfigure`, which puts it back: sequential sessions in one
+    process each read their own project, and an in-process session nested in another
+    (``pytester``) hands the outer one its state back. A ``confpartest`` imported from
+    ``sys.path`` is not part of that state — it stays in ``sys.modules`` and the nested
+    session sees it.
+    """
+    try:
+        from partest import conf, coverage
+        from partest.methodology.api import overrides
+
+        config.stash[_STATE_KEY] = (conf._snapshot(), coverage._snapshot(), overrides._snapshot())
+        coverage._reset_session_state()
+        overrides._reset_session_state()
+        conf._notes.clear()
+    except Exception:
+        pass
+
+
+def pytest_unconfigure(config) -> None:
+    """End of session: the root goes, what was loaded from it is unloaded, state is restored."""
+    try:
+        from partest import conf, coverage
+        from partest.methodology.api import overrides
+
+        root = _rootpath(config)
+        if root is not None:
+            conf._pop_project_root(root)
+        saved = config.stash.get(_STATE_KEY, None)
+        if saved is not None:
+            conf._restore(saved[0])
+            coverage._restore(saved[1])
+            overrides._restore(saved[2])
+    except Exception:
+        pass
 
 
 # --- What this run actually selected --------------------------------------
@@ -242,14 +359,38 @@ def _reset_not_measured_state() -> None:
         pass
 
 
+def _write_partest_notes(terminalreporter) -> None:
+    """What the run could not count, and which project file it read from where.
+
+    Said here rather than as warnings: these come from pytest hooks and from
+    ``pytest_sessionfinish``, where ``filterwarnings = error`` turns a warning into an
+    internal error or a lost report. And a report alone only shows zeros, which read like a
+    suite that tested nothing rather than one that measured nothing.
+    """
+    try:
+        from partest import conf
+
+        sections = [(title, list(lines)) for title, lines in conf._notes.items() if lines]
+    except Exception:
+        return
+    try:
+        for title, lines in sections:
+            terminalreporter.write_sep("-", title)
+            for line in lines:
+                terminalreporter.write_line(f"  {line}")
+    except Exception:
+        pass
+
+
 def pytest_terminal_summary(terminalreporter, exitstatus=0, config=None) -> None:
-    """Say out loud which assertions were never made.
+    """Say out loud which assertions were never made, and which reports measured nothing.
 
     A run where half the checks had no data to read still ends with ``passed``, and the
     Allure evidence is one click away from a reader who has no reason to look. This
     section is the cheap part of the same signal: it costs nothing when the ledger is
     empty, which is every run that never used :func:`~partest.reporting.check_measured`.
     """
+    _write_partest_notes(terminalreporter)
     try:
         from partest.reporting.measured import not_measured_records
 
@@ -358,12 +499,39 @@ def pytest_sessionstart(session) -> None:
         pass
 
 
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node, error) -> None:
+    """pytest-xdist: a worker's terminal-summary notes reach the controller's summary."""
+    notes = (getattr(node, "workeroutput", None) or {}).get("partest_notes") or {}
+    try:
+        from partest import conf
+
+        for title, lines in notes.items():
+            for line in lines:
+                conf._note(title, line)
+    except Exception:
+        pass
+
+
+def _hand_notes_to_controller(session) -> None:
+    workeroutput = getattr(session.config, "workeroutput", None)
+    if workeroutput is None:
+        return
+    try:
+        from partest import conf
+
+        workeroutput["partest_notes"] = {t: list(lines) for t, lines in conf._notes.items()}
+    except Exception:
+        pass
+
+
 def pytest_sessionfinish(session, exitstatus) -> None:
     """Workers write their counters; the controller merges them.
 
     Without this, ``pytest -n`` reports whichever worker happened to run the report
     test, and every endpoint exercised elsewhere reads as never called.
     """
+    _hand_notes_to_controller(session)
     if not _xdist_merge_enabled():
         return
     try:
@@ -415,10 +583,14 @@ def _write_controller_report() -> None:
     try:
         from partest.reports import zorro_enhanced
 
-        zorro_enhanced(
-            html_path=html_path or "coverage_report.html",
-            json_path=json_path or "coverage.json",
-            attach_allure=False,
-        )
+        # Warnings are shown, not raised: under `filterwarnings = error` a warning raised
+        # here would cost the run its coverage.json.
+        with warnings.catch_warnings():
+            warnings.simplefilter("default")
+            zorro_enhanced(
+                html_path=html_path or "coverage_report.html",
+                json_path=json_path or "coverage.json",
+                attach_allure=False,
+            )
     except Exception as exc:  # a broken report must not fail a green suite
         print(f"partest: could not write the coverage report: {exc}")

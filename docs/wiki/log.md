@@ -13,6 +13,55 @@ allow_version_literals: true
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
 
+## 2026-10-18 · release · 2.6.0
+
+`Unreleased` свёрнут в 2.6.0; `status.md` — 2.6.0 на PyPI; набор прогнан на 3.14 (838 passed, 2 skipped).
+
+## 2026-10-18 · update · запрос спецификации без секретов в логе, остаток проверок
+
+[[howto/enterprise]]: строки о загрузке спецификации (httpx — `auth=` и фильтр INFO-строки,
+requests — DEBUG `urllib3` с query), ошибка разбора YAML вне очистки. [[howto/quickstart]] и
+[[howto/migration]]: без ini-файла и с `--rootdir` ниже корня набора файл не найдётся.
+[[proposals]] F2 d: нулевые ключи вложенной сессии в `call_storage`.
+
+## 2026-10-18 · update · каталог ini вместо rootdir, ошибки без цепочки, остаток маскировки
+
+[[components/overview]], [[howto/quickstart]], [[howto/migration]] (Unreleased; `verified`,
+`sources` дополнены `coverage.py` и `analyzer.py`): поиск по месту — в каталоге ini-файла;
+переключатели плагина не видят файл, загруженный по месту; состояние сессии восстанавливается
+снимком; заметки воркеров xdist доходят до контроллера; относительный путь CA в `tls_verify`.
+[[howto/enterprise]] и Known issues 2.5.0: `format_http_status_failure`, `params`/`path` в
+`attach_request`, ветка HTTP-ошибки `make_request`, userinfo базового URL; что не покрывает
+очистка текста ошибок. [[proposals]] F2: C1–C4, обновлён d.
+
+## 2026-10-17 · update · поиск confpartest: границы, причины отказа, маскировка в Known issues
+
+[[components/overview]], [[howto/migration]] (Unreleased), [[howto/quickstart]] §2 и §8,
+[[concepts/coverage-honesty]]: поиск `confpartest.py` в корне pytest ограничен (`--noconftest`,
+чужой корень, переключатели плагина), отказы называются в разделах сводки
+`partest: confpartest` и `partest: coverage NOT COUNTED`, а не предупреждениями. `CHANGELOG.md`:
+Unreleased разложен на Added / Changed / Fixed, утверждение об изоляции UI в pytest-сессии
+снято и заменено точным; Known issues 2.5.0 дополнен (`ErrorDesc.status`,
+`instrumented_make_request`, строка запроса), таблица каналов маскировки в [[howto/enterprise]]
+сверена с ним. [[proposals]]: F1 — дефект методики (ось C, `exception` в среднем), F2 — спорное
+по ленивой загрузке. [[howto/ui]]: пример снова через `BasePage`.
+
+## 2026-10-16 · update · вики сверена с колесом 2.5.0: примеры — вызовом, методика — по коду
+
+Вики сверена с колесом 2.5.0 с PyPI; каждый пример ниже запущен, прежде чем его поправить.
+[[howto/permissions]], `docs/PYPI.md` и скилл `partest-cover-api`: шаблон пути
+уходил в `endpoint` и на провод как `/items/{id}/5` — он идёт в `defining_url`; пример PyPI
+дописан до запускаемого (модель, валидатор-экземпляр, фикстура, маркер). [[howto/quickstart]]:
+сброс счётчиков после каждого теста обнулял отчёт — теперь раз за сессию, плюс `pytest.ini` с
+`pythonpath = .` и строка запуска с записью отчёта. [[howto/reporting]] (`check_status_in` без
+`field=`; `attach_response` не маскирует по умолчанию), [[howto/ui]] (`expect_text` нет, хелперы
+берут локатор), [[howto/layers]] (`refresh_if_needed` нет — `get_token` сам обновляет
+истёкший). [[concepts/methodology]] и [[concepts/coverage-honesty]]: отчёт не считает ось C, а
+`exception` засчитывается как 100 %, не исключается — страницы описывают, что считает код.
+[[howto/enterprise]]: таблица, какой канал что маскирует. Новый код (ленивая загрузка
+спецификации, поиск `confpartest` в корне pytest, сигнал о пустом отчёте) — в
+[[components/overview]], [[howto/migration]] (Unreleased), [[status]].
+
 ## 2026-10-09 · update · выпуск 2.5.0 подготовлен
 
 По явной просьбе о выпуске раздел `Unreleased` в `CHANGELOG.md` закрыт как 2.5.0 от этой даты,

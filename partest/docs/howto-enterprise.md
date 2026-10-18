@@ -103,8 +103,28 @@ Business 4xx are **not** retried.
 from partest.redact import redact_headers, redact_mapping, redact_text, mask_secret
 ```
 
-Used by status mismatch messages and `partest.reporting.attach_request`.  
-Body keys like `password`, `token`, `access_token`, `client_secret` are masked.
+Body keys like `password`, `token`, `access_token`, `client_secret` are masked — where these
+functions are applied, which is narrower than "everywhere":
+
+| Channel | Masked |
+|---|---|
+| status mismatch message (`format_status_mismatch`) and its `status_mismatch` attachment | request headers only; request and response bodies, and the URL with its query, as is |
+| ERROR log line of a status mismatch (`ErrorDesc.status`) | no: the response body as is |
+| schema failure message and its ERROR log line | yes |
+| INFO request / response log (`Logger.log_request` / `log_response`) | request headers only; bodies, URL query, `params=`, response headers and cookies (`Set-Cookie`) as is |
+| `partest.reporting.attach_request` | headers; body unless `redact_body=False` |
+| `partest.reporting.attach_response` | body only with `redact_body=True` (default `False`) |
+| `partest.reporting.instrumented_make_request` (`TrackingApiClient` with instrumentation) | no: response body of every call, `status_mismatch` JSON and `failure_details` with both bodies |
+| `partest.reporting.format_http_status_failure` | no: both bodies and `Original error: …` |
+| `partest.reporting.attach_request` `params` and `path` | no |
+| `make_request` HTTP-error branch (`HTTP error …` log, `Server returned …` assertion) and `Network/request error: …` | no: response body; the transport error's text with its URL |
+| the client's base URL wherever an address is echoed | no: `user:password@` in it is shown as is |
+| errors about the project's own configuration: a `confpartest` that fails to import, a spec in `swagger_files` that cannot be loaded (`ConfpartestError`, `OpenApiResolveError`) | URL credentials, query strings and secret-looking values removed; the original exception is not chained; for coverage, the raw sources are not among the locals `pytest -l` shows. Not covered: a token in the URL path, `;jsessionid=`, a fragment, a spec snippet quoted by a YAML parse error (that one keeps the parser's exception chained), and the locals of your own frames that hold the URL |
+| fetching a spec: `openapi.resolve_swagger` (httpx) | `user:password@` is sent as `auth=`, never logged; the query string is kept out of httpx's INFO `HTTP Request:` line |
+| fetching a spec for coverage (`swagger_files`, via `requests`) | INFO is clean; the `urllib3` DEBUG line shows the path with its query string |
+
+The unmasked channels are listed under Known issues in `CHANGELOG.md`. Until they are fixed,
+treat a CI log of a failed run as carrying whatever the service and the test sent.
 
 `redact_text` is for text that is no longer a mapping — a model's `repr`, a body kept as a
 string, a log line: it masks the values of the same keys in `"key": "value"`, `key='value'`,

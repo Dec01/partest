@@ -108,6 +108,68 @@ def test_importing_ui_does_not_load_confpartest_by_any_mechanism(monkeypatch):
     assert "confpartest" not in sys.modules
 
 
+_CLEAN_IMPORT_PROBE = """\
+import json, socket, sys
+
+attempts = []
+
+
+def refuse(*args, **kwargs):
+    attempts.append(repr(args[:2]))
+    raise OSError("partest import probe: no network during import")
+
+
+socket.socket.connect = refuse
+socket.create_connection = refuse
+
+import partest.ui  # noqa: E402,F401
+from partest import httpx_client  # noqa: E402,F401
+import partest  # noqa: E402,F401
+
+print(json.dumps({
+    "network": attempts,
+    "confpartest": "confpartest" in sys.modules,
+    "parparser": "partest.parparser" in sys.modules,
+}))
+"""
+
+
+def test_a_clean_interpreter_imports_partest_without_conf_or_network(tmp_path):
+    """The tests above run in a process where ``partest`` is already imported.
+
+    So deleting ``partest.ui`` from ``sys.modules`` re-ran only ``partest/ui`` — never
+    ``partest/__init__``, which imported ``partest.coverage``, which read ``confpartest`` and
+    fetched every specification it named. All of them were green while ``import partest.ui``
+    failed outright next to a ``confpartest`` whose spec URL did not answer. Only a fresh
+    interpreter shows what an import costs.
+    """
+    import json
+    import os
+    import subprocess
+
+    (tmp_path / "confpartest.py").write_text(
+        'swagger_files = {"api": ["url", "http://127.0.0.1:9/openapi.json"]}\n',
+        encoding="utf-8",
+    )
+    environ = {k: v for k, v in os.environ.items() if not k.startswith("PARTEST_")}
+    repo_root = Path(__file__).resolve().parent.parent
+    # cwd first (``-c``), so the hostile confpartest above wins over the repository's own.
+    environ["PYTHONPATH"] = str(repo_root)
+    result = subprocess.run(
+        [sys.executable, "-c", _CLEAN_IMPORT_PROBE],
+        cwd=tmp_path,
+        env=environ,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    seen = json.loads(result.stdout.strip().splitlines()[-1])
+    assert seen == {"network": [], "confpartest": False, "parparser": False}, (
+        "importing partest reached for project configuration or the network — red line 8"
+    )
+
+
 def test_page_monitor_configurable_ignore():
     from partest.ui.page_monitor import PageMonitor
 

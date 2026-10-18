@@ -1,7 +1,7 @@
 ---
 title: Permissions — four cells, not one 401
 status: current
-verified: 2026-10-07
+verified: 2026-10-16
 sources: [partest/access.py, partest/test_types.py]
 audience: user
 ships_in_wheel: true
@@ -63,14 +63,18 @@ cases = access_cases(
 async def test_item_access(api_client, case, item_id):
     """Access to an item by cell."""
     await api_client.make_request(
-        case.method, case.path,
-        add_url1=f"/{item_id}",
-        defining_url=case.path,
+        case.method, "/items",
+        add_url1=f"/{item_id}",       # on the wire: /items/<item_id>
+        defining_url=case.path,       # what coverage counts: /items/{id}
         headers=case.headers,
         expected_status_code=case.expected,
         type=case.test_type,
     )
 ```
+
+`case.path` is the OpenAPI template, not a URL. `make_request` glues `endpoint` and the
+`add_url*` pieces together as they are, so passing the template as `endpoint` sends
+`/items/{id}/5`. The template goes to `defining_url`; the concrete prefix goes first.
 
 `access_cases` only builds the cells you give headers for. A cell you cannot exercise
 is left out rather than guessed — an open reference catalogue genuinely has no

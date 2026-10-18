@@ -138,8 +138,8 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         # 3.14 is claimed because the suite was run there, not because it looked likely.
-        # Last re-earned 2026-10-09 on 2.5.0 (Python 3.14.4, a local `.venv314/` with
-        # `.[dev]` and requirements.txt): 788 passed, 2 skipped — identical to 3.10, down to
+        # Last re-earned 2026-10-18 on 2.6.0 (Python 3.14.4, a local `.venv314/` with
+        # `.[dev]` and requirements.txt): 838 passed, 2 skipped — identical to 3.10, down to
         # the same two skips for the same reason (no system CA bundle). One case needs
         # openpyxl, which is no dependency of partest; without it, it skips too.
         # Say which release, not just "it was run":
