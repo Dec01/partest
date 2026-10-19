@@ -30,6 +30,9 @@ subset of the suite — see :func:`_record_selection`.
 
 A third, independent piece: opt-in marker sets (``partest_optin_markers`` in the ini file,
 :mod:`partest.optin`). Inert unless that option names something.
+
+A fourth: the ``known_defect`` marker (:mod:`partest.known_defect`) — a strict xfail that
+only an ``AssertionError`` from the test body satisfies. Registered in every session.
 """
 
 from __future__ import annotations
@@ -194,7 +197,10 @@ def pytest_runtest_makereport(item, call):
         return
     try:
         exc = call.excinfo.value
-        text = f"{type(exc).__name__}: {exc}"
+        from partest.redact import _already_masked, _scrub_text
+
+        shown = str(exc) if _already_masked(exc) else _scrub_text(exc)
+        text = f"{type(exc).__name__}: {shown}"
         allure.attach(
             text[:8000],
             name="failure_summary",
@@ -220,9 +226,13 @@ def pytest_configure(config) -> None:
     Not behind either switch above: it decides what runs, it does not decorate a report,
     and a project that turned the Allure half off still wants its long tests kept out.
     """
+    from partest import known_defect
     from partest.optin import configure
 
     configure(config)
+    # Not behind a switch either: it decides an outcome, and an unregistered marker would
+    # fail every project running with --strict-markers.
+    known_defect.configure(config)
     _begin_session_state(config)
     _push_project_root(config)
 

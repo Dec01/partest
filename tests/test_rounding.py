@@ -324,3 +324,216 @@ def test_decimal_overflow_becomes_a_clear_error():
         agrees_with_formula(
             Rounded(1, 0), lambda a: a ** 64 * a ** 64 * a ** 64 * a ** 64, Rounded("1E+9000", 0)
         )
+
+
+# --- 2.7.0: significant digits, directed rounding, one verdict on many checks -------
+
+
+def test_significant_digits_set_the_unit_by_magnitude():
+    r = Rounded(0.30000000000000004, significant=12, label="ratio")
+    assert r.effective_scale == 12
+    assert r.scale is None and r.significant == 12
+    v = D("0.30000000000000004")
+    assert r.interval == Interval(v - D("5E-13"), v + D("5E-13"))
+    big = Rounded(123456.0, significant=3)
+    assert big.effective_scale == -3 and big.half_unit == D("500")
+    assert Rounded(0.0, significant=5).interval == Interval.point(0)  # zero is exact
+
+
+def test_a_computed_float_with_significant_digits_is_not_a_note():
+    import warnings
+
+    def add(a, b):
+        return a + b
+
+    exact = (Rounded("0.1", None), Rounded("0.2", None))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RoundingNoteWarning)
+        check = agrees_with_formula(Rounded(0.1 + 0.2, significant=12, label="sum"), add, *exact)
+    assert check and check.notes == ()
+    assert "12 significant digits → scale 12" in str(check)
+    assert check.as_dict()["output_significant"] == 12
+    assert check.as_dict()["output_scale"] == 12
+    # 15 significant digits are still loose enough for the float noise; 17 are not
+    assert agrees_with_formula(Rounded(0.1 + 0.2, significant=15), add, *exact)
+    assert not agrees_with_formula(Rounded(0.1 + 0.2, significant=17), add, *exact)
+
+
+def test_significant_and_scale_are_one_or_the_other():
+    import dataclasses
+
+    with pytest.raises(TypeError, match="not both"):
+        Rounded(1.5, 2, significant=3)
+    with pytest.raises(TypeError, match="needs the scale"):
+        Rounded(1.5)
+    for bad in (0, -1, True, 2.0):
+        with pytest.raises(ValueError, match="positive int"):
+            Rounded(1.5, significant=bad)
+    r = Rounded(1.5, significant=3)
+    assert dataclasses.replace(r, value=12.5).effective_scale == 1
+
+
+@pytest.mark.parametrize(
+    "value, rounding, lo, hi",
+    [
+        ("12.34", "half", "12.335", "12.345"),
+        ("12.34", "floor", "12.34", "12.35"),
+        ("12.34", "ceiling", "12.33", "12.34"),
+        ("12.34", "toward_zero", "12.34", "12.35"),
+        ("-12.34", "floor", "-12.34", "-12.33"),
+        ("-12.34", "ceiling", "-12.35", "-12.34"),
+        ("-12.34", "toward_zero", "-12.35", "-12.34"),
+        ("0", "toward_zero", "-0.01", "0.01"),
+        ("0", "floor", "0", "0.01"),
+    ],
+)
+def test_directed_rounding_puts_the_interval_on_one_side(value, rounding, lo, hi):
+    assert Rounded(value, 2, rounding=rounding).interval == Interval(lo, hi)
+
+
+def test_significant_digits_beyond_the_range_name_what_was_given():
+    with pytest.raises(ValueError, match=r"tiny = Decimal\('1E-20000'\) at 12 significant digits"):
+        Rounded(D("1E-20000"), significant=12, label="tiny").interval
+    assert Rounded(1.5, None, significant=3).effective_scale == 2  # scale=None is accepted
+
+
+def test_truncated_negative_amounts_need_toward_zero_not_floor():
+    """-12.349 with its digits dropped is -12.34: toward_zero accepts it, floor does not."""
+    refund = lambda a: a  # noqa: E731
+    true = Rounded("-12.349", None)
+    assert agrees_with_formula(Rounded("-12.34", 2, rounding="toward_zero"), refund, true)
+    assert not agrees_with_formula(Rounded("-12.34", 2, rounding="floor"), refund, true)
+
+
+def test_decimal_constants_name_the_same_modes():
+    from decimal import ROUND_05UP, ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR, ROUND_HALF_EVEN, ROUND_UP
+
+    assert Rounded(1, 2, rounding=ROUND_DOWN).rounding == "toward_zero"
+    assert Rounded(1, 2, rounding=ROUND_FLOOR).rounding == "floor"
+    assert Rounded(1, 2, rounding=ROUND_CEILING).rounding == "ceiling"
+    assert Rounded(1, 2, rounding=ROUND_HALF_EVEN).rounding == "half"
+    for bad in (ROUND_UP, ROUND_05UP, "down", "nearest", None):
+        with pytest.raises(ValueError, match="rounding must be one of"):
+            Rounded(1, 2, rounding=bad)
+
+
+def _triple(a):
+    return a * 3
+
+
+def test_an_output_rounded_down_is_checked_on_its_side():
+    """10.009 floored is 10.00 — wrong for round-half (10.01), right for floor; 10.01 is not."""
+    price = Rounded("3.3363333", None)
+    assert not agrees_with_formula(Rounded("10.00", 2), _triple, price)
+    down = agrees_with_formula(Rounded("10.00", 2, "total", rounding="floor"), _triple, price)
+    assert down
+    assert down.accepted == Interval("9.9989999", "10.0089999")
+    assert not agrees_with_formula(Rounded("10.01", 2, rounding="floor"), _triple, price)
+    assert agrees_with_formula(Rounded("10.01", 2, rounding="ceiling"), _triple, price)
+    assert not agrees_with_formula(Rounded("10.00", 2, rounding="ceiling"), _triple, price)
+    text = str(down)
+    assert "(scale 2, rounded floor)" in text and "widened by the output's rounding" in text
+    assert down.as_dict()["output_rounding"] == "floor"
+
+
+def test_truncation_depends_on_the_sign():
+    neg = Rounded("-3.3363333", None)
+    assert agrees_with_formula(Rounded("-10.00", 2, rounding="toward_zero"), _triple, neg)
+    assert not agrees_with_formula(Rounded("-10.01", 2, rounding="toward_zero"), _triple, neg)
+    assert agrees_with_formula(Rounded("-10.01", 2, rounding="floor"), _triple, neg)
+    # a result around zero truncates to zero from either side
+    near_zero = agrees_with_formula(
+        Rounded("0.00", 2, rounding="toward_zero"),
+        lambda a, b: a - b,
+        Rounded("1.003", None),
+        Rounded("1.000", 3),
+    )
+    assert near_zero
+    assert near_zero.accepted == Interval("0", "0.0035")
+
+
+def test_a_directed_input_widens_on_its_side_only():
+    check = agrees_with_formula(
+        Rounded("10.00", 2), lambda a: a, Rounded("9.996", 3, "x", rounding="floor"),
+    )
+    assert check.predicted == Interval("9.996", "9.997")
+    assert "x = 9.996  (scale 3, rounded floor, −0 … +0.001)" in str(check)
+    assert check.as_dict()["inputs"]["x"] == {"value": 9.996, "scale": 3, "rounding": "floor"}
+
+
+def test_the_default_protocol_reads_as_before():
+    check = agrees_with_formula(
+        Rounded(26.36, 2, "total"), product, Rounded(3.14, 2, "rate"), Rounded(8.395, 3, "count")
+    )
+    text = str(check)
+    assert "  actual      26.36  (scale 2)" in text
+    assert "(widened by the output's half unit)" in text
+    assert "rate = 3.14  (scale 2, ±0.005)" in text
+    data = check.as_dict()
+    assert set(data) == {"label", "ok", "actual", "computed", "accepted", "resolution_pct",
+                         "inputs", "output_scale", "notes"}
+
+
+@pytest.fixture
+def attached(monkeypatch):
+    import allure
+
+    seen = []
+
+    def record(body, name=None, attachment_type=None, extension=None):
+        seen.append((name, body))
+
+    monkeypatch.setattr(allure, "attach", record)
+    return seen
+
+
+def _three():
+    ok = agrees_with_sum(Rounded("9.99", 2, "sum"), [Rounded(3.33, 2)] * 3)
+    bad_a = agrees_with_sum(Rounded("10.50", 2, "total"), [Rounded(3.33, 2)] * 3)
+    bad_b = agrees_with_formula(Rounded("7", 0, "count"), lambda a: a * 2, Rounded(5, None))
+    return ok, bad_a, bad_b
+
+
+def test_assert_all_agree_names_every_disagreement(attached):
+    import json
+
+    from partest.rounding import assert_all_agree
+
+    with pytest.raises(AssertionError) as info:
+        assert_all_agree(_three(), name="invoice")
+    message = str(info.value)
+    assert message.startswith("invoice: 2 of 3 do NOT agree — total, count")
+    assert "total does NOT agree" in message and "count does NOT agree" in message
+    assert "sum agrees" not in message
+    assert [n for n, _ in attached] == ["invoice", "invoice.txt"]
+    protocol = json.loads(attached[0][1])
+    assert [p["label"] for p in protocol] == ["sum", "total", "count"]
+    assert attached[1][1].startswith("invoice: 1 of 3 agree")
+
+
+def test_assert_all_agree_passes_and_attaches_on_a_pass(attached):
+    from partest.rounding import assert_all_agree
+
+    ok = _three()[0]
+    assert assert_all_agree([ok, ok]) == (ok, ok)
+    assert [n for n, _ in attached] == ["rounding checks", "rounding checks.txt"]
+
+
+def test_assert_all_agree_works_without_reporting(monkeypatch):
+    import sys
+
+    from partest.rounding import assert_all_agree
+
+    monkeypatch.setitem(sys.modules, "partest.reporting.attach", None)  # the import fails
+    with pytest.raises(AssertionError, match="2 of 3 do NOT agree"):
+        assert_all_agree(_three())
+    assert assert_all_agree(iter([_three()[0]]))
+
+
+def test_assert_all_agree_refuses_nothing_and_non_checks():
+    from partest.rounding import assert_all_agree
+
+    with pytest.raises(ValueError, match="no checks"):
+        assert_all_agree([])
+    with pytest.raises(TypeError, match="must be an Agreement"):
+        assert_all_agree([_three()[0], True])

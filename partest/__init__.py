@@ -27,6 +27,7 @@ from partest.client import (
     Patch,
     Post,
     Put,
+    StatusMismatchError,
     format_status_mismatch,
     status_matches,
 )
@@ -72,7 +73,7 @@ from partest.validation import (
     assert_raw_incorrect_body,
 )
 
-__version__ = "2.6.0"
+__version__ = "2.7.0"
 
 # Lazy-friendly optional: security / http always available
 from partest.http import (  # noqa: E402
@@ -91,6 +92,7 @@ __all__ = [
     "Patch",
     "Put",
     "Delete",
+    "StatusMismatchError",
     "format_status_mismatch",
     "status_matches",
     "TrackingApiClient",

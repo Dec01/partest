@@ -27,6 +27,14 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
+from partest.redact import _body_text, _field_value, _scrub_text
+
+
+def _masked(field: str, value: Any) -> str:
+    """A value read from a response, for a message: masked like a check value — free text
+    at every level (``partest.redact._scrub_check``) — and `***` under a secret field name."""
+    return repr(_field_value(field, value))
+
 # --- Held surfaces --------------------------------------------------------
 
 
@@ -87,24 +95,24 @@ def assert_locator(
     store check is even worth holding for.
     """
     if not isinstance(body, dict) or field not in body:
-        raise AssertionError(f"response has no locator field {field!r}: {body!r}")
+        raise AssertionError(f"response has no locator field {field!r}: {_body_text(body, limit=500)}")
     value = body[field]
     if not isinstance(value, str) or not value:
-        raise AssertionError(f"locator {field!r} is not a non-empty string: {value!r}")
+        raise AssertionError(f"locator {field!r} is not a non-empty string: {_masked(field, value)}")
     if prefix is not None and not value.startswith(prefix):
-        raise AssertionError(f"locator {value!r} does not start with {prefix!r}")
+        raise AssertionError(f"locator {_masked(field, value)} does not start with {prefix!r}")
     if pattern is not None and not re.search(pattern, value):
-        raise AssertionError(f"locator {value!r} does not match {pattern!r}")
+        raise AssertionError(f"locator {_masked(field, value)} does not match {pattern!r}")
     return value
 
 
 def assert_status_enum(body: Any, *, field: str, allowed: Sequence[str]) -> str:
     """A status that is not in its own enum is a contract break, not a slow pipeline."""
     if not isinstance(body, dict) or field not in body:
-        raise AssertionError(f"response has no status field {field!r}: {body!r}")
+        raise AssertionError(f"response has no status field {field!r}: {_body_text(body, limit=500)}")
     value = body[field]
     if value not in allowed:
-        raise AssertionError(f"status {value!r} not in {list(allowed)}")
+        raise AssertionError(f"status {_masked(field, value)} not in {list(allowed)}")
     return value
 
 
@@ -137,7 +145,7 @@ def wait_for(
         ).value
     except PollTimeout as exc:
         raise AssertionError(
-            f"{description} did not happen within {timeout:g}s; "
+            f"{_scrub_text(description)} did not happen within {timeout:g}s; "
             f"last observation: {_short_repr(exc.last)}"
         ) from exc
 
@@ -157,7 +165,9 @@ class Observation:
     def require(self, what: str = "side effect") -> "Observation":
         """Fail unless the effect was observed; say so loudly when it was simulated."""
         if not self.found:
-            raise AssertionError(f"{what} not observed on {self.surface}: {self.detail!r}")
+            raise AssertionError(
+                f"{what} not observed on {self.surface}: {_body_text(self.detail, limit=500)}"
+            )
         if self.simulated:
             raise AssertionError(
                 f"{what} was only observed on a simulated {self.surface}. "

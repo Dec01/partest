@@ -1,7 +1,7 @@
 ---
 title: Quickstart — first green API test
 status: current
-verified: 2026-10-18
+verified: 2026-10-19
 sources: [partest/client.py, partest/conf.py, partest/coverage.py, partest/call_storage.py, partest/env/__init__.py, partest/zorro_report.py, partest/tls.py, partest/pytest_plugin.py]
 audience: user
 ships_in_wheel: true
@@ -17,6 +17,14 @@ Time-to-first-green API test target: **&lt; 30 minutes**.
 pip install partest
 # optional UI:
 pip install partest[ui] && playwright install chromium
+```
+
+Right after a release pip may not see the new version yet: it answers from its cached copy
+of the package index and reports "no matching distribution" or installs the previous one.
+Ask for the version explicitly and skip the cache:
+
+```bash
+pip install --no-cache-dir "partest==X.Y.Z"
 ```
 
 ## 2. Minimal API project

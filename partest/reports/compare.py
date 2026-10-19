@@ -52,6 +52,42 @@ def _unseen_fraction(payload: dict) -> float | None:
     return sum(1 for e in endpoints if _kind_of(e) == "unseen") / len(endpoints)
 
 
+def _measured_nothing(payload: dict) -> bool:
+    """The payload says it had no endpoints: ``summary.endpoints == 0`` or ``endpoints: []``.
+
+    A numeric ``summary.endpoints`` is the measurement and decides: a payload trimmed to
+    ``endpoints: []`` that says ``summary.endpoints: 12`` had twelve. Only without it does an
+    empty list count. A payload with neither key (older than both) says nothing, and is not
+    taken as empty.
+    """
+    summary = payload.get("summary") or {}
+    count = summary.get("endpoints")
+    if isinstance(count, (int, float)) and not isinstance(count, bool):
+        return count == 0
+    return "endpoints" in payload and not payload.get("endpoints")
+
+
+def _summary_avg(payload: dict) -> float | None:
+    """``summary.avg``; ``None`` — not measured — for a run with no endpoints.
+
+    ``null`` is what a run with no endpoints writes from 2.7.0 on. Releases before it wrote
+    ``0.0`` there; with zero endpoints that zero is read as "not measured" too, as
+    ``validate_coverage_payload`` reads it — otherwise a 2.6 baseline of an empty run turns
+    the next run's whole average into a delta and the pair into a comparable one. A
+    ``0.0`` with endpoints is a measured zero; a missing ``summary.avg`` reads as ``0.0``,
+    as before.
+    """
+    summary = payload.get("summary") or {}
+    if "avg" not in summary:
+        return 0.0
+    if summary["avg"] is None:
+        return None
+    avg = float(summary["avg"] or 0.0)
+    if avg == 0.0 and _measured_nothing(payload):
+        return None
+    return avg
+
+
 def compare_payloads(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
     """Diff two ``build_payload`` JSON documents."""
     old_eps = {_ep_key(e): e for e in (old.get("endpoints") or [])}
@@ -93,15 +129,21 @@ def compare_payloads(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]
         for tc in sorted(new_miss - old_miss):
             missing_new.append(f"{key} :: {tc}")
 
-    old_avg = float((old.get("summary") or {}).get("avg") or 0.0)
-    new_avg = float((new.get("summary") or {}).get("avg") or 0.0)
+    old_avg = _summary_avg(old)
+    new_avg = _summary_avg(new)
+    # A difference with an unmeasured side is not a number: `new_avg - 0` would present the
+    # whole of the other run's average as a change. The delta is `null`, and a warning says
+    # which run measured nothing.
+    avg_delta = (
+        round(new_avg - old_avg, 2) if old_avg is not None and new_avg is not None else None
+    )
     warnings = _run_warnings(old, new, not_run)
     notes = _optin_one_sided_note(old, new)
     return {
         "old_avg": old_avg,
         "new_avg": new_avg,
-        "avg_delta": round(new_avg - old_avg, 2),
-        "coverage_delta": round(new_avg - old_avg, 2),
+        "avg_delta": avg_delta,
+        "coverage_delta": avg_delta,
         "added": added,
         "removed": removed,
         "improved": improved,
@@ -125,6 +167,13 @@ def _run_warnings(old: dict, new: dict, not_run: list) -> list[str]:
     """Reasons the two payloads may not be comparable at all."""
     messages: list[str] = []
     for label, payload in (("previous", old), ("current", new)):
+        if _summary_avg(payload) is None:
+            messages.append(
+                f"{label} run has no endpoints — its average coverage is null (not measured), "
+                f"so avg_delta is null"
+                + ("" if (payload.get("summary") or {}).get("avg") is None
+                   else "; its 0.0 is how releases before 2.7.0 wrote an empty run")
+            )
         meta = payload.get("meta") or {}
         workers = int(meta.get("workers") or 1)
         if workers > 1 and not meta.get("merged", True):
@@ -159,29 +208,69 @@ def _run_warnings(old: dict, new: dict, not_run: list) -> list[str]:
 
 
 def _optin_states(payload: dict) -> "dict | None":
-    selection = (payload.get("meta") or {}).get("selection") or {}
-    optin = selection.get("optin")
+    """Each set's state, or ``None`` when there is no record — also when *payload*, its
+    ``meta`` or its ``selection`` is not a mapping (``None``, a list): no record to read."""
+    if not isinstance(payload, dict):
+        return None
+    meta = payload.get("meta")
+    selection = meta.get("selection") if isinstance(meta, dict) else None
+    optin = selection.get("optin") if isinstance(selection, dict) else None
     if not isinstance(optin, dict):
         return None
-    return {str(name): (info or {}).get("state") for name, info in optin.items()}
+    return {
+        str(name): (info.get("state") if isinstance(info, dict) else None)
+        for name, info in optin.items()
+    }
+
+
+def optin_comparable(old: dict, new: dict) -> "tuple[bool | None, list[str]]":
+    """Did two runs select the same opt-in marker sets? ``(verdict, changes)``.
+
+    ``old`` and ``new`` are ``coverage.json`` payloads (``build_payload`` documents). Each
+    set's state — ``env``, ``markexpr`` or ``off`` — is read from ``meta.selection.optin``:
+
+    * ``(True, [])`` — both payloads carry the record and every set has the same state;
+    * ``(False, changes)`` — both carry it and they differ; ``changes`` has one line per set,
+      ``"slow: off → env"`` (``absent`` for a set only one run declared, ``recorded
+      without a state`` for a malformed record), sorted by name;
+    * ``(None, [])`` — at least one payload has no record: an artifact older than the key, a
+      project without opt-in sets, or not a payload at all (``None``, a list). Nothing proves
+      the runs differ or match; for two real payloads :func:`compare_payloads` does not flag
+      such a pair (it may add a soft ``notes`` line) — it takes payloads only, not ``None``.
+
+    An opt-in set is deselected, not skipped, so nothing else in the payload shows it: the
+    run with the expensive set switched on simply has more cases. :func:`compare_payloads`
+    marks a ``False`` pair not ``comparable``; this is the same verdict for a reader that
+    needs it alone.
+    """
+    before, after = _optin_states(old), _optin_states(new)
+    if before is None or after is None:
+        return None, []
+    if before == after:
+        return True, []
+    def shown(states: dict, name: str) -> str:
+        if name not in states:
+            return "absent"
+        return str(states[name]) if states[name] else "recorded without a state"
+
+    changed = [
+        f"{name}: {shown(before, name)} → {shown(after, name)}"
+        for name in sorted(set(before) | set(after))
+        if before.get(name) != after.get(name) or (name in before) != (name in after)
+    ]
+    return False, changed
 
 
 def _optin_warning(old: dict, new: dict) -> list[str]:
     """Two runs that ran different opt-in marker sets did not run the same suite.
 
-    An opt-in set is deselected, not skipped, so nothing else in the payload shows it:
-    the run with the expensive set switched on simply has more cases. Compared only when
-    both payloads carry ``meta.selection.optin`` — an older artifact, or a project without
-    opt-in sets, says nothing either way, and guessing would flag every such pair.
+    Compared only when both payloads carry ``meta.selection.optin`` — an older artifact, or
+    a project without opt-in sets, says nothing either way, and guessing would flag every
+    such pair. See :func:`optin_comparable`.
     """
-    before, after = _optin_states(old), _optin_states(new)
-    if before is None or after is None or before == after:
+    verdict, changed = optin_comparable(old, new)
+    if verdict is not False:
         return []
-    changed = [
-        f"{name}: {before.get(name) or 'absent'} → {after.get(name) or 'absent'}"
-        for name in sorted(set(before) | set(after))
-        if before.get(name) != after.get(name)
-    ]
     return [
         "the runs selected different opt-in marker sets (" + "; ".join(changed)
         + ") — they did not run the same suite"
@@ -200,10 +289,10 @@ def _optin_one_sided_note(old: dict, new: dict) -> list[str]:
     present = [label for label, rec in sides.items() if rec is not None]
     if len(present) != 1:
         return []
-    carrier = present[0]
-    missing = "current" if carrier == "previous" else "previous"
+    recorded = present[0]
+    missing = "current" if recorded == "previous" else "previous"
     acted = {
-        name: info for name, info in sides[carrier].items()
+        name: info for name, info in sides[recorded].items()
         if int((info or {}).get("deselected") or 0) > 0 or (info or {}).get("state") == "env"
     }
     if not acted:
@@ -215,7 +304,7 @@ def _optin_one_sided_note(old: dict, new: dict) -> list[str]:
         for name, info in sorted(acted.items())
     )
     return [
-        f"{missing} run carries no opt-in record; {carrier} {described} — "
+        f"{missing} run carries no opt-in record; {recorded} {described} — "
         "comparability cannot be confirmed"
     ]
 

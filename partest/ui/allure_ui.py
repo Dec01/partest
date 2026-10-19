@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from partest.redact import _scrub_text
+
 try:
     import allure
     from allure_commons.types import AttachmentType
@@ -29,7 +31,8 @@ def attach_url(page, name: str = "url") -> None:
     if allure is None:
         return
     try:
-        allure.attach(str(page.url), name=name, attachment_type=AttachmentType.TEXT)
+        # A page URL carries what the app put in it: a token in the query or the fragment.
+        allure.attach(_scrub_text(page.url), name=name, attachment_type=AttachmentType.TEXT)
     except Exception:
         pass
 
@@ -63,17 +66,17 @@ def attach_failure_context(page, label: str = "ui_failure") -> None:
             if mon.network_errors:
                 attach_text(
                     f"{label}_network",
-                    "\n".join(e.summary() for e in mon.network_errors[:30]),
+                    _scrub_text("\n".join(e.summary() for e in mon.network_errors[:30])),
                 )
             if mon.console_errors:
                 attach_text(
                     f"{label}_console",
-                    "\n".join(e.summary() for e in mon.console_errors[:20]),
+                    _scrub_text("\n".join(e.summary() for e in mon.console_errors[:20])),
                 )
             if getattr(mon, "page_errors", None):
                 attach_text(
                     f"{label}_pageerror",
-                    "\n".join(str(t) for t in mon.page_errors[:20]),
+                    _scrub_text("\n".join(str(t) for t in mon.page_errors[:20])),
                 )
     except Exception:
         pass

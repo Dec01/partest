@@ -51,8 +51,9 @@ so a job that finishes during the final sleep is not reported as stuck. Nothing 
 waits — the total is ``timeout`` plus however long the last fetch takes.
 
 Messages carry values a test fetched, and values fetched from an API can carry tokens.
-Everything put into a message is redacted — dicts and lists by key, anything else through
-:func:`partest.redact.redact_text` on its ``repr`` — followed no deeper than
+Everything put into a message is redacted by the rule of every other channel of the package
+(see the enterprise notes) — dicts and lists by key, a string leaf by the narrow patterns,
+anything else by masking its ``repr`` as free text — followed no deeper than
 :data:`MESSAGE_DEPTH` levels, and shortened. The attributes (``last``, ``history``,
 ``poll_history``) keep the originals: reporting them is the caller's responsibility.
 """
@@ -65,7 +66,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Generic, List, Optional, Tuple, TypeVar, Union
 
-from partest.redact import DEFAULT_SENSITIVE_BODY_KEYS, DEFAULT_SENSITIVE_HEADERS, redact_text
+from partest.redact import _is_blank, _is_secret_key, _mark_masked, _scrub, _scrub_text
 
 T = TypeVar("T")
 
@@ -149,11 +150,12 @@ class PollTimeout(AssertionError):
         self.timeout = timeout
         last_state = history[-1] if history else None
         super().__init__(
-            f"{what} did not reach a terminal state within {timeout:g} s "
+            f"{_scrub_text(what)} did not reach a terminal state within {timeout:g} s "
             f"({elapsed:.1f} s, {attempts} attempt{'s' if attempts != 1 else ''}); "
             f"last state {_short(last_state)}; seen: {_history_text(self.history)}; "
             f"last value: {_short(last)}"
         )
+        _mark_masked(self)  # every part of the message above is masked
 
     def __reduce__(self):
         return (
@@ -171,7 +173,6 @@ def _rebuild_timeout(what, last, history, elapsed, attempts, timeout) -> PollTim
 #: How deep a message follows nested dicts and lists before printing ``…`` instead.
 MESSAGE_DEPTH = 6
 
-_SENSITIVE_KEYS = {k.lower() for k in DEFAULT_SENSITIVE_BODY_KEYS | DEFAULT_SENSITIVE_HEADERS}
 
 
 class _Shown:
@@ -186,31 +187,33 @@ class _Shown:
         return self.text
 
 
-def _sanitize(value: Any, depth: int) -> Any:
+def _sanitize(value: Any, depth: int, *, top: bool = True) -> Any:
     """A copy safe to print: secrets masked, depth bounded, nothing echoed raw.
 
-    Plain ``dict`` and ``list`` (and a plain ``tuple``) are walked, values under sensitive
-    keys masked. Everything else — a ``Mapping`` subclass, a namedtuple, a model, a
-    dataclass — keeps its own ``repr``, passed through :func:`partest.redact.redact_text`,
-    so its type stays visible and its secrets do not.
+    The package's one rule (``partest.redact``): plain ``dict`` and ``list`` (and a plain
+    ``tuple``) are walked, a value under a secret key — in any spelling, ``client-secret``
+    too — is ``***``; a string inside them gets the narrow patterns (URL credentials, signed
+    query values, Bearer/Basic, a JWT); a string on its own is free text. Everything else — a
+    ``Mapping`` subclass, a namedtuple, a model, a dataclass — keeps its own ``repr``, masked
+    as free text, so its type stays visible and its secrets do not.
     """
     if value is None or isinstance(value, (bool, int, float)):
         return value
     if isinstance(value, str):
-        return redact_text(value)
+        return _scrub_text(value) if top else _scrub(value)
     if depth <= 0:
         return _Shown("…")
     if type(value) is dict:
         return {
-            k: ("***" if str(k).lower() in _SENSITIVE_KEYS and value[k] not in (None, "")
-                else _sanitize(value[k], depth - 1))
+            k: ("***" if _is_secret_key(k) and not _is_blank(value[k])
+                else _sanitize(value[k], depth - 1, top=False))
             for k in value
         }
     if type(value) is list:
-        return [_sanitize(v, depth - 1) for v in value]
+        return [_sanitize(v, depth - 1, top=False) for v in value]
     if type(value) is tuple:
-        return tuple(_sanitize(v, depth - 1) for v in value)
-    return _Shown(redact_text(repr(value)))
+        return tuple(_sanitize(v, depth - 1, top=False) for v in value)
+    return _Shown(_scrub_text(repr(value)))
 
 
 def _masked(value: Any, *, quote_strings: bool) -> str:
@@ -313,7 +316,8 @@ class _Tracker:
         if add_note is not None:  # Python 3.11+
             try:
                 add_note(
-                    f"while polling {what}: attempt {self.attempts}, {elapsed:.1f} s in; "
+                    f"while polling {_scrub_text(what)}: attempt {self.attempts}, "
+                    f"{elapsed:.1f} s in; "
                     f"seen: {_history_text(history)}"
                 )
             except Exception:

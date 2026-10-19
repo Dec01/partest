@@ -1,8 +1,8 @@
 ---
 title: Interactive coverage report and CLI
 status: current
-verified: 2026-10-07
-sources: [partest/reports/__init__.py, partest/reports/validate.py, partest/reports/interactive_html.py, partest/reports/writer.py, partest/reports/services.py, partest/reports/__main__.py]
+verified: 2026-10-19
+sources: [partest/reports/__init__.py, partest/reports/validate.py, partest/reports/interactive_html.py, partest/reports/writer.py, partest/reports/services.py, partest/reports/__main__.py, partest/reports/payload.py, partest/reports/badge.py, partest/reports/compare.py]
 audience: user
 ships_in_wheel: true
 ---
@@ -90,7 +90,41 @@ carries the opt-in record, a soft entry in `notes` says comparability cannot be 
 `--strict` turns that into exit code 2 so a pipeline does not alarm on a partial run or, worse,
 stay quiet about a real loss hidden behind one.
 The CLI prints `warnings` and `notes` to stderr (`warning: …`, `note: …`), so piping the JSON
-stays clean. Notes never change the exit code.
+stays clean. Notes never change the exit code. The opt-in part of the verdict alone, for a
+reader of `coverage.json` that does not need the rest: `partest.reports.optin_comparable(old,
+new)` → `(True, [])`, `(False, ["slow: off → env"])` or `(None, [])` when either payload has no
+opt-in record.
+
+A run with no endpoints has no average (see below): when either payload says
+`"summary": {"avg": null}`, `old_avg` / `new_avg` is `null` on that side, `avg_delta` and
+`coverage_delta` are `null` rather than the other run's whole average, and a warning names the
+run that measured nothing — so the pair is not `comparable`; `compare --strict` exits with
+code 2. An older snapshot that wrote `0.0` for a run with no endpoints (`summary.endpoints` is
+`0`, or, without that count, `endpoints` is an empty list — a numeric count decides) is read the same way — not measured — as the validator
+reads it: otherwise an empty 2.6 baseline would turn the next run's whole average into a delta
+of a pair called comparable. A `0.0` with endpoints is a measured zero; a payload with no
+`summary.avg` at all reads as `0.0`, as before.
+
+## A run with no endpoints
+
+`summary.avg` and `summary.avgAll` are `float | null`. A run that collected no
+endpoints — a fixture that failed before the specification was read, an unmerged worker shard,
+an empty specification — writes `null` there, as it writes `null` into `meta.unseenRatio`: an
+average over nothing is not a measurement, and `0.0` read as "nothing is covered". A measured
+zero (endpoints present, none covered) is still `0.0`. `avgCoverage` of a service, subtype or
+method row is always a number: a row exists only because an endpoint is in it.
+
+| Reader | On `null` |
+|---|---|
+| `python -m partest.reports badge` / `badge_from_payload` | a grey `n/a` badge, not a red `0.0%` — also for an older snapshot's `0.0` with no endpoints |
+| `compare` | `null` delta and a warning, as above |
+| the HTML page | `—` instead of a percentage |
+| `validate_coverage_payload` | `null` is accepted only with zero endpoints; `0.0` with zero endpoints is a `DATED` note (how earlier releases wrote it — see `CHANGELOG.md`), any other number there is an error |
+
+A reader of `coverage.json` that does arithmetic on `summary.avg` checks for `null` first —
+explicitly: in JavaScript `null < 60` is `true` and `null * 1` is `0`, in `jq` `null < 60` is
+`true` as well, so a quality gate written `avg < 60` passes or fails an unmeasured run by
+accident. Test `avg == null` before comparing.
 
 Related: [[concepts/coverage-honesty]]
 
@@ -110,8 +144,9 @@ assert not errors, "\n".join(str(p) for p in errors)
 
 It returns findings, raises nothing, and prints nothing: what a divergence costs is the caller's
 decision. Beyond keys and types it checks the agreements a hand-written producer gets wrong —
-`unseenRatio` is `float | null` and `null` belongs to exactly one state, `kind` must agree with
-`calls`, and `callsTotal` must agree with the rows under it.
+`unseenRatio`, `summary.avg` and `summary.avgAll` are `float | null` and `null` belongs to
+exactly one state (no endpoints), `kind` must agree with `calls`, and `callsTotal` must agree
+with the rows under it.
 
 **`Severity.DATED` is not a small error.** It means the document predates a field: internally
 consistent, simply older. Artefacts outlive releases, and a check that fails on last month's file

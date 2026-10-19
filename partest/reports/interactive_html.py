@@ -292,9 +292,19 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     if (pct >= 34) return "heat-mid";
     return "heat-lo";
   }
+  // An average over no endpoints is not a number: null, shown as a dash. Same rule as
+  // summary.avg in coverage.json.
   function avg(list) {
-    if (!list.length) return 0;
+    if (!list.length) return null;
     return list.reduce((s, e) => s + (e.coverage || 0), 0) / list.length;
+  }
+  function pct(v, digits) {
+    return typeof v === "number" ? `${v.toFixed(digits)}%` : "—";
+  }
+  function byAvgDesc(a, b) {
+    const an = typeof a.avg === "number", bn = typeof b.avg === "number";
+    if (an !== bn) return an ? -1 : 1;
+    return an ? b.avg - a.avg : 0;
   }
   function summarize(list) {
     const s = { avg: avg(list), calls: 0, full: 0, partial: 0, empty: 0, exception: 0,
@@ -462,8 +472,8 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     const sel = summarize(scoredEndpoints());
     const timing = DATA.timing;
     document.getElementById("stats").innerHTML = `
-      <div class="stat"><div class="label">Average coverage</div><div class="value">${all.avg.toFixed(1)}%</div></div>
-      <div class="stat"><div class="label">Coverage (selected)</div><div class="value">${sel.avg.toFixed(1)}%</div></div>
+      <div class="stat"><div class="label">Average coverage</div><div class="value">${pct(all.avg, 1)}</div></div>
+      <div class="stat"><div class="label">Coverage (selected)</div><div class="value">${pct(sel.avg, 1)}</div></div>
       <div class="stat"><div class="label">Total calls</div><div class="value">${sel.calls}</div></div>
       <div class="stat ok clickable" data-kind="full"><div class="label">Full (P1)</div><div class="value">${sel.full}</div></div>
       <div class="stat warn clickable" data-kind="partial"><div class="label">Partial</div><div class="value">${sel.partial}</div></div>
@@ -522,7 +532,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     root.innerHTML = items.map(it => `
       <div class="card" data-key="${esc(it.key)}">
         <div class="card-title">${esc(it.title)}</div>
-        <div class="card-metric">${it.avg.toFixed(0)}%</div>
+        <div class="card-metric">${pct(it.avg, 0)}</div>
         <div class="muted">${it.count} endpoints · ${it.calls} calls</div>
       </div>`).join("") || `<div class="muted">No data</div>`;
     root.querySelectorAll(".card").forEach(el => {
@@ -539,7 +549,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     return Object.values(map).map(g => {
       const s = summarize(g.items);
       return { key: g.key, title: g.title, avg: s.avg, count: s.endpoints, calls: s.calls };
-    }).sort((a, b) => b.avg - a.avg);
+    }).sort(byAvgDesc);
   }
   function groupSubtypes(list) {
     const map = {};
@@ -549,7 +559,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     return Object.values(map).map(g => {
       const s = summarize(g.items);
       return { key: g.key, title: g.title, avg: s.avg, count: s.endpoints, calls: s.calls };
-    }).sort((a, b) => b.avg - a.avg);
+    }).sort(byAvgDesc);
   }
   function groupMethods(list) {
     const map = {};

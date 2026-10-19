@@ -1,7 +1,7 @@
 ---
 title: Journeys, invariants, integrations, e2e
 status: current
-verified: 2026-10-16
+verified: 2026-10-19
 sources: [partest/sideeffects.py, partest/polling.py, partest/rounding.py, partest/test_types.py, partest/methodology/api/matrix.py]
 audience: user
 ships_in_wheel: true
@@ -249,6 +249,61 @@ emitted as a `RoundingNoteWarning`, so it reaches pytest's warnings summary on a
 where nobody prints the protocol; `-W error::partest.rounding.RoundingNoteWarning` turns
 them into failures.
 
+**A float the service computed and did not round** is good to a number of *significant*
+digits, not decimals: `0.1 + 0.2` arrives as `0.30000000000000004`. `scale=None` demands more
+than the arithmetic gave, a scale picked by hand gives a note on every run. Say what it is:
+
+```python
+Rounded(body["ratio"], significant=12, label="ratio")   # unit of the 12th significant digit
+```
+
+The unit follows the magnitude (`123456.0` at three significant digits is `±500`), digits
+beyond it are not a note — nobody claimed the value was rounded — and zero is exact. In the
+protocol: `ratio = 0.3  (12 significant digits → scale 12, ±0.0000000000005)`.
+
+**A value rounded in one direction** says so with `rounding=` — the specification says
+"amounts are rounded down", and `10.009` is written `10.00`, which round-to-nearest would
+reject:
+
+```python
+Rounded(body["amount"], 2, "amount", rounding="toward_zero")
+```
+
+| `rounding=` | the record `r` stands for |
+|---|---|
+| `"half"` (default) | `[r − ½ unit, r + ½ unit]` — to nearest, any tie rule |
+| `"toward_zero"` (the extra digits dropped) | `[r, r + unit]` for a positive `r`, `[r − unit, r]` for a negative one, `[−unit, unit]` for zero |
+| `"floor"` (toward −∞) | `[r, r + unit]` |
+| `"ceiling"` (toward +∞) | `[r − unit, r]` |
+
+"Rounded down" in a specification nearly always means the digits are dropped: a refund of
+`-12.349` is written `-12.34`. That is `"toward_zero"`; `"floor"` would write `-12.35` and
+reject the correct record. The two agree only for values that cannot be negative — use
+`"floor"` when the specification really says toward −∞.
+
+The `decimal` constants are accepted too: `ROUND_DOWN` is `"toward_zero"`, as in `decimal`
+(not "floor"), every `ROUND_HALF_*` is `"half"`; `ROUND_UP` (away from zero) and `ROUND_05UP`
+are not modelled and raise `ValueError`. An input rounded that way contributes its
+one-sided interval; an output is accepted when some value the formula allows rounds to it in
+that direction. Both work with `significant=`.
+
+**Several values of one response** go through one call — the protocol of all of them, one
+failure listing every disagreement instead of stopping at the first:
+
+```python
+from partest.rounding import assert_all_agree
+
+assert_all_agree([
+    agrees_with_formula(Rounded(body["total"], 2, "total"), lambda r, c: r * c, rate, count),
+    agrees_with_sum(Rounded(body["sum"], 2, "sum"), parts),
+], name="invoice totals")
+```
+
+With Allure available the protocol is attached on a pass and on a failure — `invoice totals`
+(JSON, every `as_dict()`) and `invoice totals.txt` (every `str()`); without it nothing is
+attached and the check works the same. The `AssertionError` names the failed checks and holds
+each one's full protocol. An empty list is a `ValueError`: no check is not a pass.
+
 Limits, on purpose:
 
 - the formula receives `Interval` objects and may use `+ − × ÷`, unary minus, `abs` and
@@ -259,8 +314,9 @@ Limits, on purpose:
   range `decimal` represents becomes a `ValueError` naming the cause;
 - a divisor whose interval contains zero raises `ZeroDivisionError`: at those scales the
   formula cannot be checked at all;
-- only round-to-nearest is modelled, with any tie rule. A value *truncated* to its scale is
-  off by up to a whole unit in one direction and is not covered;
+- the rounding is declared, not guessed: a value truncated or rounded down but declared with
+  the default `"half"` is off by up to a whole unit in one direction, and the check can fail
+  on a correct value — give it `rounding=`;
 - interval arithmetic can over-estimate when one input appears several times in the formula
   (`x − x` is not `0` over an interval). That makes the check more lenient, never wrong, and
   the `resolution` shows it.

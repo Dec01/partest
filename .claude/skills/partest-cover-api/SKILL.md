@@ -61,7 +61,7 @@ from partest.zorro_report import zorro
 | GET collection, no id | `get_list_objects` |
 | GET `.../{id}` | `get_dynamic_object` |
 | GET static catalog / enums | `get_static_object` |
-| GET `.../{parent}/{id}/children` | `get_by_parent` |
+| GET by parent (`/order-lines/order/{orderId}`, `/orders/{id}/lines`) | `get_by_parent` — never read from the path: the classifier gives `get_dynamic_object`, so declare it in `subtype_overrides` |
 | GET `.../me` / `/self` | `get_by_self` |
 | POST create | `post_create_object` |
 | POST multipart / upload | `post_upload_file` |
@@ -170,9 +170,12 @@ it with `PARTEST_PYTEST_PLUGIN=0` or `pytest_plugin = False` if the project owns
       `ah.check_measured(premise, assertion, what=…)` — a comparison over an empty sample
       passes by construction and reads as a covered case that was never checked
 - [ ] `missing_p1` empty for that endpoint in a **serial** run
+- [ ] A test that reproduces an open defect carries `@pytest.mark.known_defect("ID")`, not
+      `xfail`: `xfail` reads a setup or network failure as the defect reproducing
 
 ## Known limits
 
 - Coverage under pytest-xdist is unreliable until shard merging ships.
 - Nested OpenAPI templates can land in "unmatched" even when the test is correct.
-- The classifier can mis-read unusual paths; an explicit subtype override is not available yet.
+- The classifier can mis-read unusual paths; correct it with `subtype_overrides` in
+  `confpartest.py` (`docs/wiki/concepts/methodology.md`).

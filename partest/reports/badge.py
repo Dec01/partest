@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
+
+#: Shown, in grey, for a run that measured nothing (``summary.avg`` is ``null``).
+_NOT_MEASURED_TEXT = "n/a"
+_NOT_MEASURED_COLOR = "#9f9f9f"
 
 
 def _color(avg: float) -> str:
@@ -13,11 +17,19 @@ def _color(avg: float) -> str:
     return "#e05d44"
 
 
-def badge_svg(avg: float, *, label: str = "coverage") -> str:
-    """Shields-style SVG. ``avg`` is 0..100."""
-    avg = max(0.0, min(100.0, float(avg)))
-    value = f"{avg:.1f}%" if avg < 100 else "100%"
-    color = _color(avg)
+def badge_svg(avg: Optional[float], *, label: str = "coverage") -> str:
+    """Shields-style SVG. ``avg`` is 0..100, or ``None`` for "not measured".
+
+    ``None`` is drawn as ``n/a`` in grey, not as ``0.0%`` in red: a run with no endpoints
+    has no average, and a red zero would say it covered nothing.
+    """
+    if avg is None:
+        value = _NOT_MEASURED_TEXT
+        color = _NOT_MEASURED_COLOR
+    else:
+        avg = max(0.0, min(100.0, float(avg)))
+        value = f"{avg:.1f}%" if avg < 100 else "100%"
+        color = _color(avg)
     label_w = 70
     value_w = 54
     total = label_w + value_w
@@ -36,5 +48,14 @@ def badge_svg(avg: float, *, label: str = "coverage") -> str:
 
 
 def badge_from_payload(payload: dict[str, Any], *, label: str = "coverage") -> str:
-    avg = float((payload.get("summary") or {}).get("avg") or 0.0)
-    return badge_svg(avg, label=label)
+    """Badge for ``summary.avg``.
+
+    ``"avg": null`` (a run with no endpoints, 2.7.0 and later) is ``n/a``, and so is the
+    ``0.0`` older releases wrote for a run with no endpoints (``summary.endpoints == 0`` or
+    ``endpoints: []``) — read the way ``compare`` and ``validate`` read it. A ``0.0`` with
+    endpoints is a measured zero; a payload without the key reads as ``0.0`` as it always
+    did.
+    """
+    from partest.reports.compare import _summary_avg
+
+    return badge_svg(_summary_avg(payload), label=label)

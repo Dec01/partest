@@ -1,8 +1,8 @@
 ---
 title: Migration between partest versions
 status: current
-verified: 2026-10-18
-sources: [partest/test_types.py, partest/__init__.py, partest/conf.py, partest/tls.py, partest/http/client.py, partest/pytest_plugin.py, partest/methodology/__init__.py, partest/methodology/_moved.py, partest/methodology/api/__init__.py, partest/methodology/api/overrides.py, partest/methodology/ui/__init__.py, partest/coverage.py, partest/reports/analyzer.py]
+verified: 2026-10-19
+sources: [partest/test_types.py, partest/__init__.py, partest/conf.py, partest/tls.py, partest/http/client.py, partest/pytest_plugin.py, partest/methodology/__init__.py, partest/methodology/_moved.py, partest/methodology/api/__init__.py, partest/methodology/api/overrides.py, partest/methodology/ui/__init__.py, partest/coverage.py, partest/reports/analyzer.py, partest/reports/payload.py, partest/reports/compare.py, partest/redact.py]
 audience: user
 ships_in_wheel: true
 allow_version_literals: true
@@ -16,7 +16,54 @@ the public API and what a suite has to do about it.
 ```bash
 pip install -U partest
 pip install -U 'partest[ui]'   # UI suites
+# right after a release pip may answer from its cache and not see the new version:
+pip install --no-cache-dir "partest==X.Y.Z"
 ```
+
+## 2.7.0 (candidate, not released) — `summary.avg: null`, masking in every channel
+
+Nothing to change in a suite that neither reads `coverage.json` nor matches log or message
+text. Subtypes do not change: every valid OpenAPI path keeps the cell 2.6.0 gave it. In 2.6.0 GET BY PARENT went only to a malformed template with two or more `/` inside braces (`/a/b/{x/y/z}`); such a path is now read by the general rules — usually GET DYNAMIC, GET LIST or GET STATIC with list or static hints (`GET /orders/status/{a/b/c}` "List statuses" is GET STATIC). Behaviours that change:
+
+| What | Before | Now | Do |
+|---|---|---|---|
+| `summary.avg` / `summary.avgAll` in `coverage.json` of a run with no endpoints | `0.0` | `null` | a reader that does arithmetic on it checks for `null` first, **explicitly**: in JavaScript and `jq` `null < 60` is true, so a gate `avg < 60` decides an unmeasured run by accident — test `avg == null` first |
+| `python -m partest.reports badge` for such a run, or for an older snapshot's `0.0` with no endpoints | red `0.0%` | grey `n/a` | nothing |
+| `compare_payloads` with such a run on either side — including an older snapshot's `0.0` with `summary.endpoints == 0` or `endpoints: []` | `avg_delta` = the other run's average, `comparable: true` | `old_avg` / `new_avg` and `avg_delta` / `coverage_delta` `null`, a warning, `comparable: false`; `compare --strict` exits 2 | read `warnings` before the delta; a pipeline whose baseline is an empty run gets exit 2 until the baseline is replaced |
+| `validate_coverage_payload` on `summary.avg` with endpoints present | a non-number or a value outside 0..100 passed | an error | fix the producer |
+| INFO request / response log | bodies, URL, `params=`, headers and cookies as received; `Data:` / `Params:` as a Python `repr` | masked; `Data:` and `Params:` are **JSON**, the body shortened to 8000 characters; a secret header or cookie value `***`; `Files:` lists field, file name, size and content type | a test that matched a raw body or a `repr` in `caplog` matches the masked JSON |
+| httpx's own `HTTP Request: GET <url>` INFO line | the URL as sent | URL credentials and secret query values removed (a filter on the `httpx` logger, added when partest builds a client) | nothing |
+| URL in a log or a message | as received | `user:password@` removed; `?token=…` → `?token=***`, also `X-Amz-Signature`, `X-Goog-Signature`, `sig`, `jsessionid` (and `;jsessionid=` in the path) and `#access_token=…`; `code` and `key` are shown | nothing |
+| status mismatch message, its `status_mismatch` attachment, the ERROR line (`ErrorDesc.status`) | bodies and URL as received; the request body as `str()` of the object | masked; a dict body is shown as JSON | update a test that matched the old text |
+| exception type of a status mismatch, and of `make_request`'s HTTP-error branch (`Server returned …`) | `AssertionError` | `StatusMismatchError`, a subclass — with `status_code` and `expected` | nothing; read the attributes instead of parsing the text |
+| a JSON body in a message or the log | as received | **re-serialised** after masking: duplicate keys collapse, numbers and spacing are normalised (`10.50` reads `10.5`) | for a defect of the format itself look at the raw response: `attach_response(redact_body=False)` in your own call |
+| `instrumented_make_request` (`TrackingApiClient`), a schema failure after a status that is in the expected set | could be reported as a status mismatch, `validation_errors` lost | re-raised as the schema failure, with `validation_errors` | nothing |
+| `AssertionError` of a schema failure, and of `make_request`'s HTTP-error branch | chained to pydantic's `ValidationError` / httpx's `HTTPStatusError` (`__cause__`) | no `__cause__`, no `__context__`; the message still lists each failing path, type and message; a schema failure carries `validation_errors` (`loc`, `type`, `msg`) | read `err.validation_errors` instead of `err.__cause__.errors()` |
+| `PydanticResponseError.print_error` stdout | the rejected value and `e.errors()` with inputs | the value's type only; `errors()` without `input` / `url` | nothing |
+| `reporting.attach_response(...)` called by a suite | body as received unless `redact_body=True` | the same — the default is unchanged; the package's own attachments are masked | pass `redact_body=True` in your own calls |
+| `attach_request` `params` / `path` / headers, `attach_check` under a secret field name, `attach_failure` text, `format_http_status_failure`, `ErrorTemplates` messages | as is; headers with an 8-character prefix | masked; a secret header or field value `***` whole | nothing |
+| `redact_text` output | `"token": '***'`, `password='***'` | `"token": "***"` (the value's own quotes), `password=***`; `Basic` credentials and whole `Cookie:` lines masked | a test that compared exact masked text |
+| `make_request(data={...})` without `json_data`, and a GraphQL query sent with a method other than POST | `AttributeError: 'Logger' object has no attribute 'warning'` — the request was never sent | a masked WARNING line, the request is sent | nothing |
+| a header in the log, a message or an attachment | masked when it is one of the secret names (`Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key` …) | also masked when the name, without separators and a numeric or `sha…` tail, ends with `token`, `key`, `secret`, `password`, `pass`, `pwd`, `signature`, `hmac`, `assertion`, `cookie`, `auth`, `authorization`, `authentication`, `session`, `sessionid`, `sid`, `jwt`, `ticket`, `otp`, `cred`, `credential(s)` … (a `v2`-style tail is dropped too) (`CSRFPreventionToken`, `X-Authtoken`, `X-Session-Id`, `X-Hub-Signature-256`, `Ocp-Apim-Subscription-Key`; also cursors such as `X-Next-Page-Token`); `WWW-Authenticate`, `Proxy-Authenticate`, `Authentication-Info`, `Signature-Input`, `Access-Control-Allow-Credentials`, `X-Session-Expires`, `X-Api-Key-Id`, `X-RateLimit-Remaining-Tokens` stay visible | read a cursor header from the response object, not from the log |
+| `make_request(..., max_retries=N)` and a status in `expected_status_code` that is also a retry status (`429`, `502`, `503`) | retried until another status came | the answer: not retried | nothing; a test of throttling now sees its `429` |
+| an injected client whose `event_hooks` call `raise_for_status`, and an expected 4xx/5xx | `AssertionError` / `StatusMismatchError` "Server returned 404" | `RuntimeError` naming the hook | remove `raise_for_status` from the hook, or catch it |
+
+What counts as a secret: for a body key, the exact name, as before (in any case, `-` / `_` / space alike); for a header in the output channels, the secret names or the end of the name (table above); for a query or fragment parameter, the secret keys plus `X-Amz-Signature`, `X-Amz-Security-Token`, `X-Amz-Credential`, `X-Goog-Signature`, `signature`, `sig`, `auth_token`, `sessionid`, `session_id`, `jsessionid` (`key` and `code` are shown). In free text the end of a secret value is decided towards masking more: a quote that may close it does not stop a bare value, and an object without its closing bracket is masked to the end of its indented block.
+
+New and additive, nothing to change: `Rounded(..., significant=N)` and
+`Rounded(..., rounding="floor" | "ceiling" | "toward_zero")`, `assert_all_agree` —
+[[howto/layers]]; `partest.optin.would_select` (and `is_selected` / `selected_through` made
+public), `partest.reports.optin_comparable`, `@pytest.mark.known_defect` —
+[[components/overview]]. A suite that kept its own copy of any of them can switch:
+
+| Your own helper | Use |
+|---|---|
+| an `unrounded()` wrapper, or a scale picked by hand for a computed float | `Rounded(value, significant=N)` |
+| a sum or formula check over amounts rounded down, with a widened tolerance | `Rounded(value, scale, rounding="toward_zero")` when the digits are dropped (the usual meaning, and the only right one for amounts that can be negative — refunds, corrections); `"floor"` only when the specification says toward −∞ |
+| a loop over `Agreement`s that attaches the protocol and asserts at the end | `assert_all_agree(checks, name=...)` |
+| a pytest subprocess per `-m` / environment case to test `partest_optin_markers` | `would_select(marks, ini_value, markexpr, environ)` |
+| a copy of `partest.reports.compare._optin_warning` | `optin_comparable(old, new)` |
+| `xfail(strict=True)` on a defect reproduction | `known_defect("ID", reason=...)` — a failed setup, a network error or a gateway 502/503/504 is no longer an XFAIL (a 429 still is: throttling is the service's own behaviour); an `AssertionError` about the environment from the body (`PollTimeout`, Playwright's `expect`) still is. A suite marker of the same name has to be renamed or moved to this signature |
 
 ## 2.6.0 — coverage reads the project file when it is used, not on import
 
@@ -29,8 +76,8 @@ Nothing to change in a suite whose coverage report has numbers in it today and w
 | `partest.coverage.SWAGGER_AVAILABLE` / `swagger_files` / `paths_info` right after import | filled | `None` / `None` / empty until the first tracked call or report; `paths_info` is then filled in place | call `partest.coverage.get_paths_info()` |
 | `monkeypatch.setattr(coverage, "SWAGGER_AVAILABLE", False)` | counting off | counting off | nothing |
 | `SWAGGER_AVAILABLE = True` set by hand, nothing else | counted against what was loaded on import | not taken as "set by hand": the spec is loaded as usual | set `paths_info` / `swagger_files` too if you meant to replace the spec |
-| a spec in `swagger_files` that cannot be loaded, `confpartest` on `sys.path` | the import raised, the whole session errored | `ConfpartestError` from every tracked call, `get_paths_info()` and the report; the message names the `swagger_files` key, without URL credentials or query | fix the source, as before |
-| an `ImportError` raised from inside `confpartest.py` | coverage silently off | `ConfpartestError` from the first tracked call, `get_paths_info()`, `active_overrides()`, `classify_endpoint` | fix the file; `python -c "import confpartest"` from the suite root |
+| a spec in `swagger_files` that cannot be loaded, `confpartest` on `sys.path` | the import raised, the whole session errored | `ConfpartestError` from every tracked call and from `get_paths_info()`; the message names the `swagger_files` key, without URL credentials or query. The report does not raise: it is built empty and the summary gets a `NOT COUNTED` line with the same reason (a `UserWarning` without the plugin). `active_overrides()` and `classify_endpoint` are not affected | fix the source, as before |
+| an `ImportError` raised from inside `confpartest.py` | coverage silently off | `ConfpartestError` from every tracked call, `get_paths_info()`, `active_overrides()` and `classify_endpoint` (they read `subtype_overrides` from the same file); the report does not raise — `NOT COUNTED`, as above | fix the file; `python -c "import confpartest"` from the suite root |
 | console `pytest`, `confpartest.py` next to the ini file, no `pythonpath = .`, no `conftest.py` beside it | coverage silently off, empty report | the file is loaded from the ini file's directory (not from an IDE's `--rootdir`); the summary names it; coverage counts. `tls_verify` from that file is read too, a relative CA path from its directory — `pytest_plugin` and `run_metadata` are not, even after the file was loaded | nothing; `pythonpath = .` is still the plain way to say it |
 | the same, with `-p no:partest`, `--noconftest`, `-p no:conftest`, or an ini (`-c`) whose directory contains neither the current directory nor the test paths | as above | as before: not found. The coverage reason says where it looked | `pythonpath = .` |
 | no ini file at all, and `--rootdir` pointing below the suite root (some IDEs) | as above | rootdir is searched, the file is not there: not found | keep a `pytest.ini` next to `confpartest.py`, or `pythonpath = .` |
@@ -41,7 +88,7 @@ Nothing to change in a suite whose coverage report has numbers in it today and w
 | a `swagger_files` kind written `file`, `path` or in upper case | the import failed (`Invalid source type`) | read as `local` / `url` | nothing |
 | a relative `local` spec path or `subtype_overrides` file, run from a subdirectory | not found | also tried from the directory of `confpartest.py` | nothing |
 | `subtype_overrides` in `confpartest` | read when `partest` was imported — dropped when the root was not on `sys.path` yet | read on the first classification; an explicit `set_subtype_overrides` / `clear_subtype_overrides` wins whichever came first; overrides from `confpartest` end with the pytest session | nothing |
-| `load_confpartest()` on a file that raises something other than `ImportError` | that exception, raw | `ConfpartestError` with it chained | catch `ConfpartestError` |
+| `load_confpartest()` on a file that raises something other than `ImportError` | that exception, raw | `ConfpartestError` whose message names it (`<type>: <text>`, URL credentials and query removed); the original is **not** chained, so a traceback does not print it | catch `ConfpartestError` |
 | `filterwarnings = error` | — | nothing in the plugin's hooks warns; the report from `PARTEST_COVERAGE_JSON` is written either way | nothing |
 
 ## 2.5.0 — helpers a suite used to write for itself, and behaviour notes

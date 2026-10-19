@@ -1,5 +1,340 @@
 # Changelog
 
+## 2.7.0 — unreleased
+
+### Added
+
+- **`partest.rounding`: precision by significant digits.** `Rounded(value, significant=N)`
+  (instead of `scale`) — a float the service computed and did not round is good to `N`
+  significant digits; the unit follows its magnitude (`effective_scale`), the digits beyond it
+  are not a `RoundingNoteWarning` note, zero is exact. `Rounded(value, None, significant=N)`
+  is accepted (`None` is what `scale` becomes under `significant=`); any other `scale` with it
+  is a `TypeError`; `Rounded(value)` without either is still a `TypeError`, with a message. A
+  value so small or large that its unit leaves ±10000 decimals is a `ValueError` naming the
+  value and `N`.
+- **`partest.rounding`: direction of rounding.** `Rounded(..., rounding="half" | "floor" |
+  "ceiling" | "toward_zero")` (`ROUNDING_MODES`; the `decimal` constants are accepted, and
+  `ROUND_DOWN` is `"toward_zero"`, as in `decimal`; `ROUND_UP` — away from zero — and
+  `ROUND_05UP` are not modelled and raise `ValueError`). `"floor"` is toward −∞: amounts whose
+  extra digits are dropped — "rounded down" in most specifications, refunds and corrections
+  included — are `"toward_zero"`; the two differ for negative values. The interval of a value rounded one way is
+  a whole unit on one side of the record — `Rounded(12.34, 2, rounding="floor")` is
+  `[12.34, 12.35]` — and an output is accepted when some value the formula allows rounds to it
+  in that direction; truncation is sign-dependent. Default `"half"`: every existing check
+  computes the same intervals and prints the same protocol. `as_dict()` gains
+  `significant` / `rounding` keys (`output_significant` / `output_rounding` for the output)
+  only for values that use them.
+- **`partest.rounding.assert_all_agree(checks, *, name="rounding checks")`** — one verdict on
+  many `Agreement`s: the protocol of all of them attached to Allure when it is available
+  (`<name>` JSON of every `as_dict()`, `<name>.txt` of every `str()`), on a pass too; one
+  `AssertionError` naming every check that disagrees with its full protocol. Works without
+  Allure. Returns the checks; an empty set is a `ValueError`.
+- **`partest.optin.would_select(marks, optin_markers, markexpr="", environ=None)`** — whether a
+  test with these marks stays in the run under this `-m` and environment, given the
+  `partest_optin_markers` value as written (one string, or the `config.getini` list); pytest's
+  own `-m` filter included, `-k` and other plugins not. `is_selected` and `selected_through`
+  are now public (`__all__`, with `MAX_CONTEXT_NAMES`), unchanged.
+- **`partest.reports.optin_comparable(old, new)`** → `(verdict, changes)`: `True` when both
+  `coverage.json` payloads record the same opt-in states, `False` with `["slow: off → env", …]`
+  when they differ, `None` when either has no record — or is not a payload at all (`None`, a
+  list) — rather than an `AttributeError`. `compare_payloads` derives its opt-in
+  warning from it; its output is unchanged except in one malformed case: a set recorded
+  without a `state` on one side and absent on the other used to give an empty list in the
+  warning's parentheses and now names the set (`slow: recorded without a state → absent`).
+- **`@pytest.mark.known_defect("BUG-123", reason=...)`** — a strict xfail that only an
+  `AssertionError` from the test body satisfies (XFAIL, reason `BUG-123: …`). Not a
+  reproduction: a `StatusMismatchError` with status 502, 503 or 504 — a gateway did not let
+  the request through (500 is a reproduction, and so is 429: throttling and quotas are the
+  service's own behaviour; a defect that *is* a 502 is asserted explicitly, for that status
+  only, see the module docstring) —, any other exception in the body (failed), an error in setup or
+  teardown (error) — each with a `known_defect` report section saying so in the terminal
+  and a `known_defect_note` property in JUnit XML (Allure shows the failure, not the
+  section); a passing body fails as `[XPASS(strict)]`. The line is the exception's type: an `AssertionError` about
+  the environment raised in the body — `PollTimeout`, Playwright's `expect` timing out —
+  counts as a reproduction. `pytest.xfail()` in the body is left to pytest. The verdict is set
+  inside the report wrappers of other plugins, so allure-pytest records a reproduction as
+  skipped (XFAIL) and a fixed defect as failed, and pytest-rerunfailures does not re-run a
+  reproduction or hold back its module fixtures' finalizers. The id goes to
+  `item.user_properties` (`("known_defect", id)`, JUnit XML) and, with allure-pytest, to an
+  Allure issue link. Registered by the plugin in every session (`partest/known_defect.py`);
+  `--runxfail` turns it off; a marker without an id, or together with `xfail` on one test, is
+  a setup error — and an `xfail` added at run time (`request.applymarker` in a fixture, also
+  with `run=False`) fails the test at the call instead of turning it into an XFAIL; on a rerun
+  (pytest-rerunfailures) the marker is already on the test, and setup reports it as an error.
+  With `-p no:skipping` a reproduction is reported as a skip, `XFAIL BUG-123` (`-ra`). The module exports nothing: the
+  marker is used through pytest. See [[components/overview]].
+- **`partest.StatusMismatchError`** — what `make_request` raises when the status is not one
+  it expected. A subclass of `AssertionError`, so nothing that caught `AssertionError` changes;
+  `str()` is the masked message as before, and `status_code` (the status that came) and
+  `expected` (the allowed statuses, a tuple) can be read instead of parsed out of the text. It
+  pickles. `instrumented_make_request` re-raises it with its own message and the same two
+  attributes. `make_request`'s HTTP-error branch (an injected client whose hook calls
+  `raise_for_status`) raises it too: `Server returned 502: …`, `expected` from
+  `expected_status_code` (empty when none was given).
+- **`validation_errors` on a schema failure.** The `AssertionError` raised when
+  `validate_model` rejects a body carries `validation_errors`: one `{"loc", "type", "msg"}` per
+  error — pydantic's list without `input` and `url`, the message masked. It replaces reading
+  `err.__cause__`, which is no longer chained (see Changed).
+
+### Changed
+
+- **`summary.avg` and `summary.avgAll` in `coverage.json` are `null` when the run collected no
+  endpoints.** An average over no endpoints is not a measurement, and `0.0` read as "nothing is
+  covered" — the number a run that called everything and covered nothing would give. Same
+  contract as `meta.unseenRatio` (2.3.0): the type widens from `float` to `float | null`; a
+  measured zero is still `0.0`; `avgCoverage` of a service, subtype or method row stays a
+  number (a row exists only because an endpoint is in it); nothing else in the format changes.
+  **Readers that do arithmetic on it must check for `null` first.** Inside the package:
+  `badge` draws a grey `n/a` instead of a red `0.0%` (`badge_svg(None)`); `compare_payloads`
+  gives `null` for that side's `old_avg` / `new_avg` and for `avg_delta` / `coverage_delta`
+  instead of the other run's whole average, and adds a warning that makes the pair not
+  `comparable`; the HTML page shows `—`; `validate_coverage_payload` accepts `null` only with
+  zero endpoints, reports `null` with endpoints as an error, `0.0` with zero endpoints as
+  `DATED` (that is how every earlier release wrote it) and any other number there as an error;
+  with endpoints, an average that is not a number or lies outside 0..100 is now an error too.
+  An older snapshot's `0.0` for a run with no endpoints (`summary.endpoints == 0` or
+  `endpoints: []`) is read the way the validator reads it — not measured: `compare` gives
+  `null` and a warning, `badge` `n/a` — so a 2.6 baseline of an empty run no longer turns the
+  next run's whole average into a delta of a "comparable" pair. A `0.0` with endpoints stays
+  a measured zero, and a missing key reads as `0.0`; a numeric `summary.endpoints` decides
+  over the list (a payload trimmed to `endpoints: []` with `summary.endpoints: 12` is a
+  measured `0.0`). `python -m partest.reports compare --strict` exits with code 2 on a pair
+  where either side measured nothing. **The return type of `compare_payloads` widens with
+  it:** `old_avg`, `new_avg`, `avg_delta` and `coverage_delta` are `float | None` — a
+  deliberate change under the `coverage-payload` contract (decided 2026-09-24: a missing
+  measurement is `null`, not zero; precedent `meta.unseenRatio`, 2.3.0). See
+  [[howto/coverage-html]].
+- **What the package shows of a request or response is masked in every channel.** One rule
+  for all of them: a structure is walked — a value under a secret key (`token`, `password`,
+  `Authorization`, `Cookie`, `Set-Cookie` …) becomes `***` whole, no prefix kept, at any depth
+  (beyond 32 levels the whole value is replaced); any other string gets only narrow patterns
+  — URL credentials and secret query values, `Bearer` / `Basic` credentials, a JWT — so a body
+  that merely *names* a field (`{"missing": ["password", "email"]}`, `{"field": "password"}`,
+  `"token: expired"`) stays readable and stays valid JSON; a string holding JSON is walked too
+  (a byte-order mark in front is ignored); pydantic models, dataclasses, bytes and sets are
+  walked, and a container met again on its own path is `"<cycle>"`. A key is matched in any
+  case and with `-`, `_` or a space alike (`client-secret`, `Access-Token`), an Enum key by its
+  value, a bytes key decoded. A header is secret when it is one of the secret names
+  (`Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `X-Auth-Token`
+  …) or when its name — lower case, without `-`, `_`, spaces and a numeric or `sha…` tail —
+  ends with `token`, `key`, `apikey`, `secret`, `password`, `passwd`, `pwd`, `passphrase`,
+  `signature`, `cookie`, `authorization`, `authentication`, `auth`, `session`, `sessionid`,
+  `sid`, `jwt`, `ticket`, `otp`, `credential`, `credentials`, `pass`, `cred`, `assertion` or `hmac` (a
+  `v2`-style tail is dropped as well): `CSRFPreventionToken`,
+  `X-Authtoken`, `PVEAuthCookie`, `X-RestSvcSessionId`, `X-Session-Id`, `X-Hub-Signature-256`,
+  `Ocp-Apim-Subscription-Key` are masked; `WWW-Authenticate`, `Proxy-Authenticate`,
+  `Authentication-Info`, `Signature-Input`, `Access-Control-Allow-Credentials`,
+  `X-Session-Expires`, `X-Api-Key-Id`,
+  `X-OAuth-Scopes`, `X-RateLimit-Remaining-Tokens`, `X-Request-Id` are not. A message that quotes one element of a body (`in token = …` of a schema
+  failure) masks it as the whole body would — `***` when a key on the path is secret. Text
+  that is not JSON gets the full `redact_text`. Bodies are then shortened; a value that cannot
+  be masked is shown as a placeholder, never raw. In a URL `user:password@` is removed (also
+  with `@` or `/` in the password, and without a scheme); the values of secret query and
+  fragment parameters become `***` — the secret keys plus names that mean one thing only:
+  `X-Amz-Signature`, `X-Amz-Security-Token`, `X-Amz-Credential`, `X-Goog-Signature`,
+  `signature`, `sig` (an Azure SAS signature is access), `auth_token`, `sessionid`,
+  `session_id`, `jsessionid` — also as `;jsessionid=` in a path, and also as a pair in text
+  outside a URL (`sv=1&sig=…`) — with `&` or
+  `;` between them, and `#access_token=…`. **A JSON body in a message or the log is
+  re-serialised**: duplicate keys collapse, numbers and spacing are normalised (`10.50` reads
+  `10.5`); for a defect of the format itself look at the raw response —
+  `attach_response(redact_body=False)` in your own call. Public `redact_mapping` and
+  `redact_headers` are unchanged. This closes the 2.5.0 Known issues.
+  What you will see differently:
+  - the INFO request / response log (`Logger.log_request` / `log_response`): `Data:` and
+    `Params:` are **JSON instead of a Python `repr`**, masked, the body shortened to 8000
+    characters (it was whole); the URL masked; headers masked (a secret one `***` whole, a
+    `Location` / `Referer` URL through the URL rule); cookies by name with `***`; `Files:` is
+    field, file name, size and content type — never the content. Nothing is computed when INFO
+    is off. `Logger.error`, `warning` and `log_str` mask their text;
+  - httpx's own INFO line `HTTP Request: GET <url> …`: a filter on the `httpx` logger removes
+    URL credentials and secret query values. It is added once per process when the package
+    builds a client (`ApiClient`, `httpx_client`, `httpx_async_client`), not on import; no
+    record is dropped;
+  - the status mismatch message (`format_status_mismatch`, its `status_mismatch` attachment):
+    URL, request headers and both bodies masked — a dict body is shown as JSON rather than its
+    `repr`; the ERROR line `ErrorDesc.status` and `ErrorDesc.element` mask and shorten (2000
+    characters), and a body that cannot be read is a placeholder instead of an
+    `UnboundLocalError`; `response hook failed: …` is masked;
+  - a schema failure's `AssertionError` is raised without `__cause__` and `__context__` (as
+    `ConfpartestError` is since 2.6.0): pydantic's `ValidationError` printed `input_value=…`
+    in the traceback. The message lists every failing path, type and message, and the same
+    list is on the error (see Added). The same for `make_request`'s HTTP-error branch
+    (`Server returned …`); its ERROR line and `Network/request error: …` are masked;
+  - `PydanticResponseError.print_error` (stdout of `BaseResponseValidator.validate_*`) shows
+    the rejected value by type only (`<str, значение не показывается>`) and the error list
+    without `input` / `url`;
+  - Allure: every attachment the package makes is masked — `attach_request` (headers,
+    `params`, the query in `path`, the body unless `redact_body=False`), `attach_check` and
+    the `list_lookup` of `check_in_list` (a value under a secret field name is `***`, the step
+    title too), `attach_failure` (text through the free-text rule), `format_http_status_failure`
+    and the `ErrorTemplates` messages (path, bodies, Problem Detail summary,
+    `Original error: …`, `Entity context:`), and in `instrumented_make_request`
+    (`TrackingApiClient` with instrumentation) the step title, the response attachments, the
+    `status_mismatch` JSON with its `entity_hint`, and `failure_details`. The package's own
+    calls of `attach_response` pass `redact_body=True`; **the public default of
+    `attach_response(redact_body=False)` is unchanged** — flipping it is a major change,
+    planned for 3.0;
+  - `check_in` / `check_not_in` step titles and expectations, and the values quoted by
+    `sideeffects.assert_locator`, `assert_status_enum` and `Observation.require`, are masked;
+  - outside the HTTP client: the plugin's `failure_summary` attachment, `TokenManager`'s
+    errors (the token response and the OIDC error body), and `partest.ui`'s failure context
+    (the page URL, network, console and page errors);
+  - when `instrumented_make_request` meets a schema failure under a status set
+    (`expected_status_code=(200, 201)`, `201` came), it re-raises the schema failure with its
+    `validation_errors` — it no longer turns it into a status mismatch;
+  - `redact_text`: `Basic <credentials>` and a whole `Cookie:` / `Set-Cookie:` header line are
+    masked. Where the value of a secret key ends is decided towards masking more — in free
+    text a quote cannot be told apart from an apostrophe, a lone quote in an error message or
+    an SQL literal, and a lost piece of text is cheaper than a shown secret. A quoted value
+    (`"…"`, `'…'`, `b'…'`, `\"…\"`) runs to the same quote that is not followed by a letter or
+    a digit (`'it''s'` included), else to the end of the line; an object or an array to its
+    balancing bracket — a bracket inside a string in either quotes does not count, and when
+    an apostrophe leaves the pair unfound the value falls back to the end of the indented
+    block it opens (deeper-indented lines and a closing line at the key's indent) — never past
+    the package's `... [truncated, N chars total]` marker, which counts only at the very end
+    of the text (a marker in the middle is data); a bare value to whitespace, `&`, `;`, `,` or a closing bracket — a quote is part
+    of it, so `password=abc"def` is masked whole and `"q": "token=abc"` loses its closing
+    quote too. A quoted value keeps its quotes (`"token": "***"`); `('key', 'value')` is
+    masked only as a tuple — `["password", "email"]` and `"field": "password", "message": …`
+    are untouched. A quoted value may carry a `b`, `r`, `u`, `f` or `N` prefix. A PEM
+    private key (`-----BEGIN … PRIVATE KEY-----` … `-----END …-----`) is masked whole,
+    whatever key it sits under. Time grows linearly with the text;
+  - text the package already masked is not masked a second time: the ERROR lines of
+    `ErrorDesc`, the `failure_summary` and `failure_details` of a status mismatch, a schema
+    failure, a `check_*` failure or a `PollTimeout`, `Original error:` of
+    `format_http_status_failure` from `instrumented_make_request` — a second pass read their
+    JSON as free text (`"detail": "token: expired"` lost its value and closing quote,
+    `"password": ""` became `"***"`). What counts is a private mark the package sets on the
+    exception it raises; a suite's own `StatusMismatchError` with raw text, or any exception
+    carrying `validation_errors`, is masked like other text. In `failure_details` only the
+    exception's own last line is kept as is — the traceback's frames (source lines) and its
+    chained exceptions are masked;
+  - `PollTimeout` and `sideeffects.wait_for` messages follow the same rule (key spellings,
+    URLs, signed query values, JWTs), their description (`what=`) included;
+  - `check_*`: the `context`, the `detail` of a precondition, the default context of
+    `check_status_in` (method and path) and the value `check_ne` must not equal (in its step,
+    its `check:` attachment and its message) are masked;
+  - `Bearer realm="api", error="…"` — a `WWW-Authenticate` challenge — keeps its parameters;
+  - `print_error` masks the values in its error list (`msg`, `ctx`) and leaves the path
+    (`loc`) as it is: a path is field names, not values.
+  What counts as a secret: for a body key — the exact name, as before (in any case, `-` / `_`
+  / space alike); a key that only contains one (`accessToken`, `clientSecret`,
+  `new_password`) is not masked. For a header in the output channels — the secret names or
+  the end of the name, as above. For a query or fragment parameter — the secret keys and the
+  names above. For a value of a `check_*` or of `sideeffects` (its message, step title,
+  `context=` and `check:` attachment) — free text at every level: each string, `bytes` value
+  and text key, at the top, in a dict, a list, a tuple or a set, gets the whole text rule
+  (`password: …` included), the structure and valid JSON staying up to the attachment's cut
+  at 8000 characters, and a value is shortened only after it is masked; a status is shown as a
+  number (an `HTTPStatus` as its code), anything else in its place is masked — in the
+  `ErrorTemplates` messages and the `StepTemplates.http` title too. `check_not_startswith`
+  masks its text as free text without reading it as JSON, so a leading BOM, space or line
+  break stays visible. One walk opens at most 100 000 containers — for HTTP bodies and check
+  values alike — so shared references (a DAG, YAML anchors) no longer take exponential time;
+  past that a container is `<too large>` — kept apart from `***` (a secret, or the depth limit). HTTP bodies keep
+  the body rule. A test that matched a raw body or value in a log, a message or an attachment has to
+  match the masked text. See [[howto/enterprise]].
+
+### Fixed
+
+- **An expected status was retried.** With `max_retries` set, a call that expects `429` (a
+  test of throttling) — or `502` / `503` — was repeated until something else came back, and
+  failed on a status it never asked for. A status in `expected_status_code` is the answer now,
+  never retried; other statuses retry as before.
+- **A hook that rejects the expected status is not reported as the service's fault.** An
+  injected httpx client whose `event_hooks` call `raise_for_status` turned an expected `404`
+  into an `AssertionError` ("Server returned 404") — and `instrumented_make_request` into
+  "expected 404, got 404". That is a `RuntimeError` now, naming the hook; a status outside the
+  expected set is still a `StatusMismatchError`.
+- **The ERROR line of a schema failure was the `repr` of a tuple**: `ErrorDesc.validate`
+  returned a tuple, which went to the log as one line with literal `\n`, and masking a
+  `token = …` in it ran on into the text after it. It returns one string now, line by line.
+- **`make_request(data={...})` without `json_data`, and a GraphQL query sent with a method
+  other than POST, raised `AttributeError: 'Logger' object has no attribute 'warning'`** before
+  the request was sent: `ApiClient` logged a warning through `partest.utils.Logger`, which had
+  no such method. `Logger.warning(message)` exists now and masks its text like the request log
+  (`redact_text`, `user:password@` in a URL); both calls send the request with a WARNING line.
+
+### Documentation
+
+- Installing right after a release: pip may answer from its cache and not see the new version
+  — `pip install --no-cache-dir "partest==X.Y.Z"` ([[howto/quickstart]], [[howto/migration]]).
+- The `partest-cover-api` skill said GET `.../{parent}/{id}/children` is classified
+  `get_by_parent`; the classifier never did that — no path is read as GET BY PARENT, it comes
+  from `subtype_overrides` only, and the table says so. "An explicit subtype override is not
+  available yet" (it is, since 1.7) is gone. [[concepts/methodology]] says which shape the
+  classifier does not try to read and why. (A GET BY PARENT branch and an unused pattern
+  were removed from `classifier.py`: for every valid path the subtype is the one 2.6.0 gave; in 2.6.0 GET BY PARENT went only to a malformed template with two or more `/` inside braces (`/a/b/{x/y/z}`), and such a path is now read by the general rules — usually GET DYNAMIC, GET LIST or GET STATIC with list or static hints.)
+- 2.6.0: `load_confpartest` does not chain the original exception (`raise … from None`, by
+  design); [[howto/migration]] said "with it chained". Which calls raise `ConfpartestError`
+  for which failure is corrected in 2.6.0 Changed, in [[howto/migration]] and in the status
+  page, by the code: the report never raises, it reports `NOT COUNTED`.
+
+### Known issues
+
+- A key that only *contains* a secret name (`accessToken`, `clientSecret`, `sessionId`) is
+  still not masked: widening what counts as a secret changes `redact_mapping`'s defaults —
+  a major version, the owner's decision (`docs/wiki/proposals.md` §E2). The same class, and
+  the most likely to carry a real password: `new_password`, `current_password`,
+  `password_confirmation`, `DB_PASSWORD=` in text, and Keycloak's
+  `{"type": "password", "value": …}` (the secret is under `value`).
+- The text rule does not know these shapes: `key => value`, a value on the next line, a value
+  escaped more than once, a URL-encoded pair outside a URL, a full-width colon `：`, a tuple of
+  bytes `(b'token', b'…')`, a bare value with a space or a separator inside; nor a secret in a
+  path segment (`/reset/<token>`).
+- `key` and `code` in a URL are not masked: as bare names they also mean a sort key or a
+  country code (`?code=RU`). So a Google API key in a URL (`?key=…`) and an OAuth
+  authorization code in a redirect's `Location` (`?code=…&state=…`) are shown as sent.
+- A header whose name ends like a secret but carries none is masked too — a cursor
+  (`X-Next-Page-Token`), `X-Idempotency-Key`: the header rule errs towards masking. A project
+  cannot add its own header names to the output channels (a setting is an open question,
+  `proposals.md` §E2).
+- A secret in a quoted value that spans lines with a real line break is masked only to the
+  end of its first line.
+- The text rule also misses: a value in triple quotes (`'''…'''`, `"""…"""`) or one that starts
+  with a quote of its own; a value whose own quote is followed by a non-letter
+  (`password="ab"-…"` ends at the first quote); headers `X-Auth-Code`, `X-2FA-Code`,
+  `X-Csrf`, `X-Xsrf`, `Remember-Me`, and a Kubernetes token in `Sec-WebSocket-Protocol`.
+- A map of validation errors under a secret field name (`{"errors": {"password": ["is too
+  short"]}}`) is masked whole: the message about the password is lost with it.
+- Two apostrophes in hand-written text can hide brackets between them and close a secret
+  value early: in `token: {a: it's {b: c'}, d: …}` the part after `c'}` is shown.
+- Not recognised as a private key: `-----BEGIN PGP PRIVATE KEY BLOCK-----`, and a BEGIN label
+  longer than 40 characters. Not secret header names: `X-Sig`, `Passcode`.
+- `user:password@` without a scheme is looked for in every text; on a body of megabytes this
+  costs about 0.8 µs a character.
+- Keys in a body that name a secret without being one of the exact names — `auth`,
+  `credentials`, `pwd`, `pass`, `creds`, `secret_key`, `session`, `jwt`, `ticket`, `otp`,
+  `signature`, `sig` — and text like `DB_PASSWORD=…`, `MY_TOKEN=…`,
+  `AWS_SECRET_ACCESS_KEY=…`, `token …` are not masked: the same class as a key that only
+  contains a secret name, the maintainer's decision. The shown size of a check value is not
+  limited before the attachment's own cut.
+- A value of a `check_*` is masked as free text at every level, so prose in it loses a value
+  that merely follows a secret word: `{"detail": "token: expired"}` reads
+  `{"detail": "token: ***"}` there (in HTTP bodies it stays readable). The value is the test
+  author's, and anything may be in it — closed when in doubt.
+- An unquoted challenge parameter (`Bearer error=…`, `Bearer realm=…`) is not masked. The
+  mark that says "already masked" sits on the exception, not on its text: a subclass with
+  its own `__str__`, or `args` rewritten after the fact, is shown as it then reads — that
+  takes intent.
+- `attach_response` still attaches the body as received by default when a suite calls it
+  itself; the package's own calls mask. The default flips in 3.0 (`proposals.md` §E2).
+- A secret inside an XML body (`<password>…</password>`) is not masked: the text rule knows
+  `key: value` / `key=value` shapes, not tags.
+- Also not masked: a multipart body sent through `content=`; `Authorization: Token …`,
+  `Digest …` or `AWS4-HMAC-SHA256 …` in unquoted text (only `Bearer` and `Basic` are known
+  schemes there; in a header dict the whole value is masked); a scheme-relative
+  `//user:password@host`; a value without its key in the `msg` of a custom pydantic validator.
+  A `logging.config.dictConfig` that configures the `httpx` logger replaces its filters,
+  partest's included, until partest builds its next client.
+- `-p no:partest` removes the `known_defect` marker with the rest of the plugin; under
+  `--strict-markers` a suite using it then fails at collection.
+- A suite with its own `known_defect` marker — its own hooks reading it, or another signature
+  (no id as the first argument) — now meets the plugin's too: every such test is a setup error
+  (`needs the defect id`) or is judged twice. Rename the suite's marker, or move it to the
+  plugin's signature `known_defect("ID", reason=...)` and drop the suite's hooks.
+
 ## 2.6.0 — 2026-10-18
 
 ### Added
@@ -49,8 +384,13 @@
 - **Failures move to where coverage is used, and stay loud.** A `confpartest` that raises while
   importing — an `ImportError` from inside it included, which used to switch coverage off
   without a word — and a spec in `swagger_files` that cannot be loaded raise
-  `ConfpartestError` from the first tracked call, `get_paths_info()`, `active_overrides()` or
-  `classify_endpoint`, and again on every later call (the failure is kept; the fetch is not
+  `ConfpartestError` from every tracked call and from `get_paths_info()`; a `confpartest` that
+  fails to import raises it from `active_overrides()` and `classify_endpoint` as well, since
+  they read `subtype_overrides` from the same file — a spec failure does not touch them. The
+  report never raises: it is built empty and says why under `NOT COUNTED` (see Added).
+  *Corrected in 2.7.0:* this entry and the migration table named `active_overrides()` and
+  `classify_endpoint` for both failures, and the migration table said the report raised too.
+  Either failure is raised again on every later call (it is kept; the fetch is not
   retried). The message names the source by its `swagger_files` key; URL credentials and
   query strings are removed from it, and the original exception is not chained, so a traceback,
   junit XML or Allure result does not print it either; the raw sources are not among the locals
@@ -131,6 +471,12 @@ rule should forbid it is open (`docs/wiki/proposals.md`).
   mismatch message (`format_status_mismatch`, `ErrorDesc.status`). Treat a CI log of a
   failed run as carrying whatever the service sent. These channels are not masked by any
   released version.
+
+  *Closed in 2.7.0:* every channel listed here and below is masked — see 2.7.0 →
+  Changed. What remains — a key that only contains a secret name (`accessToken`,
+  `new_password`), a secret in an XML body, `key` and `code` in a URL, the `httpx` logger's
+  filter dropped by a `dictConfig` — is in 2.7.0 Known issues and `docs/wiki/proposals.md`
+  §E2.
 
   *Completed after the release:* the list above is about the response body, and it is not the
   only thing shown as is. Also unmasked, as in earlier releases:

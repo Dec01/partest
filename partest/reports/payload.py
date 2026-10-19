@@ -137,7 +137,10 @@ def summarize(endpoints: Sequence[Any]) -> dict[str, Any]:
         else:
             empty += 1
     return {
-        "avg": round(total_pct / n, 2) if n else 0.0,
+        # An average over no endpoints is not a measurement. `0.0` here read as "nothing is
+        # covered" — the same number a run that called everything and covered nothing would
+        # give — so a run that collected no endpoints is `null`, as `meta.unseenRatio` is.
+        "avg": round(total_pct / n, 2) if n else None,
         "calls": total_calls,
         "full": full,
         "partial": partial,
@@ -172,8 +175,19 @@ def aggregate_services(endpoints: Sequence[Any]) -> list[dict[str, Any]]:
                 "avgCoverage": stats["avg"],
             }
         )
-    rows.sort(key=lambda r: (-r["avgCoverage"], r["label"]))
+    rows.sort(key=_by_avg_coverage)
     return rows
+
+
+def _by_avg_coverage(row: dict[str, Any]) -> tuple:
+    """Highest average first, then by label; a row without an average goes last.
+
+    A bucket is created by its first endpoint, so a row built here always has one — the
+    `null` branch is for rows that reach the sort some other way, not a state this module
+    produces.
+    """
+    avg = row.get("avgCoverage")
+    return (avg is None, -(avg or 0.0), row.get("label") or "")
 
 
 def aggregate_subtypes(endpoints: Sequence[Any]) -> list[dict[str, Any]]:
@@ -198,7 +212,7 @@ def aggregate_subtypes(endpoints: Sequence[Any]) -> list[dict[str, Any]]:
                 "empty": stats["empty"],
             }
         )
-    rows.sort(key=lambda r: (-r["avgCoverage"], r["label"]))
+    rows.sort(key=_by_avg_coverage)
     return rows
 
 
@@ -240,6 +254,8 @@ def heatmap(endpoints: Sequence[Any]) -> dict[str, Any]:
         subtypes[t_key] = str(_get(ep, "subtype") or t_key)
         cells[(s_key, t_key)].append(float(_get(ep, "coverage", "coverage_pct") or 0.0))
     matrix = []
+    # A cell exists only once an endpoint put a value in it, so `values` is never empty
+    # here and the cell average is always a measurement; an empty run has no cells.
     for (s_key, t_key), values in cells.items():
         matrix.append(
             {
@@ -388,6 +404,7 @@ def build_payload(
         **({"timing": run_timing} if run_timing else {}),
         "summary": {
             **summary,
+            # `null` together with `avg` when the run has no endpoints.
             "avgAll": summary["avg"],
         },
         "services": aggregate_services(endpoints),

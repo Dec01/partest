@@ -68,12 +68,6 @@ _ACTION_WORDS = frozenset(
     }
 )
 _ACTION_HINTS = re.compile("(" + "|".join(sorted(_ACTION_WORDS)) + ")", re.I)
-_PARENT_PATH = re.compile(
-    r"/\{[^}/]+\}/\{[^}/]+\}|"  # two path params in a row (rare)
-    r"/\{[^}/]+\}/[^/{]+|"  # /{parentId}/children
-    r"/[^/{]+/\{[^}/]+\}/[^/{]+",  # /resource/{id}/nested
-    re.I,
-)
 _EXTERNAL_ID = re.compile(
     r"(keycloak|external|uuid|guid|slug|code|login|username)",
     re.I,
@@ -253,22 +247,6 @@ def classify_endpoint(
             # only if not a plain numeric id style
             if params and _EXTERNAL_ID.search(params[-1]):
                 return MethodSubtype.GET_EXTERNAL_ID
-        # /parents/{id}/children pattern
-        if len(params) >= 1 and not ends_with_param and "{" in p:
-            # e.g. /packages/{taskId}/list or /splits/package/{id}
-            if re.search(r"/\{[^}]+\}/[^/{]+$", p) or re.search(
-                r"/[^/{]+/\{[^}]+\}$", p
-            ):
-                # /resource/{id} is dynamic single; /resource/parent/{id} is by-parent
-                if re.search(r"/[^/{]+/\{[^}]+\}$", p) and not ends_with_param:
-                    pass
-                if re.search(r"/[A-Za-z0-9_-]+/\{[^}]+\}/?$", p) is None:
-                    pass
-            # path like /splits/package/{packageId}
-            if re.search(r"/[A-Za-z0-9_-]+/\{[^}]+\}/?$", p) and p.count("/") >= 3:
-                segments = [s for s in p.split("/") if s]
-                if len(segments) >= 3 and not segments[-2].startswith("{"):
-                    return MethodSubtype.GET_BY_PARENT
         if ends_with_param:
             if _STATIC_HINTS.search(text) and not params:
                 return MethodSubtype.GET_STATIC

@@ -425,7 +425,9 @@ def test_two_clean_runs_are_comparable():
     from partest.reports.compare import compare_payloads
 
     meta = {"workers": 2, "merged": True, "partialRun": False}
-    diff = compare_payloads(_payload([], meta=meta), _payload([], meta=meta))
+    # one measured endpoint each: a run with none has nothing to compare (2.7.0)
+    eps = [{"method": "GET", "path": "/a", "coverage": 50.0, "kind": "partial", "calls": 1}]
+    diff = compare_payloads(_payload(eps, meta=meta, avg=50.0), _payload(eps, meta=meta, avg=50.0))
 
     assert diff["comparable"] is True
     assert diff["warnings"] == []

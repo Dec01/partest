@@ -1,7 +1,7 @@
 ---
 title: Статус, версии и что дальше
 status: current
-verified: 2026-10-18
+verified: 2026-10-19
 sources: [partest/__init__.py, CHANGELOG.md]
 audience: maintainer
 ships_in_wheel: false
@@ -15,8 +15,8 @@ allow_version_literals: true
 
 | | |
 |---|---|
-| **Дата актуализации** | 2026-10-18 |
-| **Версия в коде** | **2.6.0** (выпуск 2026-10-18) |
+| **Дата актуализации** | 2026-10-19 |
+| **Версия в коде** | **2.7.0** — кандидат, не выпущен (поднята 2026-10-18 по просьбе о выпуске-кандидате) |
 | **Последний релиз на PyPI** | **2.6.0** (выпуск 2026-10-18; 2.5.0 — 2026-10-09). Минимальный Python — 3.10, pytest `>=9.0.3,<10` |
 | **Дистрибуция** | PyPI — пакет, GitHub — исходники и история; см. [[decisions/distribution]] |
 | **Соседний пакет** | `partest-gen` выделен из `partest.project_gen` 2026-09-07; см. §5 |
@@ -77,26 +77,64 @@ pytest загружается по месту (кроме `--noconftest`, чуж
 `ConfpartestError`. Импорт `partest` и `partest.ui` не ходит в сеть и не читает проект —
 гарантировано, тест в чистом интерпретаторе. pytest-сессия с корнем на `sys.path` по-прежнему
 читает `confpartest` ради переключателя `pytest_plugin`, UI-сессия тоже — как в 2.5.0; как
-формулировать красную линию 8 для этого случая — вопрос человеку ([[proposals]], спорное
+формулировать красную линию 8 для этого случая — вопрос мейнтейнеру ([[proposals]], спорное
 2026-10-17 b). Сигнатуры и формат `coverage.json` не менялись; поведение отказа изменилось:
-атрибуты `partest.coverage.*` пусты до первого вызова, `ConfpartestError` может прийти из
-`get_paths_info`, `active_overrides`, `classify_endpoint` — список в [[howto/migration]]
-(2.6.0). В документах: шесть неработающих примеров, ось C и `exception` в
+атрибуты `partest.coverage.*` пусты до первого вызова; `ConfpartestError` приходит из
+учитываемых вызовов и `get_paths_info()` — и при спецификации, которая не грузится, и при
+`confpartest`, который не импортируется; во втором случае ещё из `active_overrides()` и
+`classify_endpoint` (они читают `subtype_overrides` из того же файла). Отчёт не падает ни в
+одном случае: он строится пустым, причина — в разделе `NOT COUNTED` (`analyzer.py`,
+`analyze_coverage`). Исправлено 2026-10-18 по коду: раньше здесь и в CHANGELOG 2.6.0 оба
+отказа были описаны одним списком, а в [[howto/migration]] — ещё и «из отчёта». Список — в
+[[howto/migration]] (2.6.0). В документах: шесть неработающих примеров, ось C и `exception` в
 [[concepts/methodology]] (дефект методики — [[proposals]] F1), неполный Known issues 2.5.0,
 «seventeen» в 2.3.0. Всё — в `CHANGELOG.md`, раздел 2.6.0.
 
-### Следующий патч — маскировка тела во всех каналах
+### 2.7.0 — кандидат: маскировка во всех каналах, `summary.avg: null`, находки перехода потребителя · **кандидат** (версия в коде 2.7.0, на PyPI не выпущен)
 
-В 2.5.0 маскируются только текст исключения при провале схемы и его строка ERROR-лога; это
-записано в `CHANGELOG.md` 2.5.0 как Known issues. Остальные каналы — трейсбэк pytest через
-цепочку `from err`, stdout `PydanticResponseError.print_error`, INFO-лог `log_request` /
-`log_response` (у ответа — ещё заголовки и куки, `Set-Cookie` целиком), сообщение о
-несовпадении статуса (тела запроса и ответа, и вложение `status_mismatch`), ERROR-строка
-`ErrorDesc.status` с телом ответа, `attach_response` с `redact_body=False` по умолчанию и
-`instrumented_make_request` поверх него, строка запроса и `params=` в логе и сообщении —
-подробно в [[proposals]] §E2. Там же
-спорное, ждущее решения человека: §E1 (предупреждение об открытой модели, индексатор), §E3
-(обязательные члены `ProblemDetailBody` против RFC 9457), §A15 (строковая модель).
+Записано в `CHANGELOG.md`, раздел «2.7.0 — unreleased» (дата — при выпуске); что меняется у
+потребителя — [[howto/migration]]. Минор, а не патч: новые публичные имена
+(`StatusMismatchError`, `validation_errors`, маркер `known_defect`, `would_select`,
+`optin_comparable`, `assert_all_agree`, `significant=` / `rounding=`); тип `summary.avg`
+расширен до `float | null`, и старый `0.0` пустого прогона читается как «не измерено» — вместе
+с ним возвращаемые поля `compare_payloads` (`old_avg`, `new_avg`, `avg_delta`,
+`coverage_delta`) стали `float | None`: осознанное решение по контракту `coverage-payload`
+(решено 2026-09-24 — отсутствие измерения пишется `null`, прецедент `meta.unseenRatio` 2.3.0);
+`AssertionError` провала схемы и HTTP-ветки больше не сцеплен с исходным исключением — чтение
+`__cause__` заменено на `validation_errors` и `StatusMismatchError.status_code`; маскировка
+меняет видимый текст логов, сообщений и вложений. **Методология не менялась:** для каждого валидного пути подтип прежний; GET BY PARENT в 2.6.0 получал только некорректный шаблон с двумя и более `/` внутри `{}` (`/a/b/{x/y/z}`) — теперь такой путь читается по общим правилам: обычно GET DYNAMIC, с подсказками списка или статики — GET LIST / GET STATIC
+(правило GET BY PARENT не выпускается, [[proposals]] §G4). Умолчание
+`attach_response(redact_body=False)` **не менялось** (переворот — мажор, 3.0). Мажором ничто не
+является: подклассы и новые атрибуты не ломают ловящий `AssertionError` код.
+
+| Что | Где | Документация |
+|---|---|---|
+| маскировка во всех каналах вывода (закрывает Known issues 2.5.0 и [[proposals]] §E2) одним приватным обходчиком: секретный ключ — `***` целиком, прочие строки — узкие шаблоны, JSON остаётся JSON. INFO-лог (тела и `params=` — JSON, `Files:` — имена и размеры), строка `HTTP Request:` самого httpx (фильтр логгера), сообщение о несовпадении статуса, `ErrorDesc`, `print_error`, трейсбэк провала схемы (без цепочки), все вложения Allure, `ErrorTemplates`, `attach_check`, `sideeffects`. `attach_response` по умолчанию не маскирует (умолчание публичного экспорта — мажор, перевернуть в 3.0), внутренние вызовы передают `True` | `partest/redact.py`, `partest/utils/*`, `partest/client.py`, `partest/http/client.py`, `partest/reporting/*`, `partest/sideeffects.py`, `partest/conf.py` | [[howto/enterprise]] |
+| `StatusMismatchError(AssertionError)` с `status_code`, `expected`; `validation_errors` у провала схемы | `partest/client.py`, `partest/reporting/instrument.py` | [[howto/migration]] |
+| ожидаемый статус больше не повторяется при `max_retries` (ожидаемый 429 повторялся до 200); хук внедрённого клиента, отвергший ожидаемый статус, — `RuntimeError`, а не `StatusMismatchError` | `partest/client.py` | [[howto/migration]] |
+| `summary.avg` / `avgAll` — `null` при нуле эндпоинтов (контракт `coverage-payload`, как `meta.unseenRatio`); бейдж `n/a`, `compare` без дельты, валидатор, HTML | `partest/reports/payload.py`, `badge.py`, `compare.py`, `validate.py`, `interactive_html.py` | [[howto/coverage-html]] |
+| неверные строки 2.6.0: `load_confpartest` не сцепляет исходное исключение; какие вызовы поднимают `ConfpartestError`, а где отчёт пишет `NOT COUNTED` | документы | [[howto/migration]] |
+| `Rounded(..., significant=N)`, `Rounded(..., rounding="floor" / "ceiling" / "toward_zero")`, `assert_all_agree` | `partest/rounding.py` | [[howto/layers]] |
+| правило opt-in публично: `would_select`, `is_selected`, `selected_through` | `partest/optin.py` | [[components/overview]] |
+| `optin_comparable` — вердикт сравнимости opt-in-состояний; `compare` выражен через него; запись без `state` отличается от отсутствующего набора | `partest/reports/compare.py` | [[components/overview]], [[howto/coverage-html]] |
+| старый `0.0` при нуле эндпоинтов — «не измерено» в `compare` и `badge`, как в валидаторе; валидатор: `avg` не число или вне 0..100 при эндпоинтах — ошибка | `partest/reports/compare.py`, `badge.py`, `validate.py` | [[howto/coverage-html]] |
+| маркер `known_defect`: строгий xfail, засчитывающий только `AssertionError` тела (кроме `StatusMismatchError` 502/503/504 — статусов шлюза; 429 — воспроизведение); вердикт виден allure-pytest и pytest-rerunfailures; `xfail`, добавленный во время прогона, — отказ | `partest/known_defect.py`, `partest/pytest_plugin.py` | [[components/overview]] |
+| `Logger.warning` — `make_request(data={...})` и GraphQL не через POST падали `AttributeError` | `partest/utils/logger.py` | [[howto/enterprise]] |
+| совет `pip install --no-cache-dir` сразу после выпуска | документы | [[howto/quickstart]] |
+
+Отложено: признак секрета по подстроке ключа тела (`new_password`, Keycloak `value`) (мажор, решение мейнтейнера), умолчание
+`attach_response` (перевернуть в 3.0), секрет в XML-теле — [[proposals]] §E2;
+`Rounded(None)` как проваленная сверка и сверка модели с живой схемой — [[proposals]] §G1, §G2;
+GET BY PARENT из формы пути (пункт про GET BY PARENT) — не выпускается, эвристика ненадёжна,
+ответ — `subtype_overrides`, §G3–G4; спорное из ревью — §G5 (ручки отладки), §G6
+(граница `known_defect`), §G7 (`null` в воротах); F1 (ось C и `exception` в среднем) — решение мейнтейнера,
+[[proposals]] §F1. Потребителям формата (`partest-atlas`, veha) — учесть `summary.avg: null`
+и старый `0.0` пустого прогона как «не измерено». У veha своё правило серий для opt-in, и оно
+намеренно расходится с `compare` там, где запись есть только у одной стороны;
+`optin_comparable` может заменить у неё только ветку «записи у обоих»; `partest-gen`
+(читает `classify_endpoint`) — без изменений. Спорное, ждущее
+решения мейнтейнера: §E1 (предупреждение об открытой модели, индексатор), §E3 (обязательные члены
+`ProblemDetailBody` против RFC 9457), §A15 (строковая модель).
 
 ### 2.5.0 — шесть возможностей, которые потребитель писал сам · **выпущено** (подготовлен 2026-10-09, на PyPI — по проверке 2026-10-16)
 
@@ -222,7 +260,7 @@ i18n шаблонов reporting · `LIB-PERM-QUAD` labels · `LIB-REC-CLEANUP` h
 патчу с PyPI и переключается уже после релиза, не раньше.
 
 **Старые пути методологии оставлены алиасами (2026-09-23, решение владельца).** Проверка на
-боевом потребителе показала цену удаления: переезд становился неделимым (старые пути не работают
+потребителе показала цену удаления: переезд становился неделимым (старые пути не работают
 на 2.0.0, новые — на 1.8.x, значит код и версия одним коммитом), ошибка всплывала не на импорте,
 а как `INTERNALERROR` с трейсбеком pluggy на сборе всего дерева — `confpartest.py` грузится изнутри
 плагина, — и у неё была тихая форма: на старой версии `confpartest` не импортировался,
@@ -239,7 +277,7 @@ i18n шаблонов reporting · `LIB-PERM-QUAD` labels · `LIB-REC-CLEANUP` h
 
 **Версия поднята до 2.0.0 по запросу на релиз (2026-09-23).** Раздел `Unreleased` в
 `CHANGELOG.md` закрыт этой датой. На PyPI выпуска ещё нет: публикация — отдельное решение
-человека, и до неё `pip install partest` по-прежнему ставит 1.8.1.
+мейнтейнера, и до неё `pip install partest` по-прежнему ставит 1.8.1.
 
 **2.1.0 — нижние границы зависимостей (2026-09-23).** Объявленные границы, а не закреплённое
 окружение, — это то, что получает потребитель. Аудит именно границ (`имя==граница` →

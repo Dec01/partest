@@ -1,7 +1,7 @@
 ---
 title: Coverage honesty — when the number lies
 status: current
-verified: 2026-10-18
+verified: 2026-10-19
 sources: [partest/call_storage.py, partest/coverage.py, partest/reports/analyzer.py, partest/reports/compare.py, partest/reports/payload.py, partest/pytest_plugin.py]
 audience: agent
 ships_in_wheel: true
@@ -67,6 +67,15 @@ out of the least informative run. A measured zero is still `0.0`, and the key is
 present, so `null` ("not measured") stays distinguishable from a missing key ("an artifact
 older than the field"). Anything that multiplies or compares the value checks for `null`
 first.
+
+The run's average follows the same rule: `summary.avg` and `summary.avgAll` are `null` for a
+run with no endpoints, not `0.0` — a zero there read as "nothing is covered", the same number a
+run that called everything and covered nothing gives. The badge says `n/a`, the HTML page shows
+a dash, and `compare` reports no delta for such a run instead of the other run's whole average
+([[howto/coverage-html]]). Snapshots written before this carry `0.0` there; with no endpoints
+(`summary.endpoints` is `0`, or, without that count, `endpoints` is empty) that zero is read as
+"not measured" too — by `compare`, the badge and the validator alike — and a `0.0` with endpoints
+stays a measured zero.
 
 `partialRun` stays a bool and stays `false` for such a run. It answers a different question —
 "did this run cover less of the suite than it should", with three measurable reasons — and

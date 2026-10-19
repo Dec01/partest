@@ -282,6 +282,56 @@ def _validate_totals(
             )
 
 
+def _validate_summary_avg(
+    out: list[Problem], summary: Mapping[str, Any], n_endpoints: int
+) -> None:
+    """`summary.avg` и `summary.avgAll` — `float | null`, и `null` — ровно при нуле эндпоинтов.
+
+    То же правило, что у `meta.unseenRatio`: среднее по пустой выборке — не замер. Одно
+    отличие, и оно намеренное: число при нуле эндпоинтов. Для `unseenRatio` это ошибка, а
+    здесь `0.0` писали все выпуски до 2.7.0 — такой файл старше правила, а не неверен, и
+    помечается `DATED`. Ненулевое число при нуле эндпоинтов не писал никто — это ошибка.
+    Отсутствие ключа не проверяется, как и раньше.
+    """
+    for key in ("avg", "avgAll"):
+        if key not in summary:
+            continue
+        where = f"summary.{key}"
+        value = summary[key]
+        if value is None:
+            if n_endpoints:
+                out.append(
+                    Problem(
+                        where,
+                        f"null при {n_endpoints} эндпоинтах: «не измерялось» заявлено там, "
+                        "где измерять было что",
+                    )
+                )
+            continue
+        if not _check_type(out, where, value, (int, float)):
+            continue
+        if not 0.0 <= float(value) <= 100.0:
+            out.append(Problem(where, f"процент вне диапазона 0..100: {value}"))
+        elif not n_endpoints:
+            if float(value) == 0.0:
+                out.append(
+                    Problem(
+                        where,
+                        "0.0 при нуле эндпоинтов — так писали выпуски до 2.7.0; читается как "
+                        "«не измерялось», с 2.7.0 здесь пишется null",
+                        Severity.DATED,
+                    )
+                )
+            else:
+                out.append(
+                    Problem(
+                        where,
+                        f"{value} при нуле эндпоинтов: среднее по пустой выборке — не замер. "
+                        "Здесь пишется null",
+                    )
+                )
+
+
 def validate_coverage_payload(doc: Any) -> list[Problem]:
     """Прочитать документ ``coverage.json`` и вернуть список расхождений с форматом.
 
@@ -321,14 +371,16 @@ def validate_coverage_payload(doc: Any) -> list[Problem]:
         out.append(Problem("summary", "ключ отсутствует"))
     elif not isinstance(summary, Mapping):
         out.append(Problem("summary", f"ожидался объект, получено {type(summary).__name__}"))
-    elif isinstance(summary.get("endpoints"), int) and not _is_bool(summary.get("endpoints")):
-        if summary["endpoints"] != len(endpoints):
-            out.append(
-                Problem(
-                    "summary.endpoints",
-                    f"{summary['endpoints']} против {len(endpoints)} строк в endpoints",
+    else:
+        if isinstance(summary.get("endpoints"), int) and not _is_bool(summary.get("endpoints")):
+            if summary["endpoints"] != len(endpoints):
+                out.append(
+                    Problem(
+                        "summary.endpoints",
+                        f"{summary['endpoints']} против {len(endpoints)} строк в endpoints",
+                    )
                 )
-            )
+        _validate_summary_avg(out, summary, len(endpoints))
 
     # Четыре сводных блока — списки, `heatmap` — объект. Разница не декоративная: я
     # записал её здесь по догадке, и собственный набор тестов поймал ошибку на первом же

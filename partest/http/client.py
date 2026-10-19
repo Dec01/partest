@@ -61,10 +61,12 @@ appending: the caller's hooks run first and keep running.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Mapping, Optional
 
 import httpx
 
+from partest.redact import _scrub_urls
 from partest.tls import (
     VerifySetting,
     _verification_is_off,
@@ -106,6 +108,40 @@ def _recording_hooks(
     return hooks
 
 
+class _HttpxUrlFilter(logging.Filter):
+    """httpx's INFO line ``HTTP Request: GET <url> "HTTP/1.1 200 OK"`` without URL secrets.
+
+    httpx logs every request from inside the client, with the URL as sent — credentials and
+    query string included. Arguments of a record on the ``httpx`` logger lose URL userinfo
+    and the values of secret query keys; nothing else is changed and no record is dropped.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            if isinstance(record.args, tuple) and record.args:
+                record.args = tuple(
+                    _scrub_urls(arg) if isinstance(arg, (str, httpx.URL)) else arg
+                    for arg in record.args
+                )
+            elif isinstance(record.msg, str) and not record.args:
+                record.msg = _scrub_urls(record.msg)
+        except Exception:
+            pass
+        return True
+
+
+def _install_httpx_log_filter() -> None:
+    """Put :class:`_HttpxUrlFilter` on the ``httpx`` logger, once per process.
+
+    Called when the package builds a client — not on import, so importing partest leaves
+    the consumer's logging alone. Idempotent: a second call finds the filter and returns.
+    """
+    target = logging.getLogger("httpx")
+    if any(isinstance(f, _HttpxUrlFilter) for f in target.filters):
+        return
+    target.addFilter(_HttpxUrlFilter())
+
+
 def httpx_client(
     *,
     verify: Optional[VerifySetting] = None,
@@ -126,6 +162,7 @@ def httpx_client(
     :func:`partest.tls.note_unverified_host`.
     """
     settled = resolve_verify(verify, env_only=env_only)
+    _install_httpx_log_filter()
     return httpx.Client(
         verify=verify_for_httpx(settled),
         event_hooks=_recording_hooks(settled, event_hooks, is_async=False),
@@ -142,6 +179,7 @@ def httpx_async_client(
 ) -> httpx.AsyncClient:
     """The same for :class:`httpx.AsyncClient`; see :func:`httpx_client`."""
     settled = resolve_verify(verify, env_only=env_only)
+    _install_httpx_log_filter()
     return httpx.AsyncClient(
         verify=verify_for_httpx(settled),
         event_hooks=_recording_hooks(settled, event_hooks, is_async=True),

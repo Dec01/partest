@@ -6,21 +6,28 @@ from typing import Any, Iterable, Sequence
 
 import allure
 
-from partest.reporting.attach import attach_check, attach_failure, attach_json
-from partest.reporting.templates import ErrorTemplates, StepTemplates
+from partest.redact import _field_value, _free_text, _is_secret_key, _mark_masked, _scrub_text
+from partest.reporting.attach import _attach_failure_masked as attach_failure
+from partest.reporting.attach import _attach_check_shown, attach_check, attach_json
+from partest.reporting.templates import (
+    ErrorTemplates,
+    StepTemplates,
+    _mismatch_shown,
+    _shown,
+    _status_shown,
+)
 
 
-def _safe_json(data: Any, limit: int = 500) -> str:
-    import json
+def _line_masked(field: str, text: str) -> str:
+    """A text value as free text, ``***`` under a secret field name — never parsed as JSON."""
+    if _is_secret_key(field) and text:
+        return "***"
+    return _free_text(text)
 
-    try:
-        if isinstance(data, (dict, list)):
-            text = json.dumps(data, ensure_ascii=False, default=str)
-        else:
-            text = str(data)
-    except Exception:
-        text = repr(data)
-    return text[:limit] + ("…" if len(text) > limit else "")
+
+def _first_chars(masked: Any, limit: int) -> Any:
+    """Shorten after masking, never before: a cut can split a token the mask would find."""
+    return masked[:limit] if isinstance(masked, str) else masked
 
 
 def check_eq(actual: Any, expected: Any, *, field: str = "value", context: str = "") -> None:
@@ -33,25 +40,29 @@ def check_eq(actual: Any, expected: Any, *, field: str = "value", context: str =
                 field=field, expected=expected, actual=actual, context=context
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_ne(
     actual: Any, unexpected: Any, *, field: str = "value", context: str = ""
 ) -> None:
-    title = f"Check «{field}» != {unexpected!r}"
+    title = f"Check «{field}» != {_shown(field, unexpected)}"
     with allure.step(title):
         ok = actual != unexpected
-        attach_check(field=field, expected=f"!= {unexpected!r}", actual=actual, ok=ok)
+        # The attachment gets a wrapper built from the masked value (a second pass in
+        # attach_check changes nothing); the message gets the shown label as it is.
+        attach_check(
+            field=field, expected={"!=": _field_value(field, unexpected)}, actual=actual, ok=ok
+        )
         if not ok:
-            msg = ErrorTemplates.mismatch(
+            msg = _mismatch_shown(
                 field=field,
-                expected=f"!= {unexpected!r}",
-                actual=actual,
+                expected=f"!= {_shown(field, unexpected)}",
+                actual=_shown(field, actual),
                 context=context or "values must differ",
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_true(
@@ -77,7 +88,7 @@ def check_true(
                 context=context,
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_false(
@@ -115,7 +126,7 @@ def check_in_list(
             "list_lookup",
             {
                 "field": field,
-                "value": value,
+                "value": _field_value(field, value),
                 "found": found,
                 "list_size": len(seq),
             },
@@ -123,7 +134,7 @@ def check_in_list(
         if not found:
             msg = ErrorTemplates.not_in_list(item=value, field=field, list_name=list_name)
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_isinstance(actual: Any, expected_type: type, *, field: str = "value") -> None:
@@ -140,7 +151,7 @@ def check_isinstance(actual: Any, expected_type: type, *, field: str = "value") 
                 field=field, expected_type=expected_type.__name__, actual=actual
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_status(
@@ -154,7 +165,7 @@ def check_status(
                 expected=expected, actual=actual, method=method, path=path
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_status_in(
@@ -166,65 +177,70 @@ def check_status_in(
     context: str = "",
 ) -> None:
     allowed = tuple(expected_set)
-    with allure.step(f"Check HTTP status in {allowed}"):
+    with allure.step(f"Check HTTP status in {_status_shown(allowed)}"):
         ok = actual in allowed
-        attach_check(field="status", expected=f"in {allowed}", actual=actual, ok=ok)
+        attach_check(
+            field="status", expected=f"in {_status_shown(allowed)}", actual=actual, ok=ok
+        )
         if not ok:
-            msg = ErrorTemplates.mismatch(
+            msg = _mismatch_shown(
                 field="status",
-                expected=f"one of {allowed}",
-                actual=actual,
-                context=context or f"{method} {path}".strip(),
+                expected=f"one of {_status_shown(allowed)}",
+                actual=_status_shown(actual),
+                context=context or _scrub_text(f"{method} {path}".strip()),
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_in(
     member: Any, container: Any, *, field: str = "membership", context: str = ""
 ) -> None:
-    with allure.step(f"Check: {member!r} ∈ {field}"):
+    with allure.step(f"Check: {_shown(field, member)} ∈ {field}"):
         try:
             ok = member in container
         except TypeError:
             ok = False
         attach_check(
-            field=field, expected=f"contains {member!r}", actual=_safe_json(container), ok=ok
+            field=field, expected={"contains": _field_value(field, member)}, actual=container,
+            ok=ok,
         )
         if not ok:
-            msg = ErrorTemplates.mismatch(
+            msg = _mismatch_shown(
                 field=field,
-                expected=f"contains {member!r}",
-                actual=container if not isinstance(container, (list, dict)) else f"len={len(container)}",
+                expected=f"contains {_shown(field, member)}",
+                actual=(
+                    _shown(field, container)
+                    if not isinstance(container, (list, dict))
+                    else f"len={len(container)}"
+                ),
                 context=context,
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_not_in(
     member: Any, container: Any, *, field: str = "membership", context: str = ""
 ) -> None:
-    with allure.step(f"Check: {member!r} ∉ {field}"):
+    with allure.step(f"Check: {_shown(field, member)} ∉ {field}"):
         try:
             ok = member not in container
         except TypeError:
             ok = True
         attach_check(
-            field=field,
-            expected=f"not contains {member!r}",
-            actual=_safe_json(container),
-            ok=ok,
+            field=field, expected={"not contains": _field_value(field, member)},
+            actual=container, ok=ok,
         )
         if not ok:
-            msg = ErrorTemplates.mismatch(
+            msg = _mismatch_shown(
                 field=field,
-                expected=f"not contains {member!r}",
+                expected=f"not contains {_shown(field, member)}",
                 actual="found in container",
                 context=context,
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_len(obj: Any, expected_len: int, *, field: str = "length") -> None:
@@ -237,7 +253,7 @@ def check_len(obj: Any, expected_len: int, *, field: str = "length") -> None:
                 field=f"len({field})", expected=expected_len, actual=actual_len
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_not_empty(obj: Any, *, field: str = "value", context: str = "") -> None:
@@ -254,7 +270,7 @@ def check_not_empty(obj: Any, *, field: str = "value", context: str = "") -> Non
                 what=f"«{field}» must not be empty", detail=context
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_is_none(actual: Any, *, field: str = "value") -> None:
@@ -263,17 +279,23 @@ def check_is_none(actual: Any, *, field: str = "value") -> None:
 
 def check_not_startswith(text: Any, prefix: str, *, field: str = "value") -> None:
     s = str(text) if text is not None else ""
-    with allure.step(f"Check «{field}» does not start with {prefix!r}"):
+    # Text, not a document: masked as free text without reading it as JSON, which would strip
+    # the very prefix (a BOM, a space, a line break) this check is about.
+    shown_prefix, shown_text = _line_masked(field, prefix), _line_masked(field, s)
+    with allure.step(f"Check «{field}» does not start with {shown_prefix!r}"):
         ok = not s.startswith(prefix)
-        attach_check(
-            field=field, expected=f"not startswith {prefix!r}", actual=s[:80], ok=ok
+        _attach_check_shown(
+            field=field, expected={"not startswith": shown_prefix},
+            actual=_first_chars(shown_text, 80), ok=ok,
         )
         if not ok:
-            msg = ErrorTemplates.mismatch(
-                field=field, expected=f"not startswith {prefix!r}", actual=s
+            msg = _mismatch_shown(
+                field=field,
+                expected=f"not startswith {shown_prefix!r}",
+                actual=repr(shown_text),
             )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_between(
@@ -284,25 +306,31 @@ def check_between(
     field: str = "value",
     inclusive: bool = True,
 ) -> None:
-    if inclusive:
-        ok = low <= actual <= high
-        exp = f"[{low}, {high}]"
-    else:
-        ok = low <= actual < high
-        exp = f"[{low}, {high})"
+    ok = (low <= actual <= high) if inclusive else (low <= actual < high)
+    exp = f"[{_shown(field, low)}, {_shown(field, high)}{']' if inclusive else ')'}"
     with allure.step(f"Check «{field}» in {exp}"):
-        attach_check(field=field, expected=exp, actual=actual, ok=ok)
+        attach_check(
+            field=field,
+            expected={
+                "between": [_field_value(field, low), _field_value(field, high)],
+                "inclusive": inclusive,
+            },
+            actual=actual,
+            ok=ok,
+        )
         if not ok:
-            msg = ErrorTemplates.mismatch(field=field, expected=exp, actual=actual)
+            msg = _mismatch_shown(field=field, expected=exp, actual=_shown(field, actual))
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))
 
 
 def check_lt(actual: Any, bound: Any, *, field: str = "value") -> None:
-    with allure.step(f"Check «{field}» < {bound}"):
+    with allure.step(f"Check «{field}» < {_shown(field, bound)}"):
         ok = actual < bound
-        attach_check(field=field, expected=f"< {bound}", actual=actual, ok=ok)
+        attach_check(field=field, expected={"<": _field_value(field, bound)}, actual=actual, ok=ok)
         if not ok:
-            msg = ErrorTemplates.mismatch(field=field, expected=f"< {bound}", actual=actual)
+            msg = _mismatch_shown(
+                field=field, expected=f"< {_shown(field, bound)}", actual=_shown(field, actual)
+            )
             attach_failure(msg)
-            raise AssertionError(msg)
+            raise _mark_masked(AssertionError(msg))

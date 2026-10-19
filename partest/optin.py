@@ -60,6 +60,10 @@ plugin off, this part included: the opt-in sets then run like any other test.
 How each set was decided is recorded in ``partest.call_storage.run_info["selection"]
 ["optin"]`` — ``coverage.json`` ``meta.selection.optin`` — so two runs with different
 opt-in states are not compared as if they ran the same suite.
+
+The rule is public, so a project can check its own configuration without a pytest run per
+case: :func:`would_select` takes the ini value as written, a test's marks, ``-m`` and an
+environment; :func:`is_selected` and :func:`selected_through` are its parts for one set.
 """
 
 from __future__ import annotations
@@ -67,8 +71,9 @@ from __future__ import annotations
 import itertools
 import os
 import re
+import shlex
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 import pytest
 
@@ -229,8 +234,61 @@ def is_selected(
     marks: Sequence[Any],
     environ: Optional[Mapping[str, str]] = None,
 ) -> bool:
-    """The whole rule for one set: its variable, or ``-m`` asking for the family."""
+    """The whole rule for one set: its variable, or ``-m`` asking for the family.
+
+    ``environ`` defaults to ``os.environ``. This is the opt-in half only: pytest's own
+    ``-m`` filter runs before it — :func:`would_select` answers for both.
+    """
     return optin.env_enabled(environ) or selected_through(markexpr, marks, optin)
+
+
+def would_select(
+    marks: Iterable[Any],
+    optin_markers: Union[str, Iterable[str]],
+    markexpr: Optional[str] = "",
+    environ: Optional[Mapping[str, str]] = None,
+) -> bool:
+    """Does a test with these marks stay in the run, as far as ``-m`` and the opt-in sets go?
+
+    The question a project asks of its own configuration — "with these ``partest_optin_markers``
+    lines, does ``pytest -m '...'`` with ``RUN_SLOW=1`` pick up a test marked ``slow_db``?" —
+    answered by a call instead of a pytest subprocess per case::
+
+        from partest.optin import would_select
+
+        ini = '''
+            slow:RUN_SLOW
+            nightly
+        '''
+        assert would_select(["slow", "slow_db"], ini, "slow")
+        assert not would_select(["slow", "slow_db"], ini, "not flaky")
+        assert would_select(["slow", "slow_db"], ini, "", environ={"RUN_SLOW": "1"})
+
+    ``optin_markers`` is the ini value as written (one string, split like pytest splits an
+    ``args`` option) or the list ``config.getini("partest_optin_markers")`` returns; a
+    malformed entry raises ``ValueError``, as the plugin raises a usage error. ``marks``
+    are marker names, pytest ``Mark`` objects or ``pytest.mark.x(...)`` decorators — anything
+    with ``name`` and ``kwargs`` keeps its keyword arguments for ``-m "x(level=2)"``.
+    ``environ`` defaults to ``os.environ``.
+
+    True when pytest's own ``-m`` keeps the test (an empty expression keeps everything) and
+    every opt-in set the test belongs to is selected (:func:`is_selected`). A variable takes
+    its set in regardless of ``-m`` *for the opt-in rule*; pytest's ``-m`` still applies, so
+    ``-m "not slow"`` with ``RUN_SLOW=1`` drops a ``slow`` test, exactly as a real run does.
+    ``-k``, ``skip`` and other plugins are not modelled.
+    """
+    lines = shlex.split(optin_markers) if isinstance(optin_markers, str) else list(optin_markers)
+    sets = parse_optin_markers(lines)
+    marks = [m if hasattr(m, "kwargs") else _Mark(str(m)) for m in marks]
+    expr = (markexpr or "").strip()
+    if expr and not _evaluate(expr, marks):
+        return False
+    names = {m.name for m in marks}
+    return all(
+        is_selected(s, expr, marks, environ)
+        for s in sets
+        if any(s.covers(n) for n in names)
+    )
 
 
 class OptInPlugin:
@@ -353,6 +411,10 @@ def configure(config) -> Optional[OptInPlugin]:
 
 __all__ = [
     "INI_NAME",
+    "MAX_CONTEXT_NAMES",
     "OptInSet",
+    "is_selected",
     "parse_optin_markers",
+    "selected_through",
+    "would_select",
 ]

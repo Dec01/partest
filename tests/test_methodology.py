@@ -37,6 +37,43 @@ def test_classify_get_dynamic():
     assert st == MethodSubtype.GET_DYNAMIC
 
 
+def test_get_collection_parent_param_stays_dynamic_as_in_2_6():
+    """No heuristic reads GET BY PARENT from a path (2.7.0 kept 2.6.0's cells).
+
+    A rule for /{collection}/{parent}/{parentId} was tried and dropped: it misread service
+    prefixes one way and real collections the other (proposals §G4). GET BY PARENT comes
+    from ``subtype_overrides`` only; these paths must keep the cell 2.6.0 gave them.
+    """
+    for path in (
+        "/invoice-payments/invoice/{invoiceId}",
+        "/api/v1/invoice-payments/invoice/{invoice_id}",
+        "/order-line-items/order-line/{orderLineId}",
+        "/userGroups/user/{userID}",
+        "/user-auth/user/{userId}",
+        "/order-storage/order/{orderId}",
+        "/order-integration/order/{orderId}",
+        "/user-service-orders/user/{userId}",
+        "/order-events-service/order/{orderId}",
+        "/user-apps/user/{userId}",
+        "/tenant-services/tenant/{tenantId}",
+        "/account-manager/account/{accountId}",
+        "/order-service/order/{orderId}",
+        "/user-api/user/{userId}",
+        "/document-management/document/{documentId}",
+        "/users/{id}",
+        "/api/v1/users/{userId}",
+        "/v2/orders/{orderId}",
+        "/rest/api/items/{id}",
+        "/orders/customer/{customerId}",
+        "/invoice-results/{invoiceId}/invoice/{invoiceId}",
+    ):
+        assert classify_endpoint("GET", path) == MethodSubtype.GET_DYNAMIC, path
+    path = "/invoice-payments/invoice/{invoiceId}"
+    assert classify_endpoint("PUT", path) == MethodSubtype.PUT_OBJECT
+    assert classify_endpoint("DELETE", path) == MethodSubtype.DELETE_OBJECT
+    assert classify_endpoint("PATCH", path) == MethodSubtype.PATCH_OBJECT
+
+
 def test_classify_post_create():
     st = classify_endpoint("POST", "/items", "Create item", has_body=True)
     assert st == MethodSubtype.POST_CREATE

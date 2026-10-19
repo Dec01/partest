@@ -1,7 +1,7 @@
 ---
 title: Coverage methodology — two areas, three axes each
 status: current
-verified: 2026-10-18
+verified: 2026-10-19
 sources: [partest/methodology/__init__.py, partest/methodology/api/subtypes.py, partest/methodology/api/matrix.py, partest/methodology/api/steps.py, partest/methodology/api/inference.py, partest/methodology/api/classifier.py, partest/test_types.py, partest/methodology/ui/surfaces.py, partest/methodology/ui/checks.py, partest/methodology/ui/matrix.py, partest/methodology/ui/steps.py, partest/reports/analyzer.py]
 audience: agent
 ships_in_wheel: true
@@ -50,6 +50,14 @@ DELETE) plus operational specializations (`get_by_parent`, `get_by_self`, `delet
 
 Assignment is done by `classify_endpoint` (`partest/methodology/api/classifier.py`). The classifier
 is a heuristic over method + path segments; it is the part most likely to be wrong on an unusual API.
+
+One shape it does not try to read: `GET /{a}/{b}/{param}` is either a prefix, a collection
+and its id (`/api/users/{userId}`, `/v2/orders/{orderId}`) or a collection, a literal parent
+and the parent's id (`/invoice-payments/invoice/{invoiceId}` — the payments of one invoice).
+Nothing in the path tells them apart reliably — a service prefix named after its entity
+(`/order-service/order/{orderId}`) looks like the second, a collection named like a deployment
+(`/account-manager/account/{accountId}`) like the first — so every such path is GET DYNAMIC,
+and so is `/{parent}/{id}/{children}`. GET BY PARENT comes from an override.
 
 A wrong subtype does not fail anything — the endpoint just gets the required test-case set of some
 other kind of operation, and the coverage number is confidently wrong. When you spot one, say so

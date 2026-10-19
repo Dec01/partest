@@ -1,7 +1,7 @@
 ---
 title: Reporting cookbook — checks, steps, attaches
 status: current
-verified: 2026-10-16
+verified: 2026-10-19
 sources: [partest/reporting/__init__.py, partest/reporting/checks.py, partest/reporting/measured.py, partest/reporting/steps.py, partest/reporting/attach.py, partest/reporting/instrument.py]
 audience: user
 ships_in_wheel: true
@@ -134,9 +134,13 @@ ah.attach_json("seed", seed)
 ah.attach_failure(msg, exc)
 ```
 
-Authorization headers are **masked** in `attach_request`, and so is the body unless
-`redact_body=False`. `attach_response` attaches the body **as is** unless you pass
-`redact_body=True`.
+Secret headers are **masked** in `attach_request` (`***`, whole), and so are `params`, the
+query in `path` and the body unless `redact_body=False`. `attach_response` attaches the body
+**as is** unless you pass `redact_body=True` — pass it in your own calls; every call inside
+partest does. `attach_check` and the `check_*` helpers show `***` for a value under a secret
+field name (`token`, `password` …) and mask any other value as free text at every level — a
+log line `password: …` in a list is masked too, and so is the value in prose like
+`token: expired`. `attach_failure` masks its text. See [[howto/enterprise]].
 
 ## Testcase decorator
 

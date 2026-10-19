@@ -13,6 +13,14 @@ pip install partest
 pip install partest[ui] && playwright install chromium
 ```
 
+Right after a release pip may not see the new version yet: it answers from its cached copy
+of the package index and reports "no matching distribution" or installs the previous one.
+Ask for the version explicitly and skip the cache:
+
+```bash
+pip install --no-cache-dir "partest==X.Y.Z"
+```
+
 ## 2. Minimal API project
 
 ```text

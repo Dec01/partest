@@ -65,8 +65,8 @@ MARKER = "S3CRET-MARKER-7f3a9c"
 
 
 def _error_logs(caplog) -> str:
-    # The ERROR records this method writes. The INFO response log is a separate channel
-    # that prints every body as received (see docs/wiki/proposals.md), not checked here.
+    # The ERROR records this method writes. The INFO response log is a separate channel,
+    # masked since 2.7.0 and checked in tests/test_masking_channels.py.
     return "\n".join(r.getMessage() for r in caplog.records if r.levelno >= logging.ERROR)
 
 
@@ -148,7 +148,7 @@ async def test_error_beyond_the_body_cut_shows_its_masked_parent(caplog):
     text = str(info.value)
     assert text.startswith("Response data validation failed for _Rows (1 error):\n")
     assert "  420.id [int_parsing]: " in text
-    assert "    in 420 = {\"id\": \"four-twenty\", \"token\": '***'}" in text
+    assert '    in 420 = {"id": "four-twenty", "token": "***"}' in text
     body_line = text.rpartition("\nResponse body: ")[2]
     assert "four-twenty" not in body_line  # element 420 lies beyond the cut
     assert MARKER not in text and MARKER[:8] not in text
@@ -169,7 +169,8 @@ async def test_error_log_names_the_model_not_the_validator(caplog):
     with pytest.raises(AssertionError):
         await _call(httpx.Response(200, json={"id": 1, "extra": True}), _ItemValidation())
     logged = _error_logs(caplog)
-    assert "'_Item'" in logged
+    # the model's name on its own line (2.7.0: the line is text, not the repr of a tuple)
+    assert "\n_Item\n" in logged
     assert "object at 0x" not in logged
 
 

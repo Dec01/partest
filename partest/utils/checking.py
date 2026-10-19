@@ -1,5 +1,25 @@
 import json
 from partest.utils import BColors
+from partest.redact import _body_text, _scrub, _scrub_text
+
+# How much of a body an error description shows, after masking.
+_BODY_LIMIT = 2000
+
+
+def _described(message, label):
+    """``<label> body: …`` for a message with ``.json()``, else ``<label> (non-JSON): …``.
+
+    Masked and shortened; never raises, and never falls back to the raw value.
+    """
+    try:
+        data = message.json()
+    except Exception:
+        try:
+            text = getattr(message, "text", message)
+        except Exception:
+            return f"{label}: <not shown, it could not be read>\n"
+        return f"{label} (non-JSON): {_body_text(text, limit=_BODY_LIMIT)}\n"
+    return f"{label} body: \n{_body_text(data, limit=_BODY_LIMIT, indent=4)}\n"
 
 
 class ErrorDesc:
@@ -67,15 +87,12 @@ class ErrorDesc:
         -------
         :return: String describing a status error.
         """
-        try:
-            body = f'Response body: \n{json.dumps(responseBody.json(), indent=4, ensure_ascii=False)}\n'
-        except:
-            body = f'Response (non-JSON): {responseBody.text}\n'
-        finally:
-            desc = (f"\n\n---->\nОшибка! Пришел некорректный статус код!\n"
-                    f"Ожидали код: {codeExpected} <\\> Получили код: {codeActual}\n"
-                    f"{body}\n<----\n\n")
-        return desc
+        # This goes to the ERROR log of every status mismatch, and the body is whatever the
+        # service sent: masked and shortened, and a body that cannot be read is a placeholder.
+        body = _described(responseBody, "Response")
+        return (f"\n\n---->\nОшибка! Пришел некорректный статус код!\n"
+                f"Ожидали код: {codeExpected} <\\> Получили код: {codeActual}\n"
+                f"{body}\n<----\n\n")
 
     @classmethod
     def validate(cls, validateData=None, validateModel=None, error=None):
@@ -92,9 +109,15 @@ class ErrorDesc:
         -------
         :return: String describing a validation error.
         """
+        # One string, line by line: the log shows it as written, and a masked value ends at
+        # the end of its own line.
         try:
-            return "\n\n---->\nОшибка валидации, объекты сравнения:", error, validateModel, '\n', validateData, "\nПодробнее в принт-логах.\n<----\n\n"
-        except:
+            return (
+                "\n\n---->\nОшибка валидации, объекты сравнения:\n"
+                f"{error}\n{validateModel}\n{validateData}"
+                "\nПодробнее в принт-логах.\n<----\n\n"
+            )
+        except Exception:
             return "Нет тела или модели"
 
     @classmethod
@@ -127,25 +150,17 @@ class ErrorDesc:
         -------
         :return: String describing an element error.
         """
-        try:
-            if requestBody is not None and responseBody is not None:
-                _resp_body = f'Response body: \n{json.dumps(responseBody.json(), indent=4, ensure_ascii=False)}\n'
-                _req_body = f'Request body: \n{json.dumps(requestBody.json(), indent=4, ensure_ascii=False)}\n'
-            else:
-                _resp_body = ""
-                _req_body = ""
-        except:
-            if requestBody is not None and responseBody is not None:
-                _resp_body = f'Response (non-JSON): {responseBody.text}\n'
-                _req_body = f'Request (non-JSON): {requestBody.text}\n'
-            else:
-                _resp_body = ""
-                _req_body = ""
-        finally:
-            desc = (f"\n\n---->\nОшибка! Получили не то значение элемента что ожидали!\n"
-                    f"Ожидали значение: {payloadElement} <\\> Получили значение: {dataElement}\n"
-                    f"{_resp_body}\n{_req_body}\n<----\n\n")
-        return desc
+        if requestBody is not None and responseBody is not None:
+            _resp_body = _described(responseBody, "Response")
+            _req_body = _described(requestBody, "Request")
+        else:
+            _resp_body = ""
+            _req_body = ""
+        expected = _body_text(payloadElement, limit=_BODY_LIMIT)
+        actual = _body_text(dataElement, limit=_BODY_LIMIT)
+        return (f"\n\n---->\nОшибка! Получили не то значение элемента что ожидали!\n"
+                f"Ожидали значение: {expected} <\\> Получили значение: {actual}\n"
+                f"{_resp_body}\n{_req_body}\n<----\n\n")
 
     def __str__(self):
         """
@@ -189,11 +204,53 @@ class StatusCode:
 class PydanticResponseError:
     @staticmethod
     def print_error(e):
+        """Print a pydantic ``ValidationError`` to stdout — without the values it rejected.
+
+        pytest shows this under "Captured stdout" of a failed test, and a rejected value is
+        whatever the service sent, a token included. So the input is described by its
+        type only and the error list is printed without ``input`` and ``url``; which field did
+        not match, and why — path, type, message — is all still there.
+        """
+        errors = _errors_without_input(e)
+        first = errors[0] if errors else {}
         print(BColors.WARNING + "\n__________<ReportValidate>__________" + BColors.ENDC)
         print(BColors.BOLD + "Ошибка валидации, тип:" + BColors.ENDC,
-              BColors.FAIL + repr(e.errors()[0]['type']),
-              ":", repr(e.errors()[0]['msg']) + BColors.ENDC)
-        print(BColors.BOLD + "Проблемный ключ:" + BColors.ENDC, repr(e.errors()[0]['loc']))
-        print(BColors.BOLD + "Входящее значение:" + BColors.ENDC, repr(e.errors()[0]['input']))
-        print(BColors.BOLD + "Полный текст ошибки:" + BColors.ENDC, repr(e.errors()))
+              BColors.FAIL + repr(first.get('type')),
+              ":", _scrub_text(repr(first.get('msg'))) + BColors.ENDC)
+        print(BColors.BOLD + "Проблемный ключ:" + BColors.ENDC, repr(first.get('loc')))
+        print(BColors.BOLD + "Входящее значение:" + BColors.ENDC, _input_kind(e))
+        print(BColors.BOLD + "Полный текст ошибки:" + BColors.ENDC, repr(_masked_errors(errors)))
         print(BColors.WARNING + "__________</ReportValidate>__________" + BColors.ENDC)
+
+
+def _masked_errors(errors):
+    """The error list with its values masked — ``msg`` and ``ctx`` — and ``loc`` left as it is.
+
+    Masking the whole ``repr`` read a path like ``('Token', 'b')`` as the pair
+    ``('token', <value>)``; a path holds field names, not values.
+    """
+    out = []
+    for err in errors:
+        err = dict(err)
+        if "msg" in err:
+            err["msg"] = _scrub_text(err["msg"])
+        if "ctx" in err:
+            err["ctx"] = _scrub(err["ctx"])
+        out.append(err)
+    return out
+
+
+def _errors_without_input(e):
+    try:
+        return e.errors(include_input=False, include_url=False)
+    except TypeError:  # pydantic before include_input
+        return [{k: v for k, v in err.items() if k not in ("input", "url")} for err in e.errors()]
+
+
+def _input_kind(e):
+    """``<str, значение не показывается>`` — the type of the rejected value, never the value."""
+    try:
+        value = e.errors()[0].get("input")
+    except Exception:
+        return "<значение не показывается>"
+    return f"<{type(value).__name__}, значение не показывается>"

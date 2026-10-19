@@ -1,7 +1,7 @@
 ---
 title: Release checklist
 status: current
-verified: 2026-10-18
+verified: 2026-10-19
 sources: [setup.py, MANIFEST.in, partest/__init__.py, tools/docs_build_wheel.py]
 audience: maintainer
 ships_in_wheel: false
@@ -92,7 +92,8 @@ environment**. That review is the approval: nothing reaches PyPI until a human c
 Verify afterwards from a clean environment:
 
 ```bash
-python -m venv /tmp/verify && /tmp/verify/bin/pip install -U partest
+# --no-cache-dir: right after the upload pip may answer from its cached index and miss it
+python -m venv /tmp/verify && /tmp/verify/bin/pip install --no-cache-dir "partest==X.Y.Z"
 /tmp/verify/bin/python -c "import partest; print(partest.__version__)"
 /tmp/verify/bin/python -m partest.docs list
 ```

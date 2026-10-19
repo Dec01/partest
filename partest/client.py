@@ -11,9 +11,17 @@ from pydantic import BaseModel, RootModel, ValidationError
 
 from partest.allure_step import allure_step as _step
 from partest.coverage import track_api_calls
-from partest.http.client import httpx_async_client
+from partest.http.client import _install_httpx_log_filter, httpx_async_client
 from partest.http_retry import RetryPolicy
-from partest.redact import redact_headers, redact_mapping, redact_text
+from partest.redact import (
+    _MASKED_MARK,
+    _already_masked,
+    _body_text,
+    _mark_masked,
+    _scrub_at,
+    _scrub_headers,
+    _scrub_text,
+)
 from partest.tls import (
     VerifySetting,
     certificate_error,
@@ -54,6 +62,16 @@ def normalize_expected_status(
     return vals
 
 
+def _expected_tuple(expected: Any) -> Tuple[int, ...]:
+    """The allowed statuses, or ``()`` when none were given or they cannot be read."""
+    if expected is None:
+        return ()
+    try:
+        return normalize_expected_status(expected)
+    except (TypeError, ValueError):
+        return ()
+
+
 def status_matches(actual: int, expected: Union[int, Sequence[int]]) -> bool:
     return actual in normalize_expected_status(expected)
 
@@ -78,38 +96,32 @@ _NO_BODY = object()
 
 
 def _redacted_body(data: Any = _NO_BODY, text: str = "", limit: int = 1000) -> str:
-    """A response body fit for a message or a log: secrets masked, then shortened.
-
-    Parsed JSON goes through ``redact_mapping`` and the serialised result through
-    ``redact_text`` as well, so a secret nested below ``redact_mapping``'s depth or
-    under a prefix-keeping mask is still covered. Raw text gets ``redact_text``.
-    """
-    if data is not _NO_BODY:
-        try:
-            text = json.dumps(redact_mapping(data), ensure_ascii=False, default=str)
-        except (TypeError, ValueError):
-            text = str(data)
-    return _truncate(redact_text(text), limit)
+    """A body for a message or a log — the package's one implementation, ``_body_text``."""
+    return _body_text(text if data is _NO_BODY else data, limit=limit)
 
 
 _CONTEXT_ERRORS = 5
 
 
-def _parent_at(data: Any, loc: Sequence[Any]) -> Any:
-    """The object holding the failing member, or ``_NO_BODY`` when the path does not resolve.
 
-    ``loc[:-1]`` is walked through dicts by key and lists by index. A path through a union
-    branch or a validator tag does not exist in the data and resolves to nothing.
+
+def _validation_errors(err: ValidationError) -> List[Dict[str, Any]]:
+    """``loc`` / ``type`` / ``msg`` of every error — never the input value, never the URL.
+
+    A message is masked too: a custom validator may quote the value it rejected.
     """
-    node = data
-    for part in loc[:-1]:
-        if isinstance(node, dict) and part in node:
-            node = node[part]
-        elif isinstance(node, list) and isinstance(part, int) and -len(node) <= part < len(node):
-            node = node[part]
-        else:
-            return _NO_BODY
-    return node
+    try:
+        errors = err.errors(include_input=False, include_url=False)
+    except TypeError:  # pydantic before include_input
+        errors = err.errors()
+    return [
+        {
+            "loc": tuple(e.get("loc", ())),
+            "type": str(e.get("type", "")),
+            "msg": _scrub_text(e.get("msg", "")),
+        }
+        for e in errors
+    ]
 
 
 def _validation_failure(
@@ -120,18 +132,16 @@ def _validation_failure(
     The first few errors nested below the top level also show their parent object, masked
     and shortened like the body, because the failing element often lies beyond the cut.
     """
-    try:
-        errors = err.errors(include_input=False, include_url=False)
-    except TypeError:  # pydantic before include_input
-        errors = err.errors()
+    errors = _validation_errors(err)
     lines = []
     for i, e in enumerate(errors):
-        path = tuple(e.get("loc", ()))
+        path = e["loc"]
         loc = ".".join(str(part) for part in path) or "<root>"
-        # "loc [type]: msg" — "loc: msg" would read as key: value to redact_text
-        lines.append(f"  {loc} [{e.get('type', '')}]: {e.get('msg', '')}")
+        lines.append(f"  {loc} [{e['type']}]: {e['msg']}")
         if i < _CONTEXT_ERRORS and len(path) > 1 and data is not _NO_BODY:
-            parent = _parent_at(data, path)
+            # Walked with its path: a parent stored under a secret key is `***`, as it is in
+            # the whole body, not shown because the path into it skipped the key.
+            parent = _scrub_at(data, path[:-1], _NO_BODY)
             if parent is not _NO_BODY:
                 where = ".".join(str(part) for part in path[:-1])
                 lines.append(f"    in {where} = {_redacted_body(parent, limit=200)}")
@@ -139,8 +149,47 @@ def _validation_failure(
     noun = "error" if count == 1 else "errors"
     head = f"Response data validation failed for {err.title}{what} ({count} {noun}):"
     body = _redacted_body(data, text)
-    detail = _truncate(redact_text("\n".join(lines)))
+    detail = _truncate("\n".join(lines))
     return f"{head}\n{detail}\nResponse body: {body}"
+
+
+def _schema_failure(message: str, errors: List[Dict[str, Any]]) -> AssertionError:
+    """The ``AssertionError`` of a schema failure, carrying ``validation_errors``."""
+    failure = AssertionError(message)
+    failure.validation_errors = errors  # type: ignore[attr-defined]
+    return _mark_masked(failure)
+
+
+class StatusMismatchError(AssertionError):
+    """The response status is not one the call expected.
+
+    An ``AssertionError``, so a test fails rather than errors, and code that caught
+    ``AssertionError`` keeps catching it. ``str()`` is the message of
+    :func:`format_status_mismatch` — masked; ``status_code`` is the status that came and
+    ``expected`` the allowed statuses, as a tuple.
+    """
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        status_code: Optional[int] = None,
+        expected: Sequence[int] = (),
+    ):
+        super().__init__(message)
+        self.status_code = status_code
+        self.expected = tuple(expected)
+
+    def __reduce__(self):
+        return (
+            type(self),
+            (self.args[0] if self.args else "",),
+            {
+                "status_code": self.status_code,
+                "expected": self.expected,
+                **({_MASKED_MARK: True} if _already_masked(self) else {}),
+            },
+        )
 
 
 def _model_name(validate_model: Any) -> str:
@@ -152,7 +201,7 @@ def _model_name(validate_model: Any) -> str:
 
 
 def _mask_headers(headers: Optional[Dict[str, str]]) -> Dict[str, str]:
-    return redact_headers(headers)  # type: ignore[return-value]
+    return _scrub_headers(headers) or {}
 
 
 def format_status_mismatch(
@@ -165,7 +214,11 @@ def format_status_mismatch(
     response: Optional[httpx.Response] = None,
     headers: Optional[Dict[str, str]] = None,
 ) -> str:
-    """Human-readable status mismatch message (safe for CI logs)."""
+    """Human-readable status mismatch message (safe for CI logs).
+
+    Everything in it is masked: a secret request header whole, the bodies walked by key and
+    shortened, URL credentials and secret query values removed.
+    """
     resp_body = ""
     if response is not None:
         try:
@@ -175,14 +228,14 @@ def format_status_mismatch(
     exp_s = format_expected_status(expected)
     parts = [
         f"HTTP status mismatch: expected {exp_s}, got {actual}",
-        f"  {method} {url}",
+        f"  {method} {_scrub_text(url)}",
     ]
     if headers:
         parts.append(f"  request headers: {_mask_headers(headers)}")
     if request_body is not None:
-        parts.append(f"  request body: {_truncate(request_body)}")
+        parts.append(f"  request body: {_body_text(request_body)}")
     if resp_body:
-        parts.append(f"  response body: {_truncate(resp_body)}")
+        parts.append(f"  response body: {_body_text(resp_body)}")
     hint = _http_status_hint(actual)
     if hint:
         parts.append(f"  hint: {hint}")
@@ -278,6 +331,9 @@ class ApiClient:
         self.follow_redirects = follow_redirects
         self.default_timeout = timeout
         self.logger = Logger()
+        # httpx's own INFO line shows every URL as sent; an injected client did not come
+        # through the factory that installs the filter.
+        _install_httpx_log_filter()
         self._external_client = client
         self._shared_client = bool(shared_client or client is not None)
         self._owned_client: Optional[httpx.AsyncClient] = None
@@ -302,6 +358,12 @@ class ApiClient:
         they raise is swallowed and logged.
         """
         self._response_hooks.append(hook)
+
+    def _log_error_masked(self, message: str) -> None:
+        """Log an ERROR line built from parts the package already masked, without masking it
+        again (a second pass reads its JSON as free text and breaks it)."""
+        log = getattr(self.logger, "_error_masked", None) or self.logger.error
+        log(message)
 
     def _emit_response(self, method, endpoint, body, response) -> None:
         for hook in self._response_hooks:
@@ -454,6 +516,7 @@ class ApiClient:
                 files=files,
                 content=content,
                 timeout=timeout,
+                expected=_expected_tuple(expected_status_code),
             )
             self.logger.log_response(response)
 
@@ -489,23 +552,38 @@ class ApiClient:
             return body
 
         except httpx.HTTPStatusError as err:
-            self.logger.error(
-                f"HTTP error {err.response.status_code}: {err.response.text}"
-            )
-            raise AssertionError(
-                f"Server returned {err.response.status_code}: {err.response.text}"
-            ) from err
+            # The body masked, and the httpx error not chained: its text carries the URL
+            # with its query string.
+            status_code = err.response.status_code
+            status_failure = f"{status_code}: {_body_text(err.response.text)}"
+            self._log_error_masked(f"HTTP error {status_failure}")
 
         except httpx.RequestError as e:
             if is_certificate_error(e):
                 # "Network/request error: [SSL: CERTIFICATE_VERIFY_FAILED]" is where a
                 # consumer would otherwise meet the changed default, with nothing in it
                 # naming the setting that decides.
-                explained = certificate_error(e, url=url, verify=self.verify)
+                explained = certificate_error(e, url=_scrub_text(url), verify=self.verify)
                 self.logger.error(str(explained))
                 raise explained from e
             self.logger.error(f"Network/request error: {e}")
             raise
+
+        # Reached only from the HTTPStatusError branch (an injected client whose hook calls
+        # `raise_for_status`): raised outside it, so no context, and with the status readable.
+        allowed = _expected_tuple(expected_status_code)
+        if status_code in allowed:
+            # The status is the one the call asked for: what refused it is the client, not
+            # the service. Not an assertion — a test of "404 is answered" must not fail as if
+            # the service had answered something else.
+            raise RuntimeError(
+                f"an event hook of the injected httpx client rejected the expected status "
+                f"{status_code} (raise_for_status in its event_hooks?) — remove it, or "
+                f"leave the status check to expected_status_code"
+            )
+        raise _mark_masked(StatusMismatchError(
+            f"Server returned {status_failure}", status_code=status_code, expected=allowed
+        ))
 
     async def graphql(
         self,
@@ -544,6 +622,7 @@ class ApiClient:
         files,
         content,
         timeout: float,
+        expected: Sequence[int] = (),
     ) -> httpx.Response:
         attempt = 0
         while True:
@@ -567,7 +646,11 @@ class ApiClient:
                     continue
                 raise
 
-            if policy.should_retry_status(response.status_code, attempt):
+            # A status the call expects is the answer, not a transient failure: a test of
+            # "the service throttles with 429" must not be retried until it gets a 200.
+            if response.status_code not in expected and policy.should_retry_status(
+                response.status_code, attempt
+            ):
                 await policy.sleep(attempt)
                 attempt += 1
                 continue
@@ -695,7 +778,7 @@ class ApiClient:
                 error_description.codeActual = actual_code
                 error_description.responseBody = response
                 error_description.requestBody = request_data
-                self.logger.error(
+                self._log_error_masked(
                     ErrorDesc.status(
                         codeExpected=primary_expected,
                         codeActual=error_description.codeActual,
@@ -717,7 +800,11 @@ class ApiClient:
                     headers=headers,
                 )
                 _attach_text("status_mismatch", msg)
-                raise AssertionError(msg)
+                raise _mark_masked(StatusMismatchError(
+                    msg,
+                    status_code=actual_code,
+                    expected=normalize_expected_status(expected_code),
+                ))
 
         self._validate_response_body(actual_code, response, validate_model)
 
@@ -733,6 +820,13 @@ class ApiClient:
         reach the cleanup registry even when the schema then fails), and only then
         validates the body.
         """
+        # Every failure below is raised outside the `except` that caught it, so the
+        # AssertionError has neither a cause nor a context: pydantic's ValidationError
+        # prints `input_value=…` — values from the body, unmasked — and a traceback shows the
+        # whole chain. The message already names each failing path, type and message, and
+        # the same list, without values, is on the error as `validation_errors`.
+        failure: Optional[str] = None
+        errors: List[Dict[str, Any]] = []
         with _step("Response body validation"):
             if not validate_model:
                 return
@@ -743,15 +837,17 @@ class ApiClient:
                     else:
                         validate_model.validate_error({})
                 except ValidationError as e:
-                    msg = _validation_failure(e, data={}, what=" on empty response")
-                    self.logger.error(
+                    failure = _validation_failure(e, data={}, what=" on empty response")
+                    errors = _validation_errors(e)
+                    self._log_error_masked(
                         ErrorDesc.validate(
                             validateModel=_model_name(validate_model),
                             validateData={},
-                            error=msg,
+                            error=failure,
                         )
                     )
-                    raise AssertionError(msg) from e
+                if failure is not None:
+                    raise _schema_failure(failure, errors)
                 return
 
             try:
@@ -774,32 +870,34 @@ class ApiClient:
                         else:
                             validate_model.validate_error(response.text)
                     except ValidationError as e:
-                        msg = _validation_failure(
+                        failure = _validation_failure(
                             e, text=response.text, what=" on string response"
                         )
-                        self.logger.error(
+                        errors = _validation_errors(e)
+                        self._log_error_masked(
                             ErrorDesc.validate(
                                 validateModel=_model_name(validate_model),
                                 validateData=_redacted_body(text=response.text),
-                                error=msg,
+                                error=failure,
                             )
                         )
-                        raise AssertionError(msg) from e
                 elif isinstance(err, ValidationError):
-                    msg = _validation_failure(err, data=data)
-                    self.logger.error(
+                    failure = _validation_failure(err, data=data)
+                    errors = _validation_errors(err)
+                    self._log_error_masked(
                         ErrorDesc.validate(
                             validateModel=_model_name(validate_model),
                             validateData=_redacted_body(data),
-                            error=msg,
+                            error=failure,
                         )
                     )
-                    raise AssertionError(msg) from err
                 else:
-                    raise AssertionError(
+                    failure = (
                         f"Failed to parse JSON response and model does not expect a string: "
                         f"{_redacted_body(text=response.text, limit=2000)}"
                     )
+            if failure is not None:
+                raise _schema_failure(failure, errors)
 
     def _handle_http_error(self, err: httpx.HTTPStatusError, request_data: Optional[Any]):
         error_description = ErrorDesc()
@@ -807,7 +905,7 @@ class ApiClient:
         error_description.codeActual = err.response.status_code
         error_description.responseBody = err.response
         error_description.requestBody = request_data
-        self.logger.error(
+        self._log_error_masked(
             ErrorDesc.status(
                 codeExpected=StatusCode.ok,
                 codeActual=error_description.codeActual,

@@ -62,6 +62,15 @@ present, so `null` ("not measured") stays distinguishable from a missing key ("a
 older than the field"). Anything that multiplies or compares the value checks for `null`
 first.
 
+The run's average follows the same rule: `summary.avg` and `summary.avgAll` are `null` for a
+run with no endpoints, not `0.0` — a zero there read as "nothing is covered", the same number a
+run that called everything and covered nothing gives. The badge says `n/a`, the HTML page shows
+a dash, and `compare` reports no delta for such a run instead of the other run's whole average
+([Interactive coverage report and CLI](howto-coverage-html.md)). Snapshots written before this carry `0.0` there; with no endpoints
+(`summary.endpoints` is `0`, or, without that count, `endpoints` is empty) that zero is read as
+"not measured" too — by `compare`, the badge and the validator alike — and a `0.0` with endpoints
+stays a measured zero.
+
 `partialRun` stays a bool and stays `false` for such a run. It answers a different question —
 "did this run cover less of the suite than it should", with three measurable reasons — and
 every message built on it says "some endpoints were never called", which is false, not true,

@@ -1,7 +1,7 @@
 ---
 title: Аудит внешнего бэклога и готовность к переезду
 status: current
-verified: 2026-10-18
+verified: 2026-10-19
 sources: [partest/tracking.py, partest/coverage.py, partest/methodology/api/classifier.py, partest/payloads.py, partest/call_storage.py, partest/reports/payload.py, partest/reports/analyzer.py, partest/pytest_plugin.py]
 audience: maintainer
 ships_in_wheel: false
@@ -54,6 +54,7 @@ allow_version_literals: true
 | **LIB-TRACK-VALIDATE** | регистрировать create-id при 2xx до `validate_model` | ✅ | хук ответа в `client.py`, `TrackingApiClient._on_response` |
 | **LIB-CLASSIFY-TOKEN** | `me`/`self`/`my` по границе слова; `media` не крадёт `media-*` | ✅ | сегментное сопоставление в `classifier.py` |
 | **LIB-CLASSIFY-ACTION** | ACTION раньше POST TO OBJECT для глагола в конце | ✅ | `_is_action_call`, проверка поднята выше |
+| — | GET BY PARENT из формы пути | ✗ не делается | эвристикой не читается (2.7.0: для каждого валидного пути подтип прежний; GET BY PARENT в 2.6.0 получал только некорректный шаблон с двумя и более `/` внутри `{}` (`/a/b/{x/y/z}`) — теперь такой путь читается по общим правилам: обычно GET DYNAMIC, с подсказками списка или статики — GET LIST / GET STATIC; кандидатное правило отвергнуто — [[proposals]] §G4); только `subtype_overrides` |
 | **LIB-PATH-RESOLVE** | конкретный URL → шаблон OpenAPI, вложенные пути | ✅ | `partest/path_match.py`, подключён в `_resolve_endpoint` |
 | **LIB-REC-ACCESS** | cookbook 4 клеток | ✅ | `partest/access.py` + [[howto/permissions]] |
 | **LIB-BODY-MARK** | `_cleanup_fields` + `get_json_required_marked()` | ✅ | `payloads.py` |

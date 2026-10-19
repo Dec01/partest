@@ -1,7 +1,7 @@
 ---
 title: Security cookbook — SecHttp, JWT, RiskProfile
 status: current
-verified: 2026-10-07
+verified: 2026-10-19
 sources: [partest/security/__init__.py, partest/security/sec_http.py, partest/security/jwt_craft.py, partest/security/risk.py, partest/validation/incorrect_body.py]
 audience: user
 ships_in_wheel: true
@@ -54,6 +54,13 @@ TLS follows the package policy ([[components/overview]]): without `verify=` the 
 the project's decision (`PARTEST_TLS_VERIFY`, `tls_verify` in `confpartest`), and it is built
 through `partest.http.httpx_async_client`, so a host it reaches unverified is listed in
 `meta.tlsUnverifiedHosts` like any other.
+
+With `instrument=True` the request and the response are attached to Allure masked, like every
+channel of the package ([[howto/enterprise]]). Two credentials travel in URLs under names the
+masking leaves alone, because as bare names they also mean something harmless: `key` (a
+Google API key, `?key=…`) and `code` (an OAuth authorization code in a redirect's
+`Location`, `?code=…&state=…`). A security suite that sends or receives them should keep such
+URLs out of messages and attachments itself.
 
 ## JWT craft
 

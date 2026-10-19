@@ -379,13 +379,15 @@ Response data validation failed for ProblemDetailWithErrors (2 errors):
   errors.0.rejectedValue [extra_forbidden]: Extra inputs are not permitted
     in errors.0 = {"field": "age", "message": "must be positive", "rejectedValue": -1}
   token [extra_forbidden]: Extra inputs are not permitted
-Response body: {"detail": "Validation failed", "instance": "/orders", "status": 400, "title": "Bad Request", "token": '***', "errors": [{"field": "age", "message": "must be positive", "rejectedValue": -1}]}
+Response body: {"detail": "Validation failed", "instance": "/orders", "status": 400, "title": "Bad Request", "token": "***", "errors": [{"field": "age", "message": "must be positive", "rejectedValue": -1}]}
 ```
 
-Masking covers this message and its ERROR log line **only**. The pytest traceback (through the
-chained pydantic error), the stdout of `PydanticResponseError.print_error`, the INFO
-request/response log and the status-mismatch message still show the body as received — see
-Known issues in `CHANGELOG.md`. A value under a key the masking does not know is shown as is.
+The same masking holds in every other channel: the pytest traceback (the
+`AssertionError` carries no chained pydantic error, so no `input_value=`; the error list is on
+it as `validation_errors` — `loc`, `type`, `msg` per error), the stdout of
+`PydanticResponseError.print_error` (the rejected value is described by its type only), the
+INFO request/response log, the status-mismatch message and the Allure attachments — see
+[Enterprise notes — shared client, retries, redaction, xdist](howto-enterprise.md). A value under a key the masking does not know is shown as is.
 
 On a 409, `ErrorTemplates.conflict_409` prints the Problem Detail summary — `status`, `title`,
 `detail`, `type`, `instance`, `code`, `message`, `error`, `errors` — whatever the model.

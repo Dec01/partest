@@ -1,7 +1,7 @@
 ---
 title: Testing file upload endpoints
 status: current
-verified: 2026-10-09
+verified: 2026-10-19
 sources: [partest/files.py, partest/client.py]
 audience: user
 ships_in_wheel: true

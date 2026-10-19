@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
+import dataclasses
+import re
 import json
 from typing import Any, Callable, Dict, Optional, Sequence
 
 from allure_commons.types import Severity as AllureSeverity
+
+from partest.redact import (
+    _body_text,
+    _field_value,
+    _is_blank,
+    _is_secret_key,
+    _scrub,
+    _scrub_check,
+    _scrub_text,
+)
 
 _HTTP_STATUS_HINTS_EN: Dict[int, str] = {
     400: "Bad request / validation error (body or params).",
@@ -75,19 +87,91 @@ class Severity:
 
 
 def _brief(data: Any, limit: int = 600) -> str:
-    try:
-        if isinstance(data, (dict, list)):
-            text = json.dumps(data, ensure_ascii=False, default=str)
-        else:
-            text = str(data)
-    except Exception:
-        text = repr(data)
+    """A body for a message — the package's one implementation, masked, then shortened."""
+    text = _body_text(data, limit=None)
     if len(text) > limit:
         return text[:limit] + "…"
     return text
 
 
+def _shown(field: Any, value: Any) -> str:
+    """``repr`` of a checked value for a message: ``'***'`` under a secret field name,
+    otherwise masked as a check value (``partest.redact._scrub_check``: free text at every
+    level — strings, bytes and text keys in containers and models included)."""
+    try:
+        walked = _field_value(field, value)
+        if _is_secret_key(field) and not _is_blank(value):
+            return repr(walked)
+        if isinstance(
+            value, (str, bytes, bytearray, memoryview, dict, list, tuple, set, frozenset)
+        ) or hasattr(value, "model_dump") or dataclasses.is_dataclass(value):
+            return repr(walked)
+        return _scrub_text(repr(value))
+    except Exception:
+        return f"<{type(value).__name__}: not shown, it could not be masked>"
+
+
+def _mismatch_shown(*, field: str, expected: str, actual: str, context: str = "") -> str:
+    """:meth:`ErrorTemplates.mismatch` for values already shown (masked) — taken as they are.
+
+    Masking a shown label a second time reads it as free text: ``!= {'detail': 'token:
+    expired'}`` would lose its value and its closing quote.
+    """
+    ctx = f"\nContext: {_context_shown(context)}" if context else ""
+    return (
+        f"Value mismatch for «{field}».\n"
+        f"  Expected: {expected}\n"
+        f"  Actual: {actual}"
+        f"{ctx}"
+    )
+
+
+def _context_shown(context: Any) -> str:
+    """A ``context=`` / ``detail=`` of a check: masked like a check value, at every level."""
+    try:
+        shown = _scrub_check(context)
+    except Exception:
+        return "<context: not shown, it could not be masked>"
+    return shown if isinstance(shown, str) else repr(shown)
+
+
+def _status_shown(value: Any) -> str:
+    """A status for a message or a step title: a number as is, anything else via :func:`_shown`.
+
+    ``200``, ``(400, 415)`` and the ``{400, 415}`` label stay as they read; a string, a dict
+    or bytes passed where a status belongs is masked like any check value.
+    """
+    try:
+        if isinstance(value, int) and not isinstance(value, bool):
+            return str(int(value))  # an IntEnum (`HTTPStatus.CREATED`) reads 201, not its name
+        if isinstance(value, (tuple, list, set, frozenset)) and all(
+            isinstance(v, int) and not isinstance(v, bool) for v in value
+        ):
+            shown = [str(int(v)) for v in value]
+            if isinstance(value, tuple):
+                return "(" + ", ".join(shown) + ("," if len(shown) == 1 else "") + ")"
+            if isinstance(value, list):
+                return "[" + ", ".join(shown) + "]"
+            return "{" + ", ".join(sorted(shown)) + "}"
+    except ValueError:  # an int too long to print (over 4300 digits): not a status anyway
+        pass
+    if isinstance(value, str) and re.fullmatch(r"[\d\s,{}()\[\]]+", value):
+        return value
+    return _shown("status", value)
+
+
+def _where(path: Any) -> str:
+    """A request path for a title or a message: URL credentials and secret query values out."""
+    return _scrub_text(path) if path else ""
+
+
 def _problem_detail_summary(body: Any) -> str:
+    if not isinstance(body, dict):
+        return ""
+    try:
+        body = _scrub(body)
+    except Exception:
+        return "<Problem Detail: not shown, it could not be masked>"
     if not isinstance(body, dict):
         return ""
     parts = []
@@ -118,12 +202,11 @@ def explain_conflict(path: str, request_body: Any = None) -> str:
 class ErrorTemplates:
     @staticmethod
     def mismatch(*, field: str, expected: Any, actual: Any, context: str = "") -> str:
-        ctx = f"\nContext: {context}" if context else ""
-        return (
-            f"Value mismatch for «{field}».\n"
-            f"  Expected: {expected!r}\n"
-            f"  Actual: {actual!r}"
-            f"{ctx}"
+        return _mismatch_shown(
+            field=field,
+            expected=_shown(field, expected),
+            actual=_shown(field, actual),
+            context=context,
         )
 
     @staticmethod
@@ -137,12 +220,12 @@ class ErrorTemplates:
         request_body: Any = None,
         hint: str = "",
     ) -> str:
-        where = f" {method} {path}".strip()
+        where = f" {method} {_where(path)}".strip()
         where = f" ({where})" if where else ""
         lines = [
             f"Unexpected HTTP status code{where}.",
-            f"  Expected: {expected}",
-            f"  Actual: {actual}",
+            f"  Expected: {_status_shown(expected)}",
+            f"  Actual: {_status_shown(actual)}",
         ]
         if hint:
             lines.append(f"  Hint: {hint}")
@@ -164,12 +247,12 @@ class ErrorTemplates:
     ) -> str:
         lines = [
             "HTTP 409 Conflict — data conflict (not authz / not found).",
-            f"  Request: {method.upper()} {path}",
-            f"  Expected status: {expected}",
+            f"  Request: {method.upper()} {_where(path)}",
+            f"  Expected status: {_status_shown(expected)}",
             "  Actual status: 409",
         ]
         if entity_hint:
-            lines.append(f"  Entity context: {entity_hint}")
+            lines.append(f"  Entity context: {_scrub_text(entity_hint)}")
         if request_body is not None:
             lines.append(f"  Request body: {_brief(request_body)}")
         problem = _problem_detail_summary(response_body)
@@ -186,7 +269,7 @@ class ErrorTemplates:
     def not_in_list(*, item: Any, field: str = "id", list_name: str = "response") -> str:
         return (
             f"Item not found in list «{list_name}».\n"
-            f"  Looked for {field}={item!r}"
+            f"  Looked for {field}={_shown(field, item)}"
         )
 
     @staticmethod
@@ -194,29 +277,29 @@ class ErrorTemplates:
         return (
             f"Type mismatch for «{field}».\n"
             f"  Expected type: {expected_type}\n"
-            f"  Actual: {type(actual).__name__} = {actual!r}"
+            f"  Actual: {type(actual).__name__} = {_shown(field, actual)}"
         )
 
     @staticmethod
     def forbidden_access(*, role: str, method: str, path: str, actual: Any) -> str:
         return (
             f"Expected access denial (403) for role «{role}».\n"
-            f"  Request: {method} {path}\n"
-            f"  Actual status: {actual}"
+            f"  Request: {method} {_where(path)}\n"
+            f"  Actual status: {_status_shown(actual)}"
         )
 
     @staticmethod
     def unexpected_allow(*, role: str, method: str, path: str, actual: Any) -> str:
         return (
             f"Role «{role}» was allowed but should not be.\n"
-            f"  Request: {method} {path}\n"
-            f"  Status: {actual}"
+            f"  Request: {method} {_where(path)}\n"
+            f"  Status: {_status_shown(actual)}"
         )
 
     @staticmethod
     def precondition(*, what: str, detail: str = "") -> str:
-        d = f"\n  {detail}" if detail else ""
-        return f"Test precondition failed: {what}.{d}"
+        d = f"\n  {_context_shown(detail)}" if detail else ""
+        return f"Test precondition failed: {_scrub_text(what)}.{d}"
 
     @staticmethod
     def contains_secret(*, fields: Sequence[str]) -> str:
@@ -235,9 +318,9 @@ class ErrorTemplates:
 class StepTemplates:
     @staticmethod
     def http(method: str, path: str, expected: Any = None) -> str:
-        base = f"HTTP {method.upper()} {path}"
+        base = f"HTTP {method.upper()} {_where(path)}"
         if expected is not None:
-            return f"{base} → expect status={expected}"
+            return f"{base} → expect status={_status_shown(expected)}"
         return base
 
     @staticmethod
@@ -247,16 +330,16 @@ class StepTemplates:
     @staticmethod
     def assert_field(field: str, expected: Any = None) -> str:
         if expected is not None:
-            return f"Check field «{field}» == {expected!r}"
+            return f"Check field «{field}» == {_shown(field, expected)}"
         return f"Check field «{field}»"
 
     @staticmethod
     def assert_status(expected: Any) -> str:
-        return f"Check HTTP status == {expected}"
+        return f"Check HTTP status == {_status_shown(expected)}"
 
     @staticmethod
     def assert_list_contains(field: str, value: Any) -> str:
-        return f"Check list contains {field}={value!r}"
+        return f"Check list contains {field}={_shown(field, value)}"
 
     @staticmethod
     def assert_schema(model_name: str = "") -> str:
@@ -334,6 +417,30 @@ def format_http_status_failure(
     response_body: Any = None,
     original_message: str = "",
 ) -> str:
+    return _format_http_status_failure(
+        method=method,
+        path=path,
+        expected=expected,
+        actual=actual,
+        request_body=request_body,
+        response_body=response_body,
+        original_message=original_message,
+    )
+
+
+def _format_http_status_failure(
+    *,
+    method: str,
+    path: str,
+    expected: Any,
+    actual: Any,
+    request_body: Any = None,
+    response_body: Any = None,
+    original_message: str = "",
+    original_masked: bool = False,
+) -> str:
+    """:func:`format_http_status_failure`; *original_masked* — the original message is the
+    package's own masked text (a status mismatch), shown as is rather than masked again."""
     try:
         actual_int = int(actual) if actual is not None else None
     except (TypeError, ValueError):
@@ -358,6 +465,8 @@ def format_http_status_failure(
             request_body=request_body,
             hint=http_status_hint(actual),
         )
+    if not original_masked:
+        original_message = _scrub_text(original_message)
     if original_message and original_message not in msg:
         msg += f"\n  Original error: {original_message}"
     return msg

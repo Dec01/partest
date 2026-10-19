@@ -2,7 +2,7 @@
 
 from partest.reports.analyzer import CoverageAnalyzer, EndpointCoverage, analyze_coverage
 from partest.reports.badge import badge_from_payload, badge_svg
-from partest.reports.compare import compare_payloads
+from partest.reports.compare import compare_payloads, optin_comparable
 from partest.reports.history import (
     append_snapshot,
     latest_snapshot,
@@ -29,6 +29,7 @@ __all__ = [
     "Problem",
     "Severity",
     "compare_payloads",
+    "optin_comparable",
     "append_snapshot",
     "list_snapshots",
     "prune_snapshots",

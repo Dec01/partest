@@ -21,6 +21,7 @@ from partest.optin import (
     is_selected,
     parse_optin_markers,
     selected_through,
+    would_select,
 )
 
 SLOW = OptInSet("slow", "RUN_SLOW")
@@ -293,6 +294,32 @@ def test_compare_calls_different_optin_states_incomparable():
     assert not any("opt-in" in w for w in older)
 
 
+def test_optin_comparable_is_the_verdict_compare_uses():
+    from partest.reports import optin_comparable
+    from partest.reports.compare import _optin_warning
+
+    off, env = _payload({"slow": "off"}), _payload({"slow": "env"})
+    assert optin_comparable(off, off) == (True, [])
+    assert optin_comparable(off, env) == (False, ["slow: off → env"])
+    assert optin_comparable(_payload({"slow": "off"}), _payload({"slow": "off", "nightly": "env"})) == (
+        False, ["nightly: absent → env"]
+    )
+    # a set recorded without a state is not the same as a set that is not there
+    no_state = {"meta": {"selection": {"optin": {"slow": {"deselected": 0}}}}, "endpoints": []}
+    none_declared = {"meta": {"selection": {"optin": {}}}, "endpoints": []}
+    assert optin_comparable(no_state, none_declared) == (
+        False, ["slow: recorded without a state → absent"]
+    )
+    assert optin_comparable(_payload(), env) == (None, [])
+    assert optin_comparable(env, {"endpoints": []}) == (None, [])
+    # the private warning is that verdict, worded
+    assert _optin_warning(off, env) == [
+        "the runs selected different opt-in marker sets (slow: off → env) — they did not run "
+        "the same suite"
+    ]
+    assert _optin_warning(off, off) == [] and _optin_warning(_payload(), env) == []
+
+
 def test_compare_notes_an_optin_record_on_one_side_only():
     from partest.reports.compare import compare_payloads
 
@@ -415,6 +442,86 @@ def test_session_malformed_ini_is_a_usage_error(tmp_path):
     code, _, out = _session(tmp_path, optin="partest_optin_markers = slow:1BAD")
     assert code == 4, out  # pytest's exit code for a usage error
     assert "partest_optin_markers" in out
+
+
+SUITE_MARKS = {
+    "test_plain": [],
+    "test_slow": ["slow"],
+    "test_slow_db": ["slow", "slow_db"],
+    "test_flaky": ["flaky_net"],
+}
+
+
+@pytest.mark.parametrize(
+    "expr, env",
+    [
+        ("", {}),
+        ("slow", {}),
+        ("slow_db", {}),
+        ("slow or flaky_net", {}),
+        ("not slow_db and not flaky_net", {}),
+        ("", {"RUN_SLOW": "1"}),
+        ("not slow", {"RUN_SLOW": "1"}),
+    ],
+)
+def test_would_select_agrees_with_a_real_session(tmp_path, expr, env):
+    """The call answers what the subprocess answers, for each test of the suite."""
+    args = ("-m", expr) if expr else ()
+    _, selected, out = _session(tmp_path, *args, env=env)
+    predicted = sorted(
+        name for name, names in SUITE_MARKS.items()
+        if would_select(names, "slow:RUN_SLOW", expr, environ=env)
+    )
+    assert predicted == selected, out
+
+
+def test_would_select_reads_the_ini_value_as_written():
+    ini = """
+        slow:RUN_SLOW
+        nightly
+    """
+    assert would_select(["slow_db"], ini, "slow_db")
+    assert not would_select(["slow_db"], ini, "slow")  # pytest's -m reads exact names
+    assert not would_select(["slow_db"], ini, "not flaky")
+    assert would_select(["slow_db"], ini, "", environ={"RUN_SLOW": "1"})
+    assert not would_select(["slow_db"], ini, "", environ={})
+    # a test in two sets must be opted into both
+    assert not would_select(["slow", "nightly"], ini, "", environ={"RUN_SLOW": "1"})
+    assert would_select(["slow", "nightly"], ini, "nightly", environ={"RUN_SLOW": "1"})
+    # outside every set only pytest's own -m decides
+    assert would_select(["api"], ini, "", environ={})
+    assert not would_select(["api"], ini, "smoke", environ={})
+    # the list config.getini() returns is accepted as well
+    assert would_select(["slow"], ["slow:RUN_SLOW", "nightly"], "slow", environ={})
+
+
+def _real_mark(name, **kwargs):
+    """A real ``MarkDecorator`` for a marker this session does not register."""
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", pytest.PytestUnknownMarkWarning)
+        return getattr(pytest.mark, name)(**kwargs)
+
+
+def test_would_select_keeps_keyword_arguments_of_real_marks():
+    slow = _real_mark("slow", level=2)
+    assert would_select([slow], "slow", "slow(level=2)", environ={})
+    assert not would_select([slow], "slow", "slow(level=3)", environ={})
+    assert would_select([slow.mark], "slow", "slow", environ={})
+
+
+def test_would_select_refuses_a_malformed_ini():
+    with pytest.raises(ValueError):
+        would_select(["slow"], "slow:1BAD", "slow")
+
+
+def test_the_rule_is_public():
+    from partest import optin
+
+    for name in ("is_selected", "selected_through", "would_select", "OptInSet",
+                 "parse_optin_markers"):
+        assert name in optin.__all__
 
 
 PROBE = '''

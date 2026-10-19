@@ -16,9 +16,10 @@ partest/
   openapi.py           spec loading and path matching
   tracking.py          TrackingApiClient, CreatedRegistry, id extractors, resource owners
   polling.py           poll_until / poll_until_sync — wait for a terminal state, keep the path
-  rounding.py          agrees_with_formula / agrees_with_sum — tolerance derived from scales
+  rounding.py          agrees_with_formula / agrees_with_sum / assert_all_agree — tolerance derived from scales
   files.py             upload byte factories and mutation corpus; deterministic zip/xlsx bytes
-  optin.py             opt-in marker sets for the pytest plugin (ini `partest_optin_markers`)
+  optin.py             opt-in marker sets for the pytest plugin (ini `partest_optin_markers`); would_select
+  known_defect.py      @pytest.mark.known_defect — strict xfail that only an AssertionError in the body satisfies
   payloads.py          BaseRequestBody
   validation/          BaseResponseValidator, ProblemDetail* (+ declared extensions), raw IncorrectBody cases
   data_marker.py       TEST_MARKER, marked_name/code/short — test-data naming
@@ -51,7 +52,7 @@ partest/
 | `tls` | `default_verify()` / `resolve_verify()`: certificates are verified unless the project says otherwise |
 | `TrackingApiClient` / `CreatedRegistry` | record created ids, clean up in LIFO with 409 retry; a resource can belong to a wider area than the test — see [Recipes — consumer-side adapters](howto-recipes.md) |
 | `polling` | `poll_until`: a background job to its terminal state, with the states seen and a timeout that says where it stopped — see [Journeys, invariants, integrations, e2e](howto-layers.md) |
-| `rounding` | `agrees_with_formula` / `agrees_with_sum`: "this value is that formula" within the rounding of every input and the output, and how sharp that check was — see [Journeys, invariants, integrations, e2e](howto-layers.md) |
+| `rounding` | `agrees_with_formula` / `agrees_with_sum`: "this value is that formula" within the rounding of every input and the output, and how sharp that check was; `Rounded(..., significant=N)` for an unrounded computed float, `rounding="floor" / "ceiling" / "toward_zero"` for a value rounded one way; `assert_all_agree` — one verdict and one protocol for many checks — see [Journeys, invariants, integrations, e2e](howto-layers.md) |
 | `TokenManager` | OIDC multi-role token cache; credentials come from an injected provider |
 | `Config` / `HeadersBind` | header and param builders, `apply_token` binding |
 | `httpx_client` / `httpx_async_client` | a client of your own **inside** the TLS policy — no retries, no coverage |
@@ -91,8 +92,9 @@ stays project-agnostic so a second project can adopt it without stripping anythi
 ## pytest plugin
 
 Auto-loads via the `pytest11` entry point (`partest/pytest_plugin.py`) and does two unrelated
-things, each behind its own switch — and a third, opt-in marker sets, that is inert until the
-ini file asks for it (below).
+things, each behind its own switch — a third, opt-in marker sets, that is inert until the
+ini file asks for it, and a fourth, the `known_defect` marker, registered in every session
+(both below).
 
 | Switch | Default | Governs |
 |---|---|---|
@@ -197,7 +199,24 @@ to pytest. The parser is `_pytest.mark.expression`, a private module — one of 
   switched on simply has more cases, and nothing else in the payload would say why. When only
   one payload carries the key and a set there deselected tests or ran by its variable, the
   result gets a soft entry in `notes` — "comparability cannot be confirmed" — which leaves
-  `comparable` alone: an older artifact proves nothing either way.
+  `comparable` alone: an older artifact proves nothing either way. The same verdict alone:
+  `partest.reports.optin_comparable(old, new)` → `(True, [])` same states, `(False,
+  ["slow: off → env", …])` different, `(None, [])` when either payload has no record.
+- **Checking a configuration without running pytest.** The rule is public in
+  `partest.optin`: `would_select(marks, optin_markers, markexpr="", environ=None)` answers
+  "does a test with these marks stay in the run" for the ini value as written (one string or
+  the `config.getini` list), pytest's own `-m` included; `is_selected(optin_set, markexpr,
+  marks, environ)` and `selected_through(markexpr, marks, optin_set)` are its parts for one
+  set. `-k`, `skip` and other plugins are not modelled.
+
+  ```python
+  from partest.optin import would_select
+
+  ini = "slow:RUN_SLOW nightly"
+  assert would_select(["slow", "slow_db"], ini, "slow")
+  assert not would_select(["slow"], ini, "not slow_db and not flaky")
+  assert would_select(["slow"], ini, "", environ={"RUN_SLOW": "1"})
+  ```
 - With `partest_optin_markers` empty nothing is registered and nothing is printed. A malformed
   entry is a usage error, not a silently ignored line.
 - Markers are still registered under `markers` — `--strict-markers` is not this plugin's job.
@@ -207,6 +226,58 @@ to pytest. The parser is `_pytest.mark.expression`, a private module — one of 
 - **`-p no:partest` turns this off too** — and then the opt-in sets are ordinary tests: the
   expensive suites start running in every plain `pytest`. A project that disables the plugin
   and still has opt-in sets needs its own deselection.
+
+### Known defects: `@pytest.mark.known_defect`
+
+`xfail` counts any failure as the expected one: a setup that could not reach the stand, a
+fixture timeout, a `ConnectionError` in the body — all read as XFAIL, "the defect is still
+there", when nothing about the defect was observed. `known_defect` is a strict xfail that only
+an assertion satisfies:
+
+```python
+@pytest.mark.known_defect("BUG-123", reason="total ignores the discount")
+async def test_total_with_discount(api):
+    ...
+    assert body["total"] == expected
+```
+
+| What happened | Outcome |
+|---|---|
+| `AssertionError` in the test body — `assert`, `ah.check_*`, a status or schema mismatch in `make_request` (500 included) | **XFAIL**, reason `BUG-123: total ignores the discount` |
+| a status mismatch (`StatusMismatchError`) with 502, 503 or 504 — a gateway or the stand did not answer (429 is not here: throttling is the service's own behaviour, a reproduction) | **failed**, with a `known_defect` report section: not a reproduction |
+| any other exception in the body (network, httpx's timeout, `KeyError`, `pytest.fail`) | **failed**, with the same section |
+| an error in setup or teardown | **error**, with the same section |
+| the body passes | **failed** `[XPASS(strict)] BUG-123 …` — fixed? remove the marker |
+
+When the defect *is* a gateway status (an ingress answering 502 because the service falls
+over), assert it in the body, for that status only — any other status stays what it was:
+
+```python
+try:
+    await api.make_request(..., expected_status_code=200)
+except StatusMismatchError as err:
+    if err.status_code != 502:
+        raise
+    raise AssertionError(f"BUG-123 reproduced: {err.status_code}") from None
+```
+
+The id is in the XFAIL reason (`-rx`), in `item.user_properties` as `("known_defect", id)` —
+JUnit XML writes it as a property — and, with allure-pytest, an Allure issue link (map an id to
+a URL with `--allure-link-pattern=issue:…/{}`). A marker without an id is a setup error.
+`--runxfail` turns it off, as for `xfail`; together with `xfail` on one test it is a setup
+error, and `pytest.xfail()` in the body is left to pytest. The verdict is set inside the
+report wrappers of other plugins: allure-pytest records a reproduction as skipped (XFAIL) and
+a fixed defect as failed; pytest-rerunfailures does not re-run a reproduction or hold back the
+finalizers of its module fixtures. Registered in every session, behind neither switch: it
+decides an outcome. `-p no:partest` removes it, and `--strict-markers` then rejects the
+marker; a suite with its own `known_defect` marker of another signature gets a setup error on
+each such test — rename it, or move it to this signature and drop its hooks.
+
+The line is drawn by the exception's type, not by what it means. A helper that reports a
+timeout or a missing environment as an `AssertionError` inside the body —
+`partest.polling.PollTimeout`, Playwright's `expect` — counts as a reproduction. Put such
+waits in a fixture (its failure is an error) or assert what the defect is about; where the
+line should be is an open question for the maintainers.
 
 ## TLS verification
 

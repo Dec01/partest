@@ -7,7 +7,9 @@ from typing import Any, Dict, Optional, Sequence, Union
 import httpx
 
 from partest.client import format_expected_status, status_matches
-from partest.reporting.attach import attach_failure, attach_request, attach_response
+from partest.redact import _mark_masked
+from partest.reporting.attach import _attach_failure_masked as attach_failure
+from partest.reporting.attach import attach_request, attach_response
 from partest.reporting.steps import step
 from partest.reporting.templates import ErrorTemplates, StepTemplates
 from partest.http.client import httpx_async_client
@@ -114,7 +116,7 @@ class SecHttp:
                 resp_body: Any = response.json()
             except Exception:
                 resp_body = (response.text or "")[:2000]
-            attach_response(status=response.status_code, body=resp_body)
+            attach_response(status=response.status_code, body=resp_body, redact_body=True)
             if expected_status is not None and not status_matches(
                 response.status_code, expected_status
             ):
@@ -126,7 +128,7 @@ class SecHttp:
                     response_body=resp_body,
                 )
                 attach_failure(msg)
-                raise AssertionError(msg)
+                raise _mark_masked(AssertionError(msg))
             return response
 
     async def get(self, path: str, **kwargs) -> httpx.Response:

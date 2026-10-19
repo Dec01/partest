@@ -6,7 +6,7 @@
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -61,14 +61,14 @@
           "text": "5. Как обновлять этот аудит"
         }
       ],
-      "chars": 7815
+      "chars": 8255
     },
     {
       "slug": "components/overview",
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -89,7 +89,9 @@
         "partest/conf.py",
         "partest/optin.py",
         "partest/polling.py",
-        "partest/rounding.py"
+        "partest/rounding.py",
+        "partest/known_defect.py",
+        "partest/reports/compare.py"
       ],
       "headings": [
         {
@@ -121,6 +123,10 @@
           "text": "Opt-in marker sets"
         },
         {
+          "level": 3,
+          "text": "Known defects: `@pytest.mark.known_defect`"
+        },
+        {
           "level": 2,
           "text": "TLS verification"
         },
@@ -133,7 +139,7 @@
           "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 17839
+      "chars": 22341
     },
     {
       "slug": "components/project-gen",
@@ -180,7 +186,7 @@
       "path": "docs/wiki/concepts/coverage-honesty.md",
       "title": "Coverage honesty — when the number lies",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -221,14 +227,14 @@
           "text": "What to trust"
         }
       ],
-      "chars": 8795
+      "chars": 9487
     },
     {
       "slug": "concepts/methodology",
       "path": "docs/wiki/concepts/methodology.md",
       "title": "Coverage methodology — two areas, three axes each",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -303,7 +309,7 @@
           "text": "Axis C — depth"
         }
       ],
-      "chars": 13369
+      "chars": 14000
     },
     {
       "slug": "decisions/distribution",
@@ -354,7 +360,7 @@
       "path": "docs/wiki/decisions/docs-architecture.md",
       "title": "ADR — архитектура документации: AGENTS + Skills + Wiki",
       "status": "current",
-      "verified": "2026-09-24",
+      "verified": "2026-10-19",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -437,7 +443,7 @@
       "path": "docs/wiki/decisions/explicit-type.md",
       "title": "ADR — явный type= вместо автоинференса",
       "status": "current",
-      "verified": "2026-10-09",
+      "verified": "2026-10-19",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -507,7 +513,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -553,7 +559,7 @@
       "path": "docs/wiki/howto/coverage-html.md",
       "title": "Interactive coverage report and CLI",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-19",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -562,7 +568,10 @@
         "partest/reports/interactive_html.py",
         "partest/reports/writer.py",
         "partest/reports/services.py",
-        "partest/reports/__main__.py"
+        "partest/reports/__main__.py",
+        "partest/reports/payload.py",
+        "partest/reports/badge.py",
+        "partest/reports/compare.py"
       ],
       "headings": [
         {
@@ -595,6 +604,10 @@
         },
         {
           "level": 2,
+          "text": "A run with no endpoints"
+        },
+        {
+          "level": 2,
           "text": "Checking a document against the format"
         },
         {
@@ -602,14 +615,14 @@
           "text": "Reading the page honestly"
         }
       ],
-      "chars": 6346
+      "chars": 8859
     },
     {
       "slug": "howto/enterprise",
       "path": "docs/wiki/howto/enterprise.md",
       "title": "Enterprise notes — shared client, retries, redaction, xdist",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -622,7 +635,13 @@
         "partest/utils/logger.py",
         "partest/reporting/attach.py",
         "partest/reporting/instrument.py",
-        "partest/utils/checking.py"
+        "partest/reporting/templates.py",
+        "partest/reporting/checks.py",
+        "partest/sideeffects.py",
+        "partest/utils/checking.py",
+        "partest/auth/token_manager.py",
+        "partest/ui/allure_ui.py",
+        "partest/pytest_plugin.py"
       ],
       "headings": [
         {
@@ -678,14 +697,14 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 10276
+      "chars": 16892
     },
     {
       "slug": "howto/layers",
       "path": "docs/wiki/howto/layers.md",
       "title": "Journeys, invariants, integrations, e2e",
       "status": "current",
-      "verified": "2026-10-16",
+      "verified": "2026-10-19",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -753,14 +772,14 @@
           "text": "End to end"
         }
       ],
-      "chars": 13977
+      "chars": 16843
     },
     {
       "slug": "howto/migration",
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -776,12 +795,23 @@
         "partest/methodology/api/overrides.py",
         "partest/methodology/ui/__init__.py",
         "partest/coverage.py",
-        "partest/reports/analyzer.py"
+        "partest/reports/analyzer.py",
+        "partest/reports/payload.py",
+        "partest/reports/compare.py",
+        "partest/redact.py"
       ],
       "headings": [
         {
           "level": 1,
           "text": "Migration guide"
+        },
+        {
+          "level": 1,
+          "text": "right after a release pip may answer from its cache and not see the new version:"
+        },
+        {
+          "level": 2,
+          "text": "2.7.0 (candidate, not released) — `summary.avg: null`, masking in every channel"
         },
         {
           "level": 2,
@@ -932,7 +962,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 30926
+      "chars": 40258
     },
     {
       "slug": "howto/permissions",
@@ -983,7 +1013,7 @@
       "path": "docs/wiki/howto/quickstart.md",
       "title": "Quickstart — first green API test",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1058,14 +1088,14 @@
           "text": "Next"
         }
       ],
-      "chars": 7459
+      "chars": 7749
     },
     {
       "slug": "howto/recipes",
       "path": "docs/wiki/howto/recipes.md",
       "title": "Recipes — consumer-side adapters",
       "status": "current",
-      "verified": "2026-10-09",
+      "verified": "2026-10-18",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1174,14 +1204,14 @@
           "text": "\"errors\": [{\"field\": \"name\", \"code\": \"required\", \"message\": \"must not be blank\"}]}"
         }
       ],
-      "chars": 16593
+      "chars": 16735
     },
     {
       "slug": "howto/release",
       "path": "docs/wiki/howto/release.md",
       "title": "Release checklist",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1212,6 +1242,10 @@
           "text": "4. Publish"
         },
         {
+          "level": 1,
+          "text": "--no-cache-dir: right after the upload pip may answer from its cached index and miss it"
+        },
+        {
           "level": 3,
           "text": "If you have to publish by hand"
         },
@@ -1228,14 +1262,14 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 5689
+      "chars": 5800
     },
     {
       "slug": "howto/reporting",
       "path": "docs/wiki/howto/reporting.md",
       "title": "Reporting cookbook — checks, steps, attaches",
       "status": "current",
-      "verified": "2026-10-16",
+      "verified": "2026-10-19",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1296,14 +1330,14 @@
           "text": "Coverage extras (`partest.reports`)"
         }
       ],
-      "chars": 6754
+      "chars": 7187
     },
     {
       "slug": "howto/security",
       "path": "docs/wiki/howto/security.md",
       "title": "Security cookbook — SecHttp, JWT, RiskProfile",
       "status": "current",
-      "verified": "2026-10-07",
+      "verified": "2026-10-19",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1347,7 +1381,7 @@
           "text": "Never in library"
         }
       ],
-      "chars": 3190
+      "chars": 3688
     },
     {
       "slug": "howto/ui",
@@ -1456,7 +1490,7 @@
       "path": "docs/wiki/howto/upload.md",
       "title": "Testing file upload endpoints",
       "status": "current",
-      "verified": "2026-10-09",
+      "verified": "2026-10-19",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1561,6 +1595,42 @@
         {
           "level": 1,
           "text": "Журнал"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-19 · update · 2.7.0-кандидат: маскировка — линейное время, без второго прохода"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-19 · update · 2.7.0-кандидат: маскировка «закрыто при сомнении»"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-19 · update · 2.7.0-кандидат: маскировка проще, `known_defect`, повтор ожидаемого статуса"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-19 · update · 2.7.0-кандидат: маскировка: пути, структура значений, каналы вне HTTP"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-18 · update · 2.7.0-кандидат: маскировка во всех каналах, уточнения"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-19 · update · 2.7.0-кандидат: GET BY PARENT снято"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-19 · update · 2.7.0-кандидат: замечания к opt-in, округлению и known_defect"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-18 · update · 2.7.0-кандидат: находки перехода потребителя на 2.5.0"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-18 · update · 2.7.0-кандидат: `summary.avg: null`, маскировка во всех каналах, строки 2.6.0"
         },
         {
           "level": 2,
@@ -1691,14 +1761,14 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 33903
+      "chars": 40366
     },
     {
       "slug": "proposals",
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1882,7 +1952,7 @@
         },
         {
           "level": 3,
-          "text": "E2. Тело ответа без маскировки в других каналах · кандидат в исправление"
+          "text": "E2. Тело ответа без маскировки в других каналах · ✅ исправлено в 2.7.0"
         },
         {
           "level": 3,
@@ -1902,17 +1972,49 @@
         },
         {
           "level": 2,
+          "text": "G. Из перехода потребителя на 2.5.0 · 2026-10-18"
+        },
+        {
+          "level": 3,
+          "text": "G1. `Rounded(None)` — проваленный `Agreement` «нет значения» вместо `TypeError`"
+        },
+        {
+          "level": 3,
+          "text": "G2. Сверка pydantic-модели ответа со схемой живого OpenAPI в обе стороны"
+        },
+        {
+          "level": 3,
+          "text": "G3. Вариант GET BY PARENT по числу слов (множественное против единственного)"
+        },
+        {
+          "level": 3,
+          "text": "G4. GET BY PARENT из формы пути — не выпущено в 2.7.0 · 2026-10-19"
+        },
+        {
+          "level": 3,
+          "text": "G5. Ручки отладки после маскировки · 2026-10-19"
+        },
+        {
+          "level": 3,
+          "text": "G6. Граница «воспроизведения» у `known_defect` · 2026-10-19"
+        },
+        {
+          "level": 3,
+          "text": "G7. `null` в воротах на jq/JS · 2026-10-19"
+        },
+        {
+          "level": 2,
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 34634
+      "chars": 48507
     },
     {
       "slug": "status",
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-19",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1942,7 +2044,7 @@
         },
         {
           "level": 3,
-          "text": "Следующий патч — маскировка тела во всех каналах"
+          "text": "2.7.0 — кандидат: маскировка во всех каналах, `summary.avg: null`, находки перехода потребителя · **кандидат** (версия в коде 2.7.0, на PyPI не выпущен)"
         },
         {
           "level": 3,
@@ -1985,7 +2087,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 18251
+      "chars": 23768
     },
     {
       "slug": "WIKI",
@@ -2034,7 +2136,7 @@
           "text": "Инварианты правки"
         }
       ],
-      "chars": 5196
+      "chars": 5187
     }
   ],
   "raw": [],
@@ -2062,6 +2164,9 @@
     ],
     "partest/auth/__init__.py": [
       "components/overview"
+    ],
+    "partest/auth/token_manager.py": [
+      "howto/enterprise"
     ],
     "partest/call_storage.py": [
       "backlog-audit",
@@ -2118,6 +2223,9 @@
     ],
     "partest/http_retry.py": [
       "howto/enterprise"
+    ],
+    "partest/known_defect.py": [
+      "components/overview"
     ],
     "partest/methodology/__init__.py": [
       "components/overview",
@@ -2184,12 +2292,14 @@
       "backlog-audit",
       "components/overview",
       "concepts/coverage-honesty",
+      "howto/enterprise",
       "howto/migration",
       "howto/quickstart",
       "proposals"
     ],
     "partest/redact.py": [
-      "howto/enterprise"
+      "howto/enterprise",
+      "howto/migration"
     ],
     "partest/reporting/__init__.py": [
       "components/overview",
@@ -2200,6 +2310,7 @@
       "howto/reporting"
     ],
     "partest/reporting/checks.py": [
+      "howto/enterprise",
       "howto/reporting"
     ],
     "partest/reporting/instrument.py": [
@@ -2211,6 +2322,9 @@
     ],
     "partest/reporting/steps.py": [
       "howto/reporting"
+    ],
+    "partest/reporting/templates.py": [
+      "howto/enterprise"
     ],
     "partest/reports/__init__.py": [
       "components/overview",
@@ -2225,8 +2339,14 @@
       "concepts/methodology",
       "howto/migration"
     ],
+    "partest/reports/badge.py": [
+      "howto/coverage-html"
+    ],
     "partest/reports/compare.py": [
-      "concepts/coverage-honesty"
+      "components/overview",
+      "concepts/coverage-honesty",
+      "howto/coverage-html",
+      "howto/migration"
     ],
     "partest/reports/interactive_html.py": [
       "howto/coverage-html"
@@ -2235,6 +2355,8 @@
       "backlog-audit",
       "components/overview",
       "concepts/coverage-honesty",
+      "howto/coverage-html",
+      "howto/migration",
       "proposals"
     ],
     "partest/reports/services.py": [
@@ -2266,6 +2388,7 @@
       "howto/security"
     ],
     "partest/sideeffects.py": [
+      "howto/enterprise",
       "howto/layers"
     ],
     "partest/test_types.py": [
@@ -2290,6 +2413,9 @@
     "partest/ui/__init__.py": [
       "components/overview",
       "howto/ui"
+    ],
+    "partest/ui/allure_ui.py": [
+      "howto/enterprise"
     ],
     "partest/ui/base_page.py": [
       "howto/ui"

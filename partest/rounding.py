@@ -41,17 +41,41 @@ quietly picking one end. Arithmetic is :mod:`decimal` with outward rounding, so 
 interval is never narrower than the truth; a float is read as the shortest decimal that
 prints it (``0.1`` is ``0.1``), which is what a JSON number on the wire was.
 
-Only round-to-nearest is modelled (any tie rule: half-up, half-even, half-down — the
-interval is closed). A value *truncated* to its scale is off by up to a whole unit in one
-direction and is not covered.
+By default a value is taken as rounded to nearest (any tie rule: half-up, half-even,
+half-down — the interval is closed). A value rounded in one direction says so with
+``rounding=``: ``"floor"`` (toward −∞), ``"ceiling"`` (toward +∞), ``"toward_zero"``
+(the extra digits dropped). Its interval is then a whole unit wide and on one side of the
+record: ``Rounded(12.34, 2, rounding="floor")`` stands for ``[12.34, 12.35]``. "Amounts are
+rounded down" in a specification usually means the digits are dropped — ``"toward_zero"``:
+for a negative amount (a refund, a correction) ``-12.349`` becomes ``-12.34``, which
+``"floor"`` would write ``-12.35``. The two agree only for values that cannot be negative.
+Away from zero (``decimal.ROUND_UP``) and ``decimal.ROUND_05UP`` are not modelled and raise
+``ValueError``.
+
+A float the service computed and did not round is good to some number of *significant*
+digits, not decimals: ``Rounded(ratio, significant=12)`` stands for every value within half a
+unit of its twelfth significant digit, and its extra digits are not a note — nobody claimed
+it was rounded. Several checks at once — :func:`assert_all_agree`: one protocol, one
+``AssertionError`` listing every disagreement.
 """
 
 from __future__ import annotations
 
 import warnings
-from dataclasses import dataclass
-from decimal import ROUND_CEILING, ROUND_FLOOR, Context, Decimal, DecimalException, InvalidOperation
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union
+from dataclasses import dataclass, field
+from decimal import (
+    ROUND_CEILING,
+    ROUND_DOWN,
+    ROUND_FLOOR,
+    ROUND_HALF_DOWN,
+    ROUND_HALF_EVEN,
+    ROUND_HALF_UP,
+    Context,
+    Decimal,
+    DecimalException,
+    InvalidOperation,
+)
+from typing import Any, Callable, Dict, Iterable, Optional, Sequence, Tuple, Union
 
 Number = Union[int, float, str, Decimal]
 
@@ -294,6 +318,19 @@ def _fmt(value: Decimal, digits: int = 12) -> str:
     return text
 
 
+#: How a recorded value was rounded: to nearest (the default), down, up, toward zero.
+ROUNDING_MODES = ("half", "floor", "ceiling", "toward_zero")
+_DECIMAL_ROUNDING = {
+    ROUND_HALF_UP: "half",
+    ROUND_HALF_EVEN: "half",
+    ROUND_HALF_DOWN: "half",
+    ROUND_FLOOR: "floor",
+    ROUND_CEILING: "ceiling",
+    ROUND_DOWN: "toward_zero",  # decimal's ROUND_DOWN truncates; it is not "floor"
+}
+_SCALE_REQUIRED: Any = object()
+
+
 @dataclass(frozen=True)
 class Rounded:
     """A number as it was recorded: its value and the scale it was rounded to.
@@ -303,28 +340,115 @@ class Rounded:
     test wrote itself. A float the service *computed* is not exact even when it is not
     rounded to a scale: its last digits are binary noise, and declaring it ``None`` makes
     the check demand more than the arithmetic can give. Give such a value the scale it is
-    meaningful to. ``label`` names it in messages.
+    meaningful to, or ``significant=``. ``label`` names it in messages.
+
+    ``significant=N`` (instead of ``scale``) — the value is good to ``N`` significant digits:
+    the unit is that of its ``N``-th significant digit, whatever its magnitude
+    (``Rounded(0.30000000000000004, significant=12)`` is ``0.3 ± 5·10⁻¹³``). It does not claim
+    the value was rounded, so digits beyond it are not a note. Zero has no significant
+    digits and is taken as exact.
+
+    ``rounding=`` — how the service rounded: ``"half"`` (to nearest, any tie rule — the
+    default, the interval is ``value ± ½ unit``), ``"floor"`` (toward −∞:
+    ``[value, value + unit]``), ``"ceiling"`` (toward +∞: ``[value − unit, value]``),
+    ``"toward_zero"`` (digits dropped: floor for a positive value, ceiling for a negative one,
+    ``[−unit, unit]`` for zero — the right one for "rounded down" amounts that can be
+    negative). The :mod:`decimal` constants are accepted too — ``ROUND_DOWN`` is
+    ``"toward_zero"``, as in :mod:`decimal`, and every ``ROUND_HALF_*`` is ``"half"``;
+    ``ROUND_UP`` (away from zero) and ``ROUND_05UP`` are not modelled: ``ValueError``.
+
+    ``Rounded(x, None, significant=N)`` is accepted — ``None`` is what ``scale`` becomes
+    under ``significant=``; any other ``scale`` together with it is a ``TypeError``.
     """
 
     value: Number
-    scale: Optional[int]
+    scale: Optional[int] = _SCALE_REQUIRED
     label: str = ""
+    significant: Optional[int] = field(default=None, kw_only=True)
+    rounding: str = field(default="half", kw_only=True)
+
+    def __post_init__(self) -> None:
+        if self.significant is not None:
+            if self.scale is not _SCALE_REQUIRED and self.scale is not None:
+                raise TypeError("give scale or significant=, not both")
+            if (
+                isinstance(self.significant, bool)
+                or not isinstance(self.significant, int)
+                or self.significant < 1
+            ):
+                raise ValueError(
+                    f"significant must be a positive int, got {self.significant!r}"
+                )
+            object.__setattr__(self, "scale", None)
+        elif self.scale is _SCALE_REQUIRED:
+            raise TypeError(
+                "Rounded() needs the scale the value was rounded to (None for an exact "
+                "value), or significant="
+            )
+        mode = _DECIMAL_ROUNDING.get(self.rounding, self.rounding)
+        if mode not in ROUNDING_MODES:
+            raise ValueError(
+                f"rounding must be one of {', '.join(ROUNDING_MODES)}, got {self.rounding!r}"
+            )
+        object.__setattr__(self, "rounding", mode)
 
     @property
     def decimal(self) -> Decimal:
         return _dec(self.value, what=self.label or "value")
 
     @property
+    def effective_scale(self) -> Optional[int]:
+        """The decimals the value is good to: ``scale``, or derived from ``significant``."""
+        if self.significant is None:
+            return self.scale
+        d = self.decimal
+        if d == 0:
+            return None
+        scale = self.significant - 1 - d.adjusted()
+        if abs(scale) > MAX_SCALE:
+            raise ValueError(
+                f"{self.label or 'value'} = {self.value!r} at {self.significant} significant "
+                f"digits is a unit of 1E{-scale}: beyond the ±{MAX_SCALE} decimals this check "
+                "represents — no recorded number is that small or that large"
+            )
+        return scale
+
+    @property
     def half_unit(self) -> Decimal:
-        return half_unit(self.scale)
+        return half_unit(self.effective_scale)
+
+    @property
+    def unit(self) -> Decimal:
+        """One unit in the last place kept (zero for an exact value)."""
+        return self.half_unit * 2
+
+    def _offsets(self, sign: int) -> Tuple[Decimal, Decimal]:
+        """``(below, above)``: a record ``r`` of this sign stands for ``[r + below, r + above]``."""
+        h = self.half_unit
+        u = h * 2
+        mode = self.rounding
+        if mode == "toward_zero":
+            mode = "floor" if sign > 0 else "ceiling" if sign < 0 else "both"
+        if mode == "floor":
+            return Decimal(0), u
+        if mode == "ceiling":
+            return -u, Decimal(0)
+        if mode == "both":
+            return -u, u
+        return -h, h
 
     @property
     def interval(self) -> Interval:
-        """Every value that rounds to this one at this scale."""
-        return Interval.point(self.decimal).widen(self.half_unit)
+        """Every value that rounds to this one at this scale, in this direction."""
+        d = self.decimal
+        below, above = self._offsets(1 if d > 0 else -1 if d < 0 else 0)
+        return Interval(_FLOOR.add(d, below), _CEIL.add(d, above))
 
     def excess_digits(self) -> int:
-        """How many decimals the value carries beyond its declared scale (0 if none)."""
+        """How many decimals the value carries beyond its declared scale (0 if none).
+
+        Always 0 for ``significant=``: such a value is not claimed to be rounded.
+        """
         if self.scale is None:
             return 0
         sign, digits, exponent = self.decimal.as_tuple()
@@ -335,6 +459,58 @@ class Rounded:
             digits = digits[:-1]
             exponent += 1
         return max(0, -exponent - self.scale)
+
+
+def _accepted(predicted: Interval, output: Rounded) -> Interval:
+    """Every record a correct service could write for a true value inside ``predicted``.
+
+    A record ``r`` stands for ``[r + below, r + above]``; it is possible when that meets
+    ``predicted``, i.e. ``r ∈ [lo − above, hi − below]``. Truncation depends on the sign of
+    ``r``, so its accepted set is the hull of the positive, negative and zero records.
+    """
+    lo, hi = predicted.lo, predicted.hi
+    if output.rounding != "toward_zero" or output.half_unit == 0:
+        below, above = output._offsets(1)
+        return Interval(_FLOOR.subtract(lo, above), _CEIL.subtract(hi, below))
+    u = output.unit
+    ends = []
+    if hi > 0:  # positive records, floored: [r, r + u]
+        ends.append((max(_FLOOR.subtract(lo, u), Decimal(0)), hi))
+    if lo < 0:  # negative records, ceiled: [r − u, r]
+        ends.append((lo, min(_CEIL.add(hi, u), Decimal(0))))
+    if lo <= u and hi >= -u:  # zero: [−u, u]
+        ends.append((Decimal(0), Decimal(0)))
+    return Interval(min(e[0] for e in ends), max(e[1] for e in ends))
+
+
+def _how(r: Rounded) -> str:
+    """How a value was recorded, for the protocol. The default reads as it always did."""
+    if r.significant is not None:
+        text = f"{r.significant} significant digits → scale {r.effective_scale}"
+    else:
+        text = f"scale {r.scale}"
+    if r.rounding != "half":
+        text += f", rounded {r.rounding.replace('_', ' ')}"
+    return text
+
+
+def _how_dict(r: Rounded) -> Dict[str, Any]:
+    """The non-default parts of how a value was recorded; empty for ``scale`` + half."""
+    extra: Dict[str, Any] = {}
+    if r.significant is not None:
+        extra["significant"] = r.significant
+    if r.rounding != "half":
+        extra["rounding"] = r.rounding
+    return extra
+
+
+def _spread(r: Rounded) -> str:
+    """Where the true value lies around the record: ``±0.005`` or ``−0 … +0.01``."""
+    if r.rounding == "half" or r.half_unit == 0:
+        return f"±{_fmt(r.half_unit)}"
+    d = r.decimal
+    below, above = r._offsets(1 if d > 0 else -1 if d < 0 else 0)
+    return f"−{_fmt(-below)} … +{_fmt(above)}"
 
 
 @dataclass(frozen=True)
@@ -380,10 +556,15 @@ class Agreement:
             "accepted": [float(self.accepted.lo), float(self.accepted.hi)],
             "resolution_pct": None if self.resolution is None else self.resolution * 100,
             "inputs": {
-                (i.label or f"#{n}"): {"value": float(i.decimal), "scale": i.scale}
+                (i.label or f"#{n}"): {
+                    "value": float(i.decimal),
+                    "scale": i.effective_scale,
+                    **_how_dict(i),
+                }
                 for n, i in enumerate(self.inputs, 1)
             },
-            "output_scale": self.output.scale,
+            "output_scale": self.output.effective_scale,
+            **{f"output_{k}": v for k, v in _how_dict(self.output).items()},
             "notes": list(self.notes),
         }
 
@@ -399,11 +580,12 @@ class Agreement:
         verdict = "agrees with" if self.ok else "does NOT agree with"
         lines = [
             f"{self.label or 'value'} {verdict} the formula within the rounding of its inputs",
-            f"  actual      {_fmt(self.actual)}  (scale {self.output.scale})",
+            f"  actual      {_fmt(self.actual)}  ({_how(self.output)})",
             f"  computed    {_fmt(self.computed)}  (inputs at face value)",
             f"  deviation   {_fmt(self.deviation)}",
             f"  predicted   {self.predicted!r}  (formula over the inputs' intervals)",
-            f"  accepted    {self.accepted!r}  (widened by the output's half unit)",
+            f"  accepted    {self.accepted!r}  (widened by the output's "
+            + ("half unit)" if self.output.rounding == "half" else "rounding)"),
             "  resolution  "
             + ("n/a (computed value is zero)" if self.resolution is None
                else f"±{self.resolution * 100:.4g}% of the computed value"),
@@ -411,7 +593,7 @@ class Agreement:
         ]
         for n, i in enumerate(self.inputs, 1):
             lines.append(
-                f"    {i.label or f'#{n}'} = {_fmt(i.decimal)}  (scale {i.scale}, ±{_fmt(i.half_unit)})"
+                f"    {i.label or f'#{n}'} = {_fmt(i.decimal)}  ({_how(i)}, {_spread(i)})"
             )
         lines.extend(f"  note: {note}" for note in self.notes)
         return "\n".join(lines)
@@ -439,7 +621,7 @@ def agrees_with_formula(
     try:
         computed_iv = Interval._coerce(formula(*(Interval.point(i.decimal) for i in inputs)))
         predicted = Interval._coerce(formula(*(i.interval for i in inputs)))
-        accepted = predicted.widen(actual.half_unit)
+        accepted = _accepted(predicted, actual)
     except DecimalException as exc:
         raise ValueError(
             f"the formula left the range decimal arithmetic can represent "
@@ -485,12 +667,65 @@ def agrees_with_sum(total: Rounded, parts: Sequence[Rounded], *, label: str = ""
     return agrees_with_formula(total, lambda *xs: sum(xs, Interval.point(0)), *parts, label=label)
 
 
+def assert_all_agree(
+    checks: Iterable[Agreement], *, name: str = "rounding checks"
+) -> Tuple[Agreement, ...]:
+    """Attach the protocol of every check, then fail once, naming every disagreement.
+
+    ``assert check, str(check)`` per value stops at the first one and hides the rest; a
+    response with five computed fields deserves one verdict on all five::
+
+        assert_all_agree([
+            agrees_with_formula(Rounded(body["total"], 2, "total"), mul, rate, count),
+            agrees_with_sum(Rounded(body["sum"], 2, "sum"), parts),
+        ], name="invoice totals")
+
+    With Allure available the protocol is attached as ``<name>`` (JSON, every
+    :meth:`Agreement.as_dict`) and ``<name>.txt`` (every ``str()``), on a pass as well as on
+    a failure; without it nothing is attached and the rest works the same. The
+    ``AssertionError`` lists each failed check's full protocol. Returns the checks, so the
+    caller can read them. An empty set raises ``ValueError``: no check is not a pass.
+    """
+    items = tuple(checks)
+    for n, item in enumerate(items, 1):
+        if not isinstance(item, Agreement):
+            raise TypeError(
+                f"check #{n} must be an Agreement (agrees_with_formula / agrees_with_sum), "
+                f"got {type(item).__name__}"
+            )
+    if not items:
+        raise ValueError(f"{name}: no checks were given — nothing was compared")
+    failed = [a for a in items if not a]
+    header = f"{name}: {len(items) - len(failed)} of {len(items)} agree"
+    _attach_protocol(name, items, header)
+    if failed:
+        raise AssertionError(
+            f"{name}: {len(failed)} of {len(items)} do NOT agree — "
+            + ", ".join(a.label or "value" for a in failed)
+            + "\n\n"
+            + "\n\n".join(str(a) for a in failed)
+        )
+    return items
+
+
+def _attach_protocol(name: str, items: Sequence[Agreement], header: str) -> None:
+    """Allure attachments when ``partest.reporting`` and Allure are there; nothing otherwise."""
+    try:
+        from partest.reporting.attach import attach_json, attach_text
+    except Exception:  # reporting is optional for this module
+        return
+    attach_json(name, [a.as_dict() for a in items])
+    attach_text(f"{name}.txt", header + "\n\n" + "\n\n".join(str(a) for a in items))
+
+
 __all__ = [
     "Agreement",
     "Interval",
+    "ROUNDING_MODES",
     "Rounded",
     "RoundingNoteWarning",
     "agrees_with_formula",
     "agrees_with_sum",
+    "assert_all_agree",
     "half_unit",
 ]

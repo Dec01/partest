@@ -136,33 +136,21 @@ def _module_dir(module: Any) -> Optional[Path]:
 
 # --- error text that can be shown -----------------------------------------------------
 
-# Userinfo runs to the *last* ``@`` before the host: a raw ``@`` in a password is common.
-# Quantifiers that can backtrack are bounded (a scheme of 32, userinfo of 512 characters):
-# unbounded, a text built to look like many half-URLs — or a 64 KB response body quoted in
-# a status message — takes quadratic time to clean.
-_URL_RE = re.compile(
-    r"(?P<scheme>\b[a-zA-Z][a-zA-Z0-9+.-]{0,31}://)(?P<userinfo>[^/\s'\"<>?#]{0,512}@)?"
-    r"(?P<rest>[^\s?#'\"<>]*)(?P<query>\?[^\s#'\"<>)]*)?"
-)
-# ``user:password@host/...`` without a scheme.
-_BARE_USERINFO_RE = re.compile(
-    r"(?<![\w/@:.%+~-])[\w.%+~-]{1,128}:[^\s/'\"<>]{0,512}@"
-    r"(?=[A-Za-z0-9.-]{1,253}(?::\d{1,5})?(?:[/\s'\")]|$))"
-)
 # ``<object at 0x...>`` in an exception text: the same failure from two processes would read
 # as two different lines.
 _ADDRESS_RE = re.compile(r" at 0x[0-9a-fA-F]+")
-# A query string after a bare path, as in ``... for url: /openapi.json?token=...``.
-_PATH_QUERY_RE = re.compile(r"(?P<path>(?<![\w:/])/[^\s?'\"<>]*)\?[^\s#'\"<>)]*")
 
 
 def _strip_url_secrets(text: str) -> str:
-    def url(m: "re.Match[str]") -> str:
-        return m.group("scheme") + m.group("rest") + ("?…" if m.group("query") else "")
+    """URL credentials removed and every query string replaced by ``?…``.
 
-    text = _URL_RE.sub(url, text)
-    text = _BARE_USERINFO_RE.sub("", text)
-    return _PATH_QUERY_RE.sub(lambda m: m.group("path") + "?…", text)
+    The same URL scanner the package's output channels use (:func:`partest.redact._scrub_urls`);
+    errors about the project's configuration drop the whole query, the channels only the
+    values of secret keys.
+    """
+    from partest.redact import _scrub_urls
+
+    return _scrub_urls(text, drop_query=True)
 
 
 def _safe_text(text: Any, *, secrets_of: Optional[str] = None) -> str:

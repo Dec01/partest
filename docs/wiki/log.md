@@ -13,6 +13,100 @@ allow_version_literals: true
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
 
+## 2026-10-19 · update · 2.7.0-кандидат: маскировка — линейное время, без второго прохода
+
+[[howto/enterprise]], [[howto/migration]], [[proposals]] §E2/§E3: скобки внутри строк в обеих
+кавычках, маркер усечения только в конце текста, PEM, имена query вне URL и `jsessionid`, новые
+окончания заголовков и `Access-Control-Allow-Credentials` видим, уже замаскированное не
+маскируется повторно; таблица migration без разрыва, строка про `sig`/`code`/`key` по коду,
+уточнение про некорректный шаблон пути. `verified` обновлён у [[howto/release]],
+[[howto/contribute]], [[decisions/docs-architecture]] (их `sources` менялись).
+
+## 2026-10-19 · update · 2.7.0-кандидат: маскировка «закрыто при сомнении»
+
+[[howto/enterprise]], [[howto/migration]], [[proposals]] §E2: конец значения в тексте — без
+эвристики кавычек, незакрытое значение — до конца отступленного блока; заголовок секретен по
+окончанию имени (список), вариант настройки имён в §E2; query — `sig`, `X-Goog-Signature`,
+`auth_token`, `session_id`. [[howto/security]]: `key` и `code` в URL не маскируются.
+
+## 2026-10-19 · update · 2.7.0-кандидат: маскировка проще, `known_defect`, повтор ожидаемого статуса
+
+[[howto/enterprise]], [[howto/migration]], [[proposals]] §E2: заголовок секретен по последнему
+сегменту имени, query — только однозначные имена, что считается секретом — по видам (ключ тела,
+заголовок, query); новые строки Known issues. [[components/overview]], [[proposals]] §G6:
+`known_defect` — набор шлюза 502/503/504 (429 — поведение сервиса), пример обхода только для
+своего статуса. Из журнала и [[proposals]] убраны слова о процессе разработки.
+
+## 2026-10-19 · update · 2.7.0-кандидат: маскировка: пути, структура значений, каналы вне HTTP
+
+[[howto/enterprise]] (нормализация ключей, заголовки по подстроке, query-параметры подписанных
+URL и OAuth, циклы, пересериализация JSON, каналы вне HTTP; `sources` + `token_manager.py`,
+`allure_ui.py`, `pytest_plugin.py`), [[howto/migration]] (2.7.0: пересериализация JSON,
+`StatusMismatchError` из ветки HTTP-ошибки, провал схемы под набором статусов), [[proposals]]
+§E2 (закрытое и остаток). `verified` обновлён у страниц, чьи
+`sources` тронуты: [[howto/reporting]], [[backlog-audit]], [[components/overview]],
+[[concepts/coverage-honesty]], [[howto/quickstart]], [[howto/upload]],
+[[decisions/explicit-type]].
+
+## 2026-10-18 · update · 2.7.0-кандидат: маскировка во всех каналах, уточнения
+
+[[howto/enterprise]] (раздел о маскировке переписан под один обходчик; таблица каналов;
+`sources` + `checks.py`, `sideeffects.py`), [[howto/reporting]] (`attach_response` снова не
+маскирует по умолчанию), [[howto/recipes]] (`"token": "***"`, `validation_errors`),
+[[howto/migration]] (2.7.0: `Data:` — JSON, строка httpx, URL, `StatusMismatchError`,
+`validation_errors`, вывод `redact_text`), [[proposals]] §E2 (что сделано, остаток:
+`attach_response` — перевернуть в 3.0, XML), `status.md` (строка 2.7.0). `verified` у
+[[howto/security]] (тронут `sec_http.py`).
+
+## 2026-10-19 · update · 2.7.0-кандидат: GET BY PARENT снято
+
+Решение: правило GET BY PARENT в 2.7.0 не выпускается, выходы классификатора —
+как в 2.6.0. Убрано из `CHANGELOG.md` (Changed), [[howto/migration]], `status.md`;
+[[concepts/methodology]] и скилл `partest-cover-api`: GET BY PARENT только из
+`subtype_overrides`; `backlog-audit.md`: строка «GET BY PARENT из формы пути — не делается».
+[[proposals]] §G4 переписан: кандидатное правило, контрпримеры, вывод; §G6 дополнен (429,
+дефект-502, `stand_statuses=`, Allure). [[concepts/coverage-honesty]]: старый `0.0` при нуле
+эндпоинтов — «не измерено». [[components/overview]]: `known_defect` — 429, `xfail` во время
+прогона. CHANGELOG: тип полей `compare_payloads`, `ErrorDesc.validate` — строка.
+
+## 2026-10-19 · update · 2.7.0-кандидат: замечания к opt-in, округлению и known_defect
+
+[[components/overview]]: `known_defect` — 502/503/504 не воспроизведение, вердикт виден
+allure-pytest и rerunfailures, честная граница (`PollTimeout`, `expect`), `xfail` вместе —
+ошибка. [[howto/layers]]: `"toward_zero"` для «округлено вниз», `"floor"` — к −∞, `ROUND_UP` /
+`ROUND_05UP` не моделируются. [[concepts/methodology]]: стоп-лист префиксов сервиса.
+[[howto/coverage-html]], [[howto/migration]]: старый `0.0` пустого прогона — «не измерено»,
+`compare --strict` код 2, `null` в воротах jq/JS, ужесточение валидатора. [[proposals]] §G4–G7.
+`status.md`: обоснование минора, правило veha. CHANGELOG: восстановлен заголовок
+`### Changed` 2.7.0, ссылка «Unreleased → Changed» в 2.5.0 указывает на 2.7.0.
+
+## 2026-10-18 · update · 2.7.0-кандидат: находки перехода потребителя на 2.5.0
+
+[[howto/layers]]: `significant=`, `rounding=`, `assert_all_agree`, пункт про усечение в
+ограничениях переписан. [[components/overview]] (`sources` + `known_defect.py`, `compare.py`):
+`would_select` и публичное правило opt-in, `optin_comparable`, раздел о маркере `known_defect`.
+[[concepts/methodology]]: какое GET BY PARENT классификатор читает и какое нет.
+[[howto/coverage-html]]: `optin_comparable`. [[howto/enterprise]]: строка `Logger.warning`.
+[[howto/quickstart]], [[howto/migration]], [[howto/release]]: `pip install --no-cache-dir`
+сразу после выпуска. [[howto/migration]]: раздел Unreleased стал «2.7.0 (candidate)», строки
+GET BY PARENT и `Logger.warning`, таблица «своя копия → имя из пакета». [[proposals]] §G
+(отложенное: G1 `Rounded(None)`, G2 сверка модели со схемой, G3 GET BY PARENT без общего
+слова). `status.md`: версия в коде 2.7.0 (кандидат), раздел 2.7.0 дополнен. Скилл
+`partest-cover-api`: строка классификатора про `get_by_parent` исправлена по коду, пункт про
+`known_defect` в чек-листе.
+
+## 2026-10-18 · update · 2.7.0-кандидат: `summary.avg: null`, маскировка во всех каналах, строки 2.6.0
+
+[[howto/coverage-html]] (раздел «A run with no endpoints», `sources` дополнены `payload.py`,
+`badge.py`, `compare.py`), [[concepts/coverage-honesty]]: `summary.avg` — `null` без эндпоинтов.
+[[howto/enterprise]] (таблица каналов переписана, `sources` + `templates.py`),
+[[howto/reporting]], [[howto/recipes]]: маскировка во всех каналах, `attach_response`
+маскирует по умолчанию. [[howto/migration]]: раздел Unreleased; в 2.6.0 — `load_confpartest`
+без цепочки, какие вызовы поднимают `ConfpartestError`, отчёт не падает (`NOT COUNTED`).
+[[proposals]] §E2 — исправлено, с остатком; `status.md` — раздел 2.7.0-кандидата вместо
+«Следующий патч». `verified` обновлён у [[howto/upload]] и [[decisions/explicit-type]]
+(тронут `partest/client.py`).
+
 ## 2026-10-18 · release · 2.6.0
 
 `Unreleased` свёрнут в 2.6.0; `status.md` — 2.6.0 на PyPI; набор прогнан на 3.14 (838 passed, 2 skipped).

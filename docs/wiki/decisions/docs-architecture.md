@@ -1,7 +1,7 @@
 ---
 title: "ADR — архитектура документации: AGENTS + Skills + Wiki"
 status: current
-verified: 2026-09-24
+verified: 2026-10-19
 sources: [tools/docs_lint.py, tools/docs_index.py, docs/wiki/WIKI.md]
 audience: maintainer
 ships_in_wheel: false

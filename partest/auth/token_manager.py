@@ -10,6 +10,7 @@ import httpx
 
 from partest.auth.jwt_decode import decode_jwt_payload
 from partest.http.client import httpx_async_client
+from partest.redact import _body_text
 from partest.tls import VerifySetting, resolve_verify
 
 CredentialsProvider = Callable[[str], Tuple[str, str]]
@@ -102,7 +103,8 @@ class TokenManager:
             access_token = token_data.get("access_token")
             if not access_token:
                 raise RuntimeError(
-                    f"access_token missing in token response for role `{role}`: {token_data}"
+                    f"access_token missing in token response for role `{role}`: "
+                    f"{_body_text(token_data, limit=500)}"
                 )
             expires_at = self._compute_expires_at(token_data, access_token)
             self._cache[role] = (access_token, expires_at)
@@ -161,10 +163,12 @@ class TokenManager:
                     response.raise_for_status()
                 token_data = response.json()
                 if "access_token" not in token_data:
-                    raise RuntimeError(f"No access_token in response: {token_data}")
+                    raise RuntimeError(
+                        f"No access_token in response: {_body_text(token_data, limit=500)}"
+                    )
                 return token_data
             except httpx.HTTPStatusError as e:
                 raise RuntimeError(
                     f"OIDC HTTP error ({username}): "
-                    f"{e.response.status_code} - {e.response.text}"
+                    f"{e.response.status_code} - {_body_text(e.response.text, limit=500)}"
                 ) from e
