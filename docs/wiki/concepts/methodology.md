@@ -2,7 +2,7 @@
 title: Coverage methodology — two areas, three axes each
 status: current
 verified: 2026-10-19
-sources: [partest/methodology/__init__.py, partest/methodology/api/subtypes.py, partest/methodology/api/matrix.py, partest/methodology/api/steps.py, partest/methodology/api/inference.py, partest/methodology/api/classifier.py, partest/test_types.py, partest/methodology/ui/surfaces.py, partest/methodology/ui/checks.py, partest/methodology/ui/matrix.py, partest/methodology/ui/steps.py, partest/reports/analyzer.py]
+sources: [partest/methodology/__init__.py, partest/methodology/api/subtypes.py, partest/methodology/api/matrix.py, partest/methodology/api/steps.py, partest/methodology/api/inference.py, partest/methodology/api/classifier.py, partest/test_types.py, partest/methodology/ui/surfaces.py, partest/methodology/ui/checks.py, partest/methodology/ui/matrix.py, partest/methodology/ui/steps.py, partest/reports/analyzer.py, partest/reports/payload.py, partest/coverage.py]
 audience: agent
 ships_in_wheel: true
 ---
@@ -118,10 +118,32 @@ Status-only is not coverage for Default, Elements or Benchmark cases. A test tha
 and nothing else passes while the payload is empty. Steps are described in
 `partest/methodology/api/steps.py`.
 
-**The report does not score this axis.** Each recorded call notes whether it carried a status
-check and a `validate_model` (`has_status_check`, `has_validate_model` in `call_meta`), but the
-percentage is computed from axes A and B only: a status-only call of the right `type=` fills its
-cell exactly like a call that checks every value. Depth is for review, not for the number.
+**The report shows this axis apart from the percentage, and does not score it.** Each recorded
+call notes which checks it **asked for** — whether `expected_status_code` and `validate_model`
+were passed (`has_status_check`, `has_validate_model` in `call_meta`). These are the call's
+arguments, recorded before the request is sent: what was asked, not what passed. The
+percentage is computed from axes A and B only: a status-only call of the right `type=` fills
+its cell exactly like a call that checks every value. Next to it, `coverage.json` carries
+`depth`: per endpoint, of the required cells the run filled, in how many some call of that type
+asked for a status check and in how many for a schema check; `summary.depth` pools the same
+counts over the run, with the two shares.
+
+- A cell counts at the deepest call of its type: one call with `validate_model` makes the cell
+  "schema", however many unchecked helper calls of the same type there are.
+- Schema counts only on top of a status check (`call_depth` in
+  `partest/methodology/api/steps.py`, the one rule): `make_request` validates the body after
+  checking `expected_status_code`, so a `validate_model` without it asks for nothing.
+- `values` is always `null` — not measured. Value asserts live in the suite's own code, and the
+  call does not see them.
+- `null` where nothing was measured: an endpoint with no filled required cell, an `exception`
+  row, calls recorded without the two flags — by hand, loaded from an older storage dump, or
+  made through a tracked function that has neither an `expected_status_code` parameter nor
+  `**kwargs` (the flags are read through the function's signature, positional arguments and
+  defaults included; a `**kwargs` wrapper is read from its keyword arguments).
+
+Which depth each case requires (status-only is not enough for Default, Elements or Benchmark)
+is the methodology's rule, not a field of the report: the report says how deep the calls asked
+to be checked, the reader judges whether that is deep enough.
 
 ## Type inference and why `type=` still matters
 
@@ -152,20 +174,26 @@ its subtype, or up to `max_priority` if you raise it — whose `type=` was recor
 endpoint in this run. That is axes A and B and nothing else.
 
 **What covered means by this methodology** adds axis C: each of those cases also asserts to the
-depth it requires. The report cannot see that, so its 100 % is necessary, not sufficient — a
-suite of status-only calls with the right `type=` reaches it. A file existing, or a call being
-made, is not coverage either way.
+depth it requires. The percentage does not include that, so its 100 % is necessary, not
+sufficient — a suite of status-only calls with the right `type=` reaches it. The `depth` field
+beside it shows how deep the calls asked to be checked (status, schema), and values stay
+unmeasured. A file
+existing, or a call being made, is not coverage either way.
 
-**Exception endpoints are scored, not excluded.** An endpoint on which a call recorded an
+**Exception endpoints are counted, not averaged.** An endpoint on which a call recorded an
 exception type — `health` built in, plus whatever `test_types_exception` in `confpartest`
-lists — gets status `exception` and **100 %**. That row counts in the average and among a
-service's `covered` endpoints; it is not taken out of the denominator. One health call on an
-operation therefore lifts the average as much as a fully tested one does.
+lists — gets status `exception` and keeps its row at 100 %, but that row is left
+out of every average: `summary.avg` / `avgAll`, `avgCoverage` of a service, subtype or method,
+the heatmap, and a service's `covered`. `summary.exception` and a service's `exception` still
+count it, and `scored` counts the rows the average and `covered` are taken from. A set of `exception` rows only has no average — `null`. `coverage.json` says which rule
+its averages follow in `meta.avgRule` (`2`; a file without the key was written under the old
+rule, where such a row counted as a fully covered endpoint); `compare` recomputes such a file's
+average from its rows before it compares — [[howto/coverage-html]].
 
-The definition above is the methodology; where the report falls short of it — depth not
-scored, exception endpoints in the average — that is an open defect of the report, recorded in
-the proposals page of the partest repository on GitHub (F1) for a decision, not a change of the
-definition.
+The definition above is the methodology. Where the report still falls short of it — depth shown
+beside the percentage rather than scored in it — that is recorded as an open option in the
+proposals page of the partest repository on GitHub (F1, option 1): scoring depth would change
+every percentage, which is a major change of the format, not a change of the definition.
 
 `request_permissions` deserves special mention: it is one type covering four security layers
 (allowed, foreign object, disabled account, no session). One 401 is not the type covered —

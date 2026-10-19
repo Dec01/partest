@@ -6,12 +6,32 @@ import html
 import json
 from typing import Any
 
+from partest.reports._rules import json_safe, shown
+
 PLACEHOLDER_DATA = "%%COVERAGE_DATA%%"
 PLACEHOLDER_TITLE = "%%COVERAGE_TITLE%%"
 
 
+def _rule_for_page(payload: Any) -> Any:
+    """The payload with a ``meta.avgRule`` that is not an integer written as text.
+
+    In JSON ``2.0`` and ``2`` are the same number to the page, and Python reads ``2.0`` as not
+    a rule (``is_known_rule``). Written as the text ``"2.0"`` it is an unknown rule on the
+    page too, and the page shows the file's own average instead of recomputing it.
+    """
+    meta = payload.get("meta") if isinstance(payload, dict) else None
+    if not isinstance(meta, dict) or "avgRule" not in meta:
+        return payload
+    rule = meta["avgRule"]
+    if isinstance(rule, (bool, float)):
+        return {**payload, "meta": {**meta, "avgRule": shown(rule)}}
+    return payload
+
+
 def render_html(payload: dict[str, Any], *, title: str = "partest API coverage") -> str:
-    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    data = json.dumps(
+        json_safe(_rule_for_page(payload)), ensure_ascii=False, separators=(",", ":")
+    )
     data = data.replace("<", "\\u003c")
     return (
         _TEMPLATE.replace(PLACEHOLDER_TITLE, html.escape(title))
@@ -163,6 +183,11 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   <div class="help" id="help">
     Coverage = the share of required P1 test cases (subtype × Request* matrix) executed for an endpoint.
     Average is taken over the selected services. Full = every P1 present; Partial = some; Empty = none.
+    Exception endpoints (health and the project's exception types) are counted but left out of every
+    average (<code>meta.avgRule</code> 2; older files keep their rule). Depth is shown apart from the percentage: of the
+    required cells a run filled, the share where a call asked for a status check, and for a schema
+    check (<code>validate_model</code>) — what the call asked for, not what a test asserted on its
+    own; value checks live in test code and are not measured.
     The service checkboxes recalculate the header, cards and bars; the matrix filters separately.
     Keys: <code>/</code> search, <code>Esc</code> clear the matrix filters.
   </div>
@@ -254,9 +279,12 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   };
   const DATA = JSON.parse(document.getElementById("coverage-data").textContent);
   const ALL = DATA.endpoints || [];
-  const SERVICE_META = {};
-  (DATA.services || []).forEach(s => { SERVICE_META[s.key] = s.label; });
-  ALL.forEach(e => { if (e.service && !SERVICE_META[e.service]) SERVICE_META[e.service] = e.serviceLabel || e.service; });
+  // Keyed by names from the file: a service called "constructor" or "__proto__" must be a
+  // service, not a property every object inherits — hence objects without a prototype.
+  function dict() { return Object.create(null); }
+  const SERVICE_META = dict();
+  (DATA.services || []).forEach(s => { if (s && s.key != null) SERVICE_META[s.key] = String(s.label ?? s.key); });
+  ALL.forEach(e => { if (e.service && !SERVICE_META[e.service]) SERVICE_META[e.service] = String(e.serviceLabel || e.service); });
 
   const state = {
     selected: new Set(),
@@ -285,18 +313,54 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     }[c]));
   }
   function statusClass(st) {
-    return { full: "ok", partial: "warn", empty: "bad", exception: "exc" }[st] || "bad";
+    return Object.assign(dict(), { full: "ok", partial: "warn", empty: "bad", exception: "exc" })[st] || "bad";
   }
   function heatClass(pct) {
     if (pct >= 67) return "heat-hi";
     if (pct >= 34) return "heat-mid";
     return "heat-lo";
   }
+  // Every number from the file goes through num() before it reaches markup: the page
+  // renders other people's coverage.json, and a string in a numeric field would otherwise
+  // be inserted into innerHTML as it stands.
+  function num(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function ms(v) {
+    return typeof v === "number" && Number.isFinite(v) ? `${v} ms` : "—";
+  }
+  // meta.avgRule 2: exception rows are outside every average. A file without the key keeps
+  // the rule it was written under (1: inside), so the page agrees with its summary.avg. A
+  // rule this page does not know is not recomputed at all: the file's own average is shown.
+  const META = DATA.meta && typeof DATA.meta === "object" && !Array.isArray(DATA.meta) ? DATA.meta : {};
+  const AVG_RULE = "avgRule" in META ? META.avgRule : 1;
+  const RULE_KNOWN = AVG_RULE === 1 || AVG_RULE === 2;
+  function scoredOf(list) {
+    return AVG_RULE === 2 ? list.filter(e => e.status !== "exception") : list;
+  }
   // An average over no endpoints is not a number: null, shown as a dash. Same rule as
   // summary.avg in coverage.json.
   function avg(list) {
-    if (!list.length) return null;
-    return list.reduce((s, e) => s + (e.coverage || 0), 0) / list.length;
+    if (!RULE_KNOWN) return null;
+    const scored = scoredOf(list);
+    if (!scored.length) return null;
+    return scored.reduce((s, e) => s + num(e.coverage), 0) / scored.length;
+  }
+  // Axis C pooled by cell, as summary.depth: null when no cell was measured.
+  function depthOf(list) {
+    let cells = 0, status = 0, schema = 0;
+    list.forEach(e => {
+      const d = e.depth;
+      if (e.status === "exception" || !d || !num(d.cells)) return;
+      cells += num(d.cells); status += num(d.status); schema += num(d.schema);
+    });
+    return cells ? { cells, statusPct: status / cells * 100, schemaPct: schema / cells * 100 } : null;
+  }
+  function depthLabel(e) {
+    const d = e.depth;
+    if (!d || !num(d.cells)) return "—";
+    return `status ${num(d.status)}/${num(d.cells)} · schema ${num(d.schema)}/${num(d.cells)}`;
   }
   function pct(v, digits) {
     return typeof v === "number" ? `${v.toFixed(digits)}%` : "—";
@@ -310,7 +374,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     const s = { avg: avg(list), calls: 0, full: 0, partial: 0, empty: 0, exception: 0,
                 unseen: 0, endpoints: list.length };
     list.forEach(e => {
-      s.calls += e.calls || 0;
+      s.calls += num(e.calls);
       if (e.status === "exception") s.exception++;
       else if (e.status === "full") s.full++;
       else if (e.status === "partial") s.partial++;
@@ -348,11 +412,11 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       if (f.statuses.length && !f.statuses.includes(e.status)) return false;
       if (f.kinds.length && !f.kinds.includes(e.kind || "unseen")) return false;
       if (covRange) {
-        const c = e.coverage || 0;
+        const c = num(e.coverage);
         if (c < covRange[0] || c > covRange[1]) return false;
       }
-      if (f.callsMin !== "" && (e.calls || 0) < Number(f.callsMin)) return false;
-      if (f.callsMax !== "" && (e.calls || 0) > Number(f.callsMax)) return false;
+      if (f.callsMin !== "" && num(e.calls) < Number(f.callsMin)) return false;
+      if (f.callsMax !== "" && num(e.calls) > Number(f.callsMax)) return false;
       if (f.missing.length && !f.missing.some(m => (e.missing || []).includes(m))) return false;
       if (q) {
         const blob = [e.path, e.description, e.method, e.service, e.serviceLabel].join(" ").toLowerCase();
@@ -453,7 +517,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       const raw = JSON.parse(store.get(LS_SVC) || "null");
       if (Array.isArray(raw) && raw.length) selected = raw.filter(k => allKeys.includes(k));
     } catch (_) {}
-    const excluded = new Set(DATA.meta?.defaultExcluded || []);
+    const excluded = new Set(Array.isArray(META.defaultExcluded) ? META.defaultExcluded : []);
     if (!store.get(LS_SVC) && excluded.size) {
       selected = allKeys.filter(k => !excluded.has(k));
     }
@@ -471,18 +535,23 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     const all = summarize(ALL);
     const sel = summarize(scoredEndpoints());
     const timing = DATA.timing;
+    const depth = depthOf(scoredEndpoints());
     document.getElementById("stats").innerHTML = `
-      <div class="stat"><div class="label">Average coverage</div><div class="value">${pct(all.avg, 1)}</div></div>
+      ${RULE_KNOWN
+        ? `<div class="stat"><div class="label">Average coverage</div><div class="value">${pct(all.avg, 1)}</div></div>`
+        : `<div class="stat" title="This file averages under a rule this page does not know: its own summary.avg is shown, nothing is recomputed"><div class="label">Average coverage (file, avgRule ${esc(AVG_RULE)})</div><div class="value">${pct((DATA.summary || {}).avg, 1)}</div></div>`}
       <div class="stat"><div class="label">Coverage (selected)</div><div class="value">${pct(sel.avg, 1)}</div></div>
-      <div class="stat"><div class="label">Total calls</div><div class="value">${sel.calls}</div></div>
+      <div class="stat"><div class="label">Total calls</div><div class="value">${num(sel.calls)}</div></div>
       <div class="stat ok clickable" data-kind="full"><div class="label">Full (P1)</div><div class="value">${sel.full}</div></div>
       <div class="stat warn clickable" data-kind="partial"><div class="label">Partial</div><div class="value">${sel.partial}</div></div>
       <div class="stat bad clickable" data-kind="empty"><div class="label">Empty</div><div class="value">${sel.empty}</div></div>
       <div class="stat bad clickable" data-kind="unseen"><div class="label">Not called this run</div><div class="value">${sel.unseen}</div></div>
-      <div class="stat exc"><div class="label">Exception</div><div class="value">${sel.exception}</div></div>` +
+      <div class="stat exc"><div class="label">Exception</div><div class="value">${sel.exception}</div></div>
+      <div class="stat" title="Of the filled required cells, the share where some call asked for a status check (expected_status_code passed)"><div class="label">Cells: status asked</div><div class="value">${pct(depth && depth.statusPct, 0)}</div></div>
+      <div class="stat" title="Of the filled required cells, the share where some call asked for a schema check (validate_model passed with expected_status_code)"><div class="label">Cells: schema asked</div><div class="value">${pct(depth && depth.schemaPct, 0)}</div></div>` +
       (timing ? `
-      <div class="stat"><div class="label">Latency avg</div><div class="value">${timing.msAvg} ms</div></div>
-      <div class="stat"><div class="label">Latency p95</div><div class="value">${timing.msP95} ms</div></div>` : "");
+      <div class="stat"><div class="label">Latency avg</div><div class="value">${ms(timing.msAvg)}</div></div>
+      <div class="stat"><div class="label">Latency p95</div><div class="value">${ms(timing.msP95)}</div></div>` : "");
 
     document.querySelectorAll("#stats .stat.clickable").forEach(tile => {
       tile.addEventListener("click", () => {
@@ -533,7 +602,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       <div class="card" data-key="${esc(it.key)}">
         <div class="card-title">${esc(it.title)}</div>
         <div class="card-metric">${pct(it.avg, 0)}</div>
-        <div class="muted">${it.count} endpoints · ${it.calls} calls</div>
+        <div class="muted">${num(it.count)} endpoints · ${num(it.calls)} calls</div>
       </div>`).join("") || `<div class="muted">No data</div>`;
     root.querySelectorAll(".card").forEach(el => {
       el.addEventListener("click", () => onClick(el.getAttribute("data-key")));
@@ -541,7 +610,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   }
 
   function groupServices(list) {
-    const map = {};
+    const map = dict();
     list.forEach(e => {
       const k = e.service;
       (map[k] ||= { key: k, title: e.serviceLabel || SERVICE_META[k] || k, items: [] }).items.push(e);
@@ -552,7 +621,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     }).sort(byAvgDesc);
   }
   function groupSubtypes(list) {
-    const map = {};
+    const map = dict();
     list.forEach(e => {
       (map[e.subtype] ||= { key: e.subtype, title: e.subtype, items: [] }).items.push(e);
     });
@@ -562,7 +631,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     }).sort(byAvgDesc);
   }
   function groupMethods(list) {
-    const map = {};
+    const map = dict();
     list.forEach(e => {
       (map[e.method] ||= { key: e.method, title: e.method, items: [] }).items.push(e);
     });
@@ -573,7 +642,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   }
 
   function renderMissing(list) {
-    const c = {};
+    const c = dict();
     list.forEach(e => (e.missing || []).forEach(t => { c[t] = (c[t] || 0) + 1; }));
     const top = Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 12);
     document.getElementById("missing-top").innerHTML = top.map(([tc, n]) =>
@@ -595,10 +664,11 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
   function renderHeatmap(list) {
     const services = unique(list.map(e => e.service)).sort();
     const subtypes = unique(list.map(e => e.subtype)).sort();
-    const cell = {};
-    list.forEach(e => {
+    const cell = dict();
+    // A cell of exception rows only has no average (meta.avgRule 2): a dash.
+    (RULE_KNOWN ? scoredOf(list) : []).forEach(e => {
       const k = e.service + "||" + e.subtype;
-      (cell[k] ||= []).push(e.coverage || 0);
+      (cell[k] ||= []).push(num(e.coverage));
     });
     let html = "<table><thead><tr><th></th>" + subtypes.map(s => `<th>${esc(s)}</th>`).join("") + "</tr></thead><tbody>";
     services.forEach(sv => {
@@ -623,8 +693,8 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       const label = `${e.method} ${e.path}`;
       return `<div class="bar-row">
         <div class="bar-label" title="${esc(label)}">${esc(label)}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, e.coverage || 0)}%"></div></div>
-        <div class="num">${(e.coverage || 0).toFixed(0)}%</div></div>`;
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, num(e.coverage))}%"></div></div>
+        <div class="num">${num(e.coverage).toFixed(0)}%</div></div>`;
     }).join("");
   }
 
@@ -715,7 +785,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
       const rule = state.sort.find(s => s.key === k);
       const cls = rule ? (rule.dir === 1 ? "sort-asc" : "sort-desc") : "";
       return `<th data-k="${k}" class="${cls}">${label}</th>`;
-    }).join("") + "<th>Executed</th><th>Missing P1</th><th>Description</th>";
+    }).join("") + "<th>Depth</th><th>Executed</th><th>Missing P1</th><th>Description</th>";
     document.querySelectorAll("#thead th[data-k]").forEach(th => {
       th.addEventListener("click", ev => {
         const key = th.getAttribute("data-k");
@@ -759,15 +829,16 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
         <td class="path" title="click to copy"><code>${esc(e.path)}</code></td>
         <td>${esc(e.serviceLabel || e.service)}</td>
         <td>${esc(e.subtype)}</td>
-        <td class="num">${e.calls}</td>
-        <td class="num cover">${(e.coverage || 0).toFixed(0)}%</td>
+        <td class="num">${num(e.calls)}</td>
+        <td class="num cover">${num(e.coverage).toFixed(0)}%</td>
         <td class="num ${msClass(e)}">${msLabel(e)}</td>
         <td><span class="badge ${statusClass(e.status)}">${esc(e.status)}</span></td>
+        <td class="muted" title="filled required cells where a call asked for a status check / a schema check">${esc(depthLabel(e))}</td>
         <td>${chips(e.executed)}</td>
         <td>${chips(e.missing)}</td>
         <td class="muted">${esc(e.description)}</td>
       </tr>
-      <tr class="details" data-d="${id}"><td colspan="11">
+      <tr class="details" data-d="${id}"><td colspan="12">
         Executed: ${chips(e.executed)} · Missing P1: ${chips(e.missing)} · ${esc(e.description || "no description")}
       </td></tr>`;
     }).join("");
@@ -896,7 +967,7 @@ footer { margin-top: 1.6rem; color: var(--muted); font-size: .78rem; }
     const sep = "|---|---|---|---|---|---|---|---|";
     const body = rows.map(e => [
       e.method, "`" + e.path + "`", e.subtype, e.calls,
-      `${(e.coverage || 0).toFixed(0)}%`, msLabel(e), e.kind || "unseen",
+      `${num(e.coverage).toFixed(0)}%`, msLabel(e), e.kind || "unseen",
       (e.missing || []).join(", ") || "—"
     ].join(" | ")).map(line => `| ${line} |`).join("\n");
     const meta = DATA.meta || {};

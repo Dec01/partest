@@ -14,7 +14,9 @@ from partest.methodology.api.matrix import (
     p1_test_cases,
     required_test_cases,
 )
+from partest.methodology.api.steps import call_depth
 from partest.methodology.api.subtypes import SUBTYPE_LABELS, MethodSubtype
+from partest.reports._rules import is_exception_row
 from partest.test_types import (
     EXCEPTION_TYPES,
     TYPE_LABELS,
@@ -42,6 +44,44 @@ def _kind_for(*, count: int, present: Sequence[str], required: Sequence[str], is
     return "full" if len(present) >= len(required) else "partial"
 
 
+def _depth_of(
+    metas: Sequence[Any], present: Sequence[str], *, is_exception: bool
+) -> Optional[Dict[str, Any]]:
+    """Axis C as far as the call records show it, for the required cells this run filled.
+
+    Per filled cell, the deepest check any call of that type *asked for*
+    (:func:`~partest.methodology.api.steps.call_depth`): a status check
+    (``expected_status_code`` passed) or a schema check on top of it (``validate_model``
+    passed as well). The flags are the call's arguments, recorded before the request is
+    sent — what was asked, not what passed. ``values`` is ``None``: value asserts live in
+    the suite's code, and the call does not see them.
+
+    ``None`` — not measured: an ``exception`` row (outside depth, as it is outside the
+    average), no filled cell, or no call record carrying the two flags (storage loaded from
+    an older dump, a call recorded by hand).
+    """
+    if is_exception or not present:
+        return None
+    wanted = set(present)
+    reached: Dict[str, int] = {}
+    for meta in metas or ():
+        if not isinstance(meta, dict) or "has_status_check" not in meta or not meta.get("type"):
+            continue
+        cell = canonicalize_type(meta.get("type"))
+        if cell not in wanted:
+            continue
+        level = call_depth(bool(meta.get("has_status_check")), bool(meta.get("has_validate_model")))
+        reached[cell] = max(reached.get(cell, 0), level)
+    if not reached:
+        return None
+    return {
+        "cells": len(reached),
+        "status": sum(1 for level in reached.values() if level >= 1),
+        "schema": sum(1 for level in reached.values() if level >= 2),
+        "values": None,
+    }
+
+
 @dataclass
 class EndpointCoverage:
     method: str
@@ -66,6 +106,8 @@ class EndpointCoverage:
     is_exception: bool = False
     priority_cells: Dict[str, int] = field(default_factory=dict)
     depth_hints: List[Dict[str, Any]] = field(default_factory=list)
+    # Axis C, apart from the percentage: see ``_depth_of``. ``None`` — not measured.
+    depth: Optional[Dict[str, Any]] = None
 
     def label_types(self, types: Sequence[str]) -> List[str]:
         return [TYPE_LABELS.get(t, t) for t in types]
@@ -74,6 +116,9 @@ class EndpointCoverage:
 @dataclass
 class CoverageReport:
     endpoints: List[EndpointCoverage]
+    # Over the rows that are not ``exception``; ``0.0`` when there are none — the type stays
+    # ``float`` here (``scored_count`` says whether anything was averaged), ``coverage.json``
+    # writes ``null``.
     average_pct: float
     total_calls: int
     full_count: int
@@ -82,6 +127,13 @@ class CoverageReport:
     exception_count: int
     by_subtype: Dict[str, Dict[str, Any]]
     by_swagger: Dict[str, Dict[str, Any]]
+
+    @property
+    def scored_count(self) -> int:
+        """The rows ``average_pct`` is taken from — all but ``exception``, counted from
+        ``endpoints`` each time it is read, so it cannot go stale after ``endpoints`` change.
+        ``0`` means nothing was averaged: ``average_pct``'s ``0.0`` is then "not measured"."""
+        return sum(1 for ep in self.endpoints or () if not is_exception_row(ep))
 
 
 def _conf_list(name: str) -> Optional[list]:
@@ -182,10 +234,16 @@ class CoverageAnalyzer:
         by_subtype: Dict[str, Dict[str, Any]] = {}
         by_swagger: Dict[str, Dict[str, Any]] = {}
 
+        scored = 0
         for row in rows:
-            total_pct += row.coverage_pct
+            # An `exception` row is counted, but outside every average: its 100 %
+            # says "not scored by the matrix", not "fully covered".
+            counts = not is_exception_row(row)
+            if counts:
+                total_pct += row.coverage_pct
+                scored += 1
             total_calls += row.calls
-            if row.is_exception or row.status == "exception":
+            if not counts:
                 exc += 1
             elif row.status == "full":
                 full += 1
@@ -196,10 +254,12 @@ class CoverageAnalyzer:
 
             sl = row.subtype.value
             bucket = by_subtype.setdefault(
-                sl, {"count": 0, "pct_sum": 0.0, "label": row.subtype_label}
+                sl, {"count": 0, "scored": 0, "pct_sum": 0.0, "label": row.subtype_label}
             )
             bucket["count"] += 1
-            bucket["pct_sum"] += row.coverage_pct
+            if counts:
+                bucket["scored"] += 1
+                bucket["pct_sum"] += row.coverage_pct
 
             # source_type is used as swagger bucket key when available
             src = "API"
@@ -207,19 +267,20 @@ class CoverageAnalyzer:
                 if p.method == row.method and p.path == row.path:
                     src = getattr(p, "source_type", None) or "API"
                     break
-            sb = by_swagger.setdefault(str(src), {"count": 0, "pct_sum": 0.0})
+            sb = by_swagger.setdefault(str(src), {"count": 0, "scored": 0, "pct_sum": 0.0})
             sb["count"] += 1
-            sb["pct_sum"] += row.coverage_pct
+            if counts:
+                sb["scored"] += 1
+                sb["pct_sum"] += row.coverage_pct
 
-        n = len(rows) or 1
-        for b in by_subtype.values():
-            b["avg_pct"] = b["pct_sum"] / b["count"] if b["count"] else 0.0
-        for b in by_swagger.values():
-            b["avg_pct"] = b["pct_sum"] / b["count"] if b["count"] else 0.0
+        # `avg_pct` stays a float: `0.0` when nothing in the bucket was scored, and
+        # `scored == 0` says so — as `average_pct` does for the whole report.
+        for b in list(by_subtype.values()) + list(by_swagger.values()):
+            b["avg_pct"] = b["pct_sum"] / b["scored"] if b["scored"] else 0.0
 
         return CoverageReport(
             endpoints=rows,
-            average_pct=total_pct / n if rows else 0.0,
+            average_pct=total_pct / scored if scored else 0.0,
             total_calls=total_calls,
             full_count=full,
             partial_count=partial,
@@ -292,6 +353,7 @@ class CoverageAnalyzer:
             is_exception=is_exc,
             priority_cells=cells,
             depth_hints=list(metas),
+            depth=_depth_of(metas, present, is_exception=is_exc),
         )
 
 

@@ -90,7 +90,7 @@ pytest загружается по месту (кроме `--noconftest`, чуж
 [[concepts/methodology]] (дефект методики — [[proposals]] F1), неполный Known issues 2.5.0,
 «seventeen» в 2.3.0. Всё — в `CHANGELOG.md`, раздел 2.6.0.
 
-### 2.7.0 — кандидат: маскировка во всех каналах, `summary.avg: null`, находки перехода потребителя · **кандидат** (версия в коде 2.7.0, на PyPI не выпущен)
+### 2.7.0 — кандидат: маскировка во всех каналах, `summary.avg: null`, `exception` вне среднего и глубина (F1), находки перехода потребителя · **кандидат** (версия в коде 2.7.0, на PyPI не выпущен)
 
 Записано в `CHANGELOG.md`, раздел «2.7.0 — unreleased» (дата — при выпуске); что меняется у
 потребителя — [[howto/migration]]. Минор, а не патч: новые публичные имена
@@ -102,7 +102,11 @@ pytest загружается по месту (кроме `--noconftest`, чуж
 (решено 2026-09-24 — отсутствие измерения пишется `null`, прецедент `meta.unseenRatio` 2.3.0);
 `AssertionError` провала схемы и HTTP-ветки больше не сцеплен с исходным исключением — чтение
 `__cause__` заменено на `validation_errors` и `StatusMismatchError.status_code`; маскировка
-меняет видимый текст логов, сообщений и вложений. **Методология не менялась:** для каждого валидного пути подтип прежний; GET BY PARENT в 2.6.0 получал только некорректный шаблон с двумя и более `/` внутри `{}` (`/a/b/{x/y/z}`) — теперь такой путь читается по общим правилам: обычно GET DYNAMIC, с подсказками списка или статики — GET LIST / GET STATIC
+меняет видимый текст логов, сообщений и вложений; строки `exception` вне среднего
+(`meta.avgRule: 2`) — среднее сдвигается вниз у прогонов с такими строками, `covered` сервиса —
+`full + partial`, `avgCoverage` может быть `null`; глубина (ось C) — новое поле рядом с процентом
+([[proposals]] §F1, варианты 2 и 3; минор, в тот же кандидат). **Процент
+клетки и состав P1/P2/P3 не менялись.** **Методология не менялась:** для каждого валидного пути подтип прежний; GET BY PARENT в 2.6.0 получал только некорректный шаблон с двумя и более `/` внутри `{}` (`/a/b/{x/y/z}`) — теперь такой путь читается по общим правилам: обычно GET DYNAMIC, с подсказками списка или статики — GET LIST / GET STATIC
 (правило GET BY PARENT не выпускается, [[proposals]] §G4). Умолчание
 `attach_response(redact_body=False)` **не менялось** (переворот — мажор, 3.0). Мажором ничто не
 является: подклассы и новые атрибуты не ломают ловящий `AssertionError` код.
@@ -113,6 +117,9 @@ pytest загружается по месту (кроме `--noconftest`, чуж
 | `StatusMismatchError(AssertionError)` с `status_code`, `expected`; `validation_errors` у провала схемы | `partest/client.py`, `partest/reporting/instrument.py` | [[howto/migration]] |
 | ожидаемый статус больше не повторяется при `max_retries` (ожидаемый 429 повторялся до 200); хук внедрённого клиента, отвергший ожидаемый статус, — `RuntimeError`, а не `StatusMismatchError` | `partest/client.py` | [[howto/migration]] |
 | `summary.avg` / `avgAll` — `null` при нуле эндпоинтов (контракт `coverage-payload`, как `meta.unseenRatio`); бейдж `n/a`, `compare` без дельты, валидатор, HTML | `partest/reports/payload.py`, `badge.py`, `compare.py`, `validate.py`, `interactive_html.py` | [[howto/coverage-html]] |
+| F1, вариант 3: строки `exception` вне `summary.avg` / `avgAll`, `avgCoverage`, тепловой карты и `covered`; `scored` в `summary` и строках сервисов, подтипов, методов; набор из одних `exception` — `null`; `meta.avgRule: 2`; `compare` пересчитывает среднее старого файла по строкам (`avg_recomputed`), неизвестное правило — предупреждение; валидатор (`Severity.NEWER`), оба HTML, текстовая сводка `zorro()`; правило — в одном месте | `partest/reports/_rules.py`, `payload.py`, `analyzer.py`, `compare.py`, `validate.py`, `interactive_html.py`, `html_coverage.py`, `partest/zorro_report.py` | [[howto/coverage-html]], [[howto/migration]], [[concepts/methodology]] |
+| F1, вариант 2: `depth` у строки (`cells`, `status`, `schema`, `values: null`) и `summary.depth` с `statusPct` / `schemaPct` — заказанные проверки; процент не меняется; `depth_delta` в `compare`; показ в HTML и сводке; флаги — через сигнатуру отслеживаемой функции; `call_depth` — одно правило уровня, `depth_score` по нему | `partest/reports/analyzer.py`, `payload.py`, `compare.py`, `validate.py`, `partest/coverage.py`, `partest/methodology/api/steps.py` | [[howto/coverage-html]], [[concepts/methodology]] |
+| чужие `coverage.json` и чужие клиенты: экранирование чисел и имён в интерактивном отчёте, путей в простом; `NaN`/`Infinity` и имена `constructor`/`__proto__` на странице; валидатор, `compare` и CLI не падают на мусоре (числа вне `float`, неверные типы, не-объект); `track_api_calls` не ломает импорт на Python 3.14 (ленивые аннотации) и читает `**kwargs`-обёртку; `CoverageReport.scored_count`; `call_depth`/`depth_score` в `__all__` и фасаде | `partest/reports/*`, `partest/coverage.py`, `partest/methodology/*`, `partest/pytest_plugin.py` | `CHANGELOG.md` (Added, Fixed), [[howto/migration]] |
 | неверные строки 2.6.0: `load_confpartest` не сцепляет исходное исключение; какие вызовы поднимают `ConfpartestError`, а где отчёт пишет `NOT COUNTED` | документы | [[howto/migration]] |
 | `Rounded(..., significant=N)`, `Rounded(..., rounding="floor" / "ceiling" / "toward_zero")`, `assert_all_agree` | `partest/rounding.py` | [[howto/layers]] |
 | правило opt-in публично: `would_select`, `is_selected`, `selected_through` | `partest/optin.py` | [[components/overview]] |
@@ -127,9 +134,11 @@ pytest загружается по месту (кроме `--noconftest`, чуж
 `Rounded(None)` как проваленная сверка и сверка модели с живой схемой — [[proposals]] §G1, §G2;
 GET BY PARENT из формы пути (пункт про GET BY PARENT) — не выпускается, эвристика ненадёжна,
 ответ — `subtype_overrides`, §G3–G4; спорное из ревью — §G5 (ручки отладки), §G6
-(граница `known_defect`), §G7 (`null` в воротах); F1 (ось C и `exception` в среднем) — решение мейнтейнера,
-[[proposals]] §F1. Потребителям формата (`partest-atlas`, veha) — учесть `summary.avg: null`
-и старый `0.0` пустого прогона как «не измерено». У veha своё правило серий для opt-in, и оно
+(граница `known_defect`), §G7 (`null` в воротах); F1 вариант 1 (засчитывать клетку только при
+нужной глубине) — открыт, мажор, [[proposals]] §F1. Потребителям формата (`partest-atlas`, veha) —
+учесть `summary.avg: null` и старый `0.0` пустого прогона как «не измерено»; `meta.avgRule`
+(тренд среднего сравнивать в пределах одного правила; `avgCoverage` — `float | null`; `covered`
+без `exception`); новые необязательные `depth` / `summary.depth`. У veha своё правило серий для opt-in, и оно
 намеренно расходится с `compare` там, где запись есть только у одной стороны;
 `optin_comparable` может заменить у неё только ветку «записи у обоих»; `partest-gen`
 (читает `classify_endpoint`) — без изменений. Спорное, ждущее

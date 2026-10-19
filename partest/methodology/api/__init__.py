@@ -20,7 +20,7 @@ from partest.methodology.api.matrix import (
 )
 from partest.methodology.api.classifier import classify_endpoint, classify_path_object
 from partest.methodology.api.inference import InferResult, infer_test_type
-from partest.methodology.api.steps import TestStep, STEPS_BY_GROUP
+from partest.methodology.api.steps import STEPS_BY_GROUP, TestStep, call_depth, depth_score
 from partest.methodology.api.overrides import active_overrides
 
 __all__ = [
@@ -37,5 +37,7 @@ __all__ = [
     "infer_test_type",
     "TestStep",
     "STEPS_BY_GROUP",
+    "call_depth",
+    "depth_score",
     "active_overrides",
 ]

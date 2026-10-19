@@ -192,5 +192,6 @@ python -m partest.reports stubs --json coverage.json --out coverage_stubs.py
 python -m partest.reports history-append --json coverage.json --dir coverage_history
 ```
 
-See [Interactive coverage report and CLI](howto-coverage-html.md).
+See [Interactive coverage report and CLI](howto-coverage-html.md) — including what the averages leave out (`exception` endpoints,
+`meta.avgRule`) and the assertion depth written beside the percentage (`depth`).
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import re
 import threading
 from functools import wraps
@@ -9,6 +10,7 @@ from time import perf_counter
 from typing import Any, Callable, List, Optional
 from uuid import UUID
 
+from partest._signature import signature_of
 from partest.call_storage import (
     call_count,
     call_type,
@@ -276,8 +278,50 @@ def _resolve_endpoint(endpoint: str, kwargs: dict, method: Optional[str] = None)
     return endpoint
 
 
+_DEPTH_PARAMS = ("expected_status_code", "validate_model")
+
+
+def _flags(values: dict) -> dict:
+    return {
+        "has_validate_model": values.get("validate_model") is not None,
+        "has_status_check": values.get("expected_status_code") is not None,
+    }
+
+
+def _depth_reader(func: Callable) -> Optional[Callable[[tuple, dict], dict]]:
+    """How to read the two depth flags off a call of *func*, or ``None`` when it cannot say.
+
+    The flags are what the call asked for — ``expected_status_code`` / ``validate_model`` as
+    passed. With an explicit ``expected_status_code`` parameter they are read through the
+    function's signature: positionally or by name, defaults applied. Without it, a function
+    that takes ``**kwargs`` (a wrapper ``make_request(self, method, endpoint, *args,
+    **kwargs)``) is read from its keyword arguments, as before. A function with neither gets
+    no flags at all: its depth is "not measured", not a measured "nothing asked".
+    """
+    signature = signature_of(func)
+    if signature is None:
+        return None
+    params = signature.parameters
+    if _DEPTH_PARAMS[0] not in params:
+        if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+            return lambda args, kwargs: _flags(kwargs)
+        return None
+
+    def read(args: tuple, kwargs: dict) -> dict:
+        try:
+            bound = signature.bind_partial(*args, **kwargs)
+        except TypeError:
+            return _flags(kwargs)
+        bound.apply_defaults()
+        return _flags(bound.arguments)
+
+    return read
+
+
 def track_api_calls(func: Callable) -> Callable:
     """Decorator: match request to OpenAPI path and record TC type."""
+
+    read_depth = _depth_reader(func)
 
     @wraps(func)
     async def wrapper(*args, **kwargs):
@@ -332,8 +376,9 @@ def track_api_calls(func: Callable) -> Callable:
                             "reason": inference.reason,
                             "explicit": explicit_type is not None,
                             "subtype": subtype.value,
-                            "has_validate_model": kwargs.get("validate_model") is not None,
-                            "has_status_check": kwargs.get("expected_status_code") is not None,
+                            # What the call asked for, before it is sent; absent when the
+                            # function has no such parameters (see `_depth_reader`).
+                            **(read_depth(args, kwargs) if read_depth else {}),
                         },
                         subtype=subtype.value,
                     )

@@ -36,8 +36,12 @@ description: >
 5. **Create/update endpoints need a vertical case** (`request_new_object` /
    `request_update_object`), not just a Default on seed data.
 6. **Assertion depth: status → `validate_model` → values.** Status-only does not count for
-   Default, Elements or Benchmark — by the methodology. The report does not score depth: a
-   status-only call with the right `type=` fills the cell, so depth is checked in review.
+   Default, Elements or Benchmark — by the methodology. The percentage does not score depth: a
+   status-only call with the right `type=` fills the cell. Depth is shown apart from it —
+   `depth` per endpoint and `summary.depth` in `coverage.json` (filled cells where a call asked
+   for a status check, for a schema check; values are not measured), so read it before calling
+   an endpoint done.
+   A `validate_model` without `expected_status_code` is not checked at all.
 7. **Domain stays in the project**: entity paths, DTO, roles, PROFILES, SQL cleanup.
 8. **Only delete test data carrying the marker** (`marked_name` / `TEST_MARKER`).
 

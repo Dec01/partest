@@ -11,7 +11,9 @@ from partest.allure_graph import create_chart
 from partest.call_storage import call_count
 from partest.methodology.api.matrix import CoveragePriority
 from partest.reports.analyzer import CoverageReport, analyze_coverage
+from partest.reports._rules import bucket_average, bucket_order, pct_text, report_average
 from partest.reports.html_coverage import write_html_report
+from partest.reports.payload import summarize_depth
 from partest.test_types import TYPE_LABELS
 
 
@@ -21,24 +23,36 @@ def _label(tc: str) -> str:
 
 def _text_summary(report: CoverageReport) -> str:
     border = "*" * 56
+    depth = summarize_depth(report.endpoints)
     lines = [
         border,
-        f"Average coverage (methodology P1 set): {report.average_pct:.2f}%",
+        f"Average coverage (methodology P1 set): {pct_text(report_average(report), 2)}"
+        + (" — exception endpoints not averaged" if report.exception_count else ""),
         f"Total tracked calls: {report.total_calls}",
         f"Endpoints: full={report.full_count} partial={report.partial_count} "
         f"empty={report.empty_count} exception={report.exception_count}",
+        "Depth asked for, of filled cells: "
+        + (
+            f"status {depth['status']}/{depth['cells']} ({depth['statusPct']:.0f}%), "
+            f"schema {depth['schema']}/{depth['cells']} ({depth['schemaPct']:.0f}%), "
+            "values not measured"
+            if depth
+            else "not measured"
+        ),
         border,
         "",
     ]
 
     for src, bucket in report.by_swagger.items():
-        lines.append(f"Source group '{src}': {bucket['avg_pct']:.2f}% ({bucket['count']} endpoints)")
+        lines.append(
+            f"Source group '{src}': {pct_text(bucket_average(bucket), 2)} ({bucket['count']} endpoints)"
+        )
     lines.append("")
 
     lines.append("=== By subtype ===")
-    for key, bucket in sorted(report.by_subtype.items(), key=lambda x: -x[1]["avg_pct"]):
+    for key, bucket in sorted(report.by_subtype.items(), key=bucket_order):
         lines.append(
-            f"  {bucket.get('label', key)}: {bucket['avg_pct']:.1f}% ({bucket['count']} ep)"
+            f"  {bucket.get('label', key)}: {pct_text(bucket_average(bucket), 1)} ({bucket['count']} ep)"
         )
     lines.append("")
     return "\n".join(lines)
@@ -154,7 +168,7 @@ def generate_coverage_report(
         # Per-subtype text attachments
         for key, bucket in report.by_subtype.items():
             lines = [
-                f"{bucket.get('label', key)} — avg {bucket['avg_pct']:.1f}%",
+                f"{bucket.get('label', key)} — avg {pct_text(bucket_average(bucket), 1)}",
                 f"endpoints: {bucket['count']}",
                 "",
             ]

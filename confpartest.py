@@ -55,7 +55,8 @@ test_types_coverage = [
     "request_params",
 ]
 
-# Types that mark an endpoint as 100% covered (e.g. health-only).
+# Types that mark an endpoint as an exception (e.g. health-only): the matrix does not apply,
+# the row is counted under `exception` and left out of every average.
 test_types_exception = [
     "health",
 ]

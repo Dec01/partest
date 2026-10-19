@@ -113,10 +113,15 @@ def _humanize_test_name(name: str) -> str:
 def _format_param_value(value: Any) -> str:
     if callable(value):
         return "<callable>"
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        text = str(value)
-    else:
-        text = repr(value)
+    try:
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            text = str(value)
+        else:
+            text = repr(value)
+    except Exception:
+        # An integer of thousands of digits (Python 3.11+ refuses to print it), a `__repr__`
+        # that raises: a title is not worth an INTERNALERROR on collection.
+        return f"<{type(value).__name__}>"
     if len(text) > 48:
         return text[:45] + "..."
     return text

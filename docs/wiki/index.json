@@ -227,7 +227,7 @@
           "text": "What to trust"
         }
       ],
-      "chars": 9487
+      "chars": 9572
     },
     {
       "slug": "concepts/methodology",
@@ -249,7 +249,9 @@
         "partest/methodology/ui/checks.py",
         "partest/methodology/ui/matrix.py",
         "partest/methodology/ui/steps.py",
-        "partest/reports/analyzer.py"
+        "partest/reports/analyzer.py",
+        "partest/reports/payload.py",
+        "partest/coverage.py"
       ],
       "headings": [
         {
@@ -309,7 +311,7 @@
           "text": "Axis C — depth"
         }
       ],
-      "chars": 14000
+      "chars": 16287
     },
     {
       "slug": "decisions/distribution",
@@ -571,7 +573,9 @@
         "partest/reports/__main__.py",
         "partest/reports/payload.py",
         "partest/reports/badge.py",
-        "partest/reports/compare.py"
+        "partest/reports/compare.py",
+        "partest/reports/_rules.py",
+        "partest/reports/stubs.py"
       ],
       "headings": [
         {
@@ -608,6 +612,14 @@
         },
         {
           "level": 2,
+          "text": "Exception endpoints and `meta.avgRule`"
+        },
+        {
+          "level": 2,
+          "text": "Depth (axis C)"
+        },
+        {
+          "level": 2,
           "text": "Checking a document against the format"
         },
         {
@@ -615,7 +627,7 @@
           "text": "Reading the page honestly"
         }
       ],
-      "chars": 8859
+      "chars": 15478
     },
     {
       "slug": "howto/enterprise",
@@ -811,7 +823,7 @@
         },
         {
           "level": 2,
-          "text": "2.7.0 (candidate, not released) — `summary.avg: null`, masking in every channel"
+          "text": "2.7.0 (candidate, not released) — `summary.avg: null`, `exception` outside the average, depth, masking in every channel"
         },
         {
           "level": 2,
@@ -962,7 +974,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 40258
+      "chars": 44036
     },
     {
       "slug": "howto/permissions",
@@ -1330,7 +1342,7 @@
           "text": "Coverage extras (`partest.reports`)"
         }
       ],
-      "chars": 7187
+      "chars": 7331
     },
     {
       "slug": "howto/security",
@@ -2007,7 +2019,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 48507
+      "chars": 51404
     },
     {
       "slug": "status",
@@ -2044,7 +2056,7 @@
         },
         {
           "level": 3,
-          "text": "2.7.0 — кандидат: маскировка во всех каналах, `summary.avg: null`, находки перехода потребителя · **кандидат** (версия в коде 2.7.0, на PyPI не выпущен)"
+          "text": "2.7.0 — кандидат: маскировка во всех каналах, `summary.avg: null`, `exception` вне среднего и глубина (F1), находки перехода потребителя · **кандидат** (версия в коде 2.7.0, на PyPI не выпущен)"
         },
         {
           "level": 3,
@@ -2087,7 +2099,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 23768
+      "chars": 26120
     },
     {
       "slug": "WIKI",
@@ -2195,6 +2207,7 @@
       "backlog-audit",
       "components/overview",
       "concepts/coverage-honesty",
+      "concepts/methodology",
       "howto/migration",
       "howto/quickstart",
       "proposals"
@@ -2333,6 +2346,9 @@
     "partest/reports/__main__.py": [
       "howto/coverage-html"
     ],
+    "partest/reports/_rules.py": [
+      "howto/coverage-html"
+    ],
     "partest/reports/analyzer.py": [
       "backlog-audit",
       "concepts/coverage-honesty",
@@ -2355,11 +2371,15 @@
       "backlog-audit",
       "components/overview",
       "concepts/coverage-honesty",
+      "concepts/methodology",
       "howto/coverage-html",
       "howto/migration",
       "proposals"
     ],
     "partest/reports/services.py": [
+      "howto/coverage-html"
+    ],
+    "partest/reports/stubs.py": [
       "howto/coverage-html"
     ],
     "partest/reports/validate.py": [

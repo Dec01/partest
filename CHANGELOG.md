@@ -75,15 +75,89 @@
   `validate_model` rejects a body carries `validation_errors`: one `{"loc", "type", "msg"}` per
   error — pydantic's list without `input` and `url`, the message masked. It replaces reading
   `err.__cause__`, which is no longer chained (see Changed).
+- **Assertion depth (axis C) in `coverage.json`, beside the percentage.** Every endpoint row
+  carries `depth`: `{"cells", "status", "schema", "values"}` — of the required cells this run
+  filled, in how many some call of that type **asked for** a status check
+  (`expected_status_code` passed) and in how many for a schema check as well (`validate_model`
+  passed too: `make_request` validates the body only after the status check, so a model without
+  a status asks for nothing). The flags are the call's arguments, recorded before the request is
+  sent — what was asked, not what passed; a call is recorded whether or not its check then
+  fails. A cell counts at its deepest call. `values` is `null`: value asserts live in the suite's
+  code and are not measured. `depth` is `null` where nothing was measured — no filled required
+  cell, an `exception` row, calls recorded without the flags. The flags are read through the
+  tracked function's signature, so a status passed positionally counts and a default status of
+  the client counts too; a wrapper without that parameter but with `**kwargs`
+  (`make_request(self, method, endpoint, *args, **kwargs)`) is read from its keyword arguments,
+  as before; a function with neither records no flags — its depth is "not measured", not a
+  measured zero. The signature is read with annotations as forward references (Python 3.14+),
+  and a signature that cannot be read at all also means "not measured": decorating never
+  fails. `summary.depth` pools the counts over
+  the run and adds `statusPct` / `schemaPct` (share of measured cells, 0..100), `null` when no
+  cell was measured. **The percentage does not change** — the cell, P1/P2/P3 and `coverage` are
+  computed as before. Shown in both HTML reports (header tiles "Cells: status asked" / "Cells:
+  schema asked", a Depth column), in the text summary of `zorro()`, and in `compare_payloads` as
+  `depth_delta` (`{"statusPct", "schemaPct"}` in points, `null` when either side has no
+  `summary.depth`). `validate_coverage_payload` checks the new keys when present (`cells` ≥
+  `status` ≥ `schema` ≥ 0, a zero-cell object instead of `null`, depth on an `exception` row or
+  on a row with no calls, `summary.depth` against the rows and its shares); a missing
+  `summary.depth` is `DATED` in a file without row depth and an error in a file whose rows carry
+  it. `EndpointCoverage.depth` carries the same per endpoint. Proposals F1, option 2.
+- **`partest.methodology.api.steps.call_depth(has_status, has_validate_model)`** — the level a
+  call asked for: 0, 1 (status) or 2 (schema); a model without a status is 0. The report's
+  depth uses it, and so does `depth_score` (see Changed). Declared in the module's new
+  `__all__` (`TestStep`, `STEPS_BY_GROUP`, `call_depth`, `depth_score`) and re-exported, with
+  `depth_score`, from `partest.methodology.api` and `partest.methodology`.
+- **`CoverageReport.scored_count`** — a read-only property: the rows `average_pct` is taken
+  from (all but `exception`), counted from `endpoints` each time it is read, so it follows a
+  `dataclasses.replace` or an edit of `endpoints`; `0` means `average_pct`'s `0.0` is "not
+  measured". The constructor is unchanged.
+- **`Severity.NEWER`** in `partest.reports.validate`: the document follows a rule newer than
+  this package (`meta.avgRule` above 2) — not an error; the checks that depend on the rule are
+  skipped.
 
 ### Changed
+
+- **`exception` endpoints are left out of every average** (proposals F1, option 3). A row on
+  which a call recorded an exception type (`health`, `test_types_exception`) keeps its 100 % and
+  its `exception` status, and is still counted in `summary.exception` and `totalEndpoints`; it no
+  longer enters `summary.avg` / `avgAll`, `avgCoverage` of a service, subtype or method row, the
+  heatmap average, or a service's `covered` (now `full + partial`). Before, one health probe
+  lifted the average as much as a fully tested endpoint — so **averages move down (never up)** on
+  any run with such rows; on a run without them nothing changes. The rows the averages and
+  `covered` are taken from are counted in a new `scored` (`totalEndpoints − exception` for a
+  service; in `summary`, `subtypes` and `methods` too, which also gain `exception`). A set of
+  `exception` rows only has no average: `summary.avg` / `avgAll`, `avgCoverage` and a heatmap
+  cell are `null` (a service of health probes only sorts last). The payload says which rule it
+  follows: `meta.avgRule: 2`; a file without the key was written under rule 1.
+  `compare_payloads`: when one side has no `meta.avgRule` and has `exception` rows, its average
+  is **recomputed from its rows without them**, the pair stays comparable, a `notes` line says
+  so and the new key `avg_recomputed` gives `{"side", "recorded", "recomputed"}`; only when its
+  rows are not all in the file (a trimmed list) does a warning make the pair not `comparable`.
+  Without `exception` rows both rules give the same number and nothing is added. A rule this
+  package does not know (an integer above 2, or not an integer) is not read as rule 1: a warning,
+  not `comparable`, the averages as recorded. A run whose endpoints are all `exception` gets the
+  "no scored endpoints" warning and a `null` delta. `validate_coverage_payload`: `meta.avgRule`
+  is an integer, 1 or 2 (absent — `DATED`; above 2 — `NEWER`; anything else — an error); under
+  rule 2 `null` is required exactly when no row outside `exception` exists; a file without the
+  key is checked as before. `summary.full` / `partial` / `empty` / `exception` are now checked
+  against the rows' statuses (`empty` takes every status that is not one of the other three),
+  the same rule by which `compare` decides an older file can be recomputed. `CoverageReport.average_pct` and the `by_subtype` / `by_swagger`
+  buckets of `analyze_coverage` follow the same rule; their types do not change (`0.0` when
+  nothing is scored; a bucket now carries `scored`), and the simple HTML and the `zorro()` text
+  summary print `n/a` where `scored` is zero. The interactive page follows the file's
+  `meta.avgRule` and, for a rule it does not know, shows the file's own `summary.avg` instead of
+  recomputing.
+- **`partest.methodology.api.steps.depth_score`**: a `validate_model` without a status check no
+  longer adds a point (`depth_score(False, True)` is `0`, was `1`) — the same rule as
+  `make_request`, which does not validate such a body, and as the report's depth.
 
 - **`summary.avg` and `summary.avgAll` in `coverage.json` are `null` when the run collected no
   endpoints.** An average over no endpoints is not a measurement, and `0.0` read as "nothing is
   covered" — the number a run that called everything and covered nothing would give. Same
   contract as `meta.unseenRatio` (2.3.0): the type widens from `float` to `float | null`; a
-  measured zero is still `0.0`; `avgCoverage` of a service, subtype or method row stays a
-  number (a row exists only because an endpoint is in it); nothing else in the format changes.
+  measured zero is still `0.0`; this does not make `avgCoverage` of a service, subtype or method
+  row `null` (a row exists only because an endpoint is in it — it is `null` only when every
+  endpoint in it is `exception`, see the entry above); nothing else in the format changes.
   **Readers that do arithmetic on it must check for `null` first.** Inside the package:
   `badge` draws a grey `n/a` instead of a red `0.0%` (`badge_svg(None)`); `compare_payloads`
   gives `null` for that side's `old_avg` / `new_avg` and for `avg_delta` / `coverage_delta`
@@ -238,6 +312,55 @@
 
 ### Fixed
 
+- **The interactive report put numbers from `coverage.json` into the page as markup.** `calls`,
+  `coverage`, `timing.msAvg` / `msP95` and the depth counts were inserted into `innerHTML`
+  without escaping, so a string in a numeric field of a file rendered with
+  `python -m partest.reports render` ran as HTML. Every number is now converted before it is
+  shown (a non-number reads as `0` or `—`), and the one data string newly shown — an unknown
+  `meta.avgRule` — is escaped.
+- **`validate_coverage_payload` and `compare_payloads` raised on numbers JSON allows and a float
+  does not hold.** An integer of 400 digits, `Infinity` or `NaN` in
+  `summary.avg`, `unseenRatio` or `summary.depth` raised `OverflowError` (or compared as a
+  value); the validator now reports it as an error and `compare` reads it as "not a
+  measurement". `compare` no longer raises on a `summary`, `meta` or `selection` that is not an
+  object, and reads a value of the wrong type in a row or in `meta` (a number where a text
+  belongs, a text where a count belongs, a `missing` that is not a list, an integer of
+  thousands of digits) as absent instead of raising; an older file whose rows carry such
+  values is not recomputed (a warning instead).
+- **The simple HTML report (`zorro()`) put endpoint paths into its chart as markup**, and a
+  path containing `</script>` closed the chart's script block. The chart data is escaped for
+  a script block and the labels are inserted as text.
+- **The interactive report broke on some files**: `NaN` / `Infinity` (which `json.loads`
+  accepts) made the page's `JSON.parse` fail and the page empty — they are rendered as "no
+  value" now; a service, subtype, method or status named `constructor`, `__proto__` or another
+  inherited property name raised in the page's grouping; a `meta` that is not an object
+  stopped the page. A `meta.avgRule` written as `2.0` is an unknown rule on the page, as in
+  Python.
+- **`python -m partest.reports` on a file that is not a JSON object** (a list, broken JSON, a
+  missing file, JSON nested too deep to read) printed a traceback; it prints
+  `error: <file>: …` and exits **1**. `stubs` and `history-append` also refuse a document of
+  the wrong shape (`endpoints` not a list of objects; for the history, `meta` or `summary` not
+  an object) instead of writing stubs or a snapshot from it, and a file that cannot be written
+  (`--out`, `--html`, `--dir`) is `error: …`, exit 1 too. Exit code 2 is `compare --strict` on
+  a pair that is not comparable, or a command-line argument error (argparse); 1 is an input or
+  output file that cannot be used. `history-append` writes `NaN` / `Infinity` from its input
+  as `null`. The `--strict` help lists the reasons as
+  examples of `warnings`.
+- **`python -m partest.reports stubs` wrote strings from `coverage.json` into Python source as
+  they were.** A `path` such as `/x", __import__("os").getcwd(), "` became an expression in the
+  generated module, and a line break in it closed the docstring — code that ran when pytest
+  collected the stubs. Method and path are written as `repr()` literals, the docstring keeps
+  only letters, digits and path punctuation, and a missing type that is not a plain name
+  (`[A-Za-z0-9_]`) is skipped with a comment; a row of the wrong type is skipped, and
+  `endpoints` that is not a list is a `ValueError` from `generate_stubs`. Two stubs that would
+  get the same name get a numeric suffix instead of replacing each other.
+- **A payload method (`_json_main`, `_required` on a `partest.payloads` body) annotated with a
+  name imported under `TYPE_CHECKING`** was called without `self` on Python 3.14 (its signature
+  could not be read);
+  the signature is read with annotations as forward references.
+- **A parametrized test with an integer of thousands of digits among its parameters** made
+  the plugin's Allure title raise an INTERNALERROR on collection (Python 3.11+); the value is
+  shown by its type.
 - **An expected status was retried.** With `max_retries` set, a call that expects `429` (a
   test of throttling) — or `502` / `503` — was repeated until something else came back, and
   failed on a status it never asked for. A status in `expected_status_code` is the answer now,

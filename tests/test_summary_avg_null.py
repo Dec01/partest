@@ -76,6 +76,11 @@ def _legacy_empty(doc: dict) -> dict:
     old = copy.deepcopy(doc)
     old["summary"]["avg"] = 0.0
     old["summary"]["avgAll"] = 0.0
+    # Keys 2.7.0 added, absent from a file 2.6.0 wrote.
+    old["meta"].pop("avgRule", None)
+    old["summary"].pop("depth", None)
+    for ep in old["endpoints"]:
+        ep.pop("depth", None)
     return old
 
 
@@ -139,7 +144,9 @@ def test_a_legacy_zero_for_an_empty_run_is_dated_not_wrong(empty):
     problems = validate_coverage_payload(_legacy_empty(empty))
     assert _errors(_legacy_empty(empty)) == []
     dated = [p for p in problems if p.severity is Severity.DATED]
-    assert {p.where for p in dated} == {"summary.avg", "summary.avgAll"}
+    assert {p.where for p in dated} == {
+        "summary.avg", "summary.avgAll", "meta.avgRule", "summary.depth"
+    }
 
 
 def test_a_nonzero_average_over_no_endpoints_is_an_error(empty):
@@ -238,4 +245,4 @@ def test_html_does_not_call_tofixed_on_an_average():
     html = render_html(build_payload(_report([])), title="t")
     assert ".avg.toFixed" not in html
     assert "function pct(v, digits)" in html
-    assert "if (!list.length) return null;" in html
+    assert "if (!scored.length) return null;" in html

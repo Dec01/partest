@@ -49,7 +49,7 @@ a `kind` alongside the legacy `status`:
 | `empty` | it was called, but no required cell was executed |
 | `partial` | some required cells present |
 | `full` | the required set for the subtype is covered |
-| `exception` | a call recorded an exception type (`health`, `test_types_exception`): scored as 100 % and counted in the average — not excluded from it |
+| `exception` | a call recorded an exception type (`health`, `test_types_exception`): the row shows 100 % and is counted, but it is outside every average (`meta.avgRule: 2`; files without the key put it inside) — [[howto/coverage-html]] |
 
 `meta.unseenRatio` and `meta.partialRun` summarise it: a run is flagged partial when a fifth of
 the endpoints went untouched, when workers were not merged, or when the run selected a subset

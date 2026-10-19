@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Mapping
 
+from partest._signature import signature_of
+
 
 def _resolve_mapping(owner: Any, attr: str = "_json_main") -> Dict[str, Any]:
     """Resolve class-attr dict, ``@property``, or zero-arg callable (LIB-06).
@@ -51,19 +53,14 @@ def _resolve_mapping(owner: Any, attr: str = "_json_main") -> Dict[str, Any]:
 
 
 def _needs_self(fn) -> bool:
-    try:
-        import inspect
-
-        sig = inspect.signature(fn)
-        params = [
-            p
-            for p in sig.parameters.values()
-            if p.kind
-            in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
-        ]
-        return bool(params)
-    except Exception:
+    # Annotations unevaluated: from Python 3.14 a name imported under `TYPE_CHECKING` would
+    # raise here, and the method would be called without `self`.
+    sig = signature_of(fn)
+    if sig is None:
         return False
+    return any(
+        p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD) for p in sig.parameters.values()
+    )
 
 
 def _materialize(main: Mapping[str, Any]) -> Dict[str, Any]:

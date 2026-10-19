@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Iterable, Optional, Sequence
 
 from partest.call_storage import run_info, unknown_tls_hosts, unverified_hosts
+from partest.reports._rules import AVG_RULE, COUNT_LIMIT, is_exception_row
 from partest.reports.analyzer import CoverageReport, EndpointCoverage
 from partest.reports.services import ServiceMap
 from partest.test_types import TYPE_LABELS
@@ -113,7 +114,57 @@ def endpoint_to_dict(
         "executed": executed,
         "missing": missing,
         "description": ep.description or "",
+        # Axis C, apart from the percentage: of the required cells this run filled, how
+        # many some call asked to be checked for the status, for the schema (the arguments
+        # it was given, not what passed); `values` is not measured. `null` — nothing
+        # measured (no filled cell, an `exception` row, a client without those arguments).
+        "depth": _depth_dict(_get(ep, "depth")),
         **({"timing": timing} if timing else {}),
+    }
+
+
+def _depth_dict(depth: Any) -> Optional[dict[str, Any]]:
+    """The depth counts when they are what the format writes — integers with
+    ``0 < cells``, ``0 <= schema <= status <= cells``, none beyond ``COUNT_LIMIT`` — else
+    ``None``. Rows read back from a file (``summarize`` on dicts) may carry anything."""
+    if not isinstance(depth, dict):
+        return None
+    counts = [depth.get(key, 0) for key in ("cells", "status", "schema")]
+    if any(isinstance(v, bool) or not isinstance(v, int) for v in counts):
+        return None
+    cells, status, schema = counts
+    if not 0 < cells <= COUNT_LIMIT or not 0 <= schema <= status <= cells:
+        return None
+    return {"cells": cells, "status": status, "schema": schema, "values": None}
+
+
+def summarize_depth(endpoints: Sequence[Any]) -> Optional[dict[str, Any]]:
+    """Axis C over a set of endpoints, pooled by cell; ``None`` when no cell was measured.
+
+    ``statusPct`` / ``schemaPct`` — the share of measured cells where some call asked for at
+    least a status check / a schema check. Pooled, not averaged over endpoints: one test case is one
+    cell, and an endpoint with seven cells says seven things about depth. ``exception`` rows
+    are outside, as they are outside the average.
+    """
+    cells = status = schema = 0
+    for ep in endpoints:
+        if is_exception_row(ep):
+            continue
+        depth = _depth_dict(_get(ep, "depth"))
+        if depth is None:
+            continue
+        cells += depth["cells"]
+        status += depth["status"]
+        schema += depth["schema"]
+    if not cells:
+        return None
+    return {
+        "cells": cells,
+        "status": status,
+        "schema": schema,
+        "values": None,
+        "statusPct": round(status / cells * 100.0, 2),
+        "schemaPct": round(schema / cells * 100.0, 2),
     }
 
 
@@ -126,27 +177,35 @@ def summarize(endpoints: Sequence[Any]) -> dict[str, Any]:
         pct = float(_get(ep, "coverage", "coverage_pct") or 0.0)
         calls = int(_get(ep, "calls") or 0)
         status = str(_get(ep, "status") or "empty")
-        total_pct += pct
         total_calls += calls
-        if status == "exception":
+        if is_exception_row(ep):
+            # Counted, not scored (`AVG_RULE` 2): an `exception` row's 100 % means "the
+            # matrix does not apply here", and averaged in it lifted the number as much as
+            # a fully tested endpoint.
             exc += 1
-        elif status == "full":
+            continue
+        total_pct += pct
+        if status == "full":
             full += 1
         elif status == "partial":
             partial += 1
         else:
             empty += 1
+    scored = n - exc
     return {
         # An average over no endpoints is not a measurement. `0.0` here read as "nothing is
         # covered" — the same number a run that called everything and covered nothing would
         # give — so a run that collected no endpoints is `null`, as `meta.unseenRatio` is.
-        "avg": round(total_pct / n, 2) if n else None,
+        # The same for a set of `exception` rows only: nothing in it is scored.
+        "avg": round(total_pct / scored, 2) if scored else None,
         "calls": total_calls,
         "full": full,
         "partial": partial,
         "empty": empty,
         "exception": exc,
         "endpoints": n,
+        "scored": scored,
+        "depth": summarize_depth(endpoints),
     }
 
 
@@ -160,12 +219,15 @@ def aggregate_services(endpoints: Sequence[Any]) -> list[dict[str, Any]]:
     rows = []
     for key, bucket in buckets.items():
         stats = summarize(bucket["endpoints"])
-        covered = stats["full"] + stats["partial"] + stats["exception"]
+        # `exception` rows are not covered work (`AVG_RULE` 2); `exception` counts them.
+        covered = stats["full"] + stats["partial"]
         rows.append(
             {
                 "key": key,
                 "label": bucket["label"],
                 "totalEndpoints": stats["endpoints"],
+                # The rows the average and `covered` are taken from: all but `exception`.
+                "scored": stats["scored"],
                 "covered": covered,
                 "calls": stats["calls"],
                 "full": stats["full"],
@@ -182,9 +244,8 @@ def aggregate_services(endpoints: Sequence[Any]) -> list[dict[str, Any]]:
 def _by_avg_coverage(row: dict[str, Any]) -> tuple:
     """Highest average first, then by label; a row without an average goes last.
 
-    A bucket is created by its first endpoint, so a row built here always has one — the
-    `null` branch is for rows that reach the sort some other way, not a state this module
-    produces.
+    A row has no average when every endpoint in it is `exception` (`AVG_RULE` 2): nothing
+    in it is scored.
     """
     avg = row.get("avgCoverage")
     return (avg is None, -(avg or 0.0), row.get("label") or "")
@@ -206,10 +267,12 @@ def aggregate_subtypes(endpoints: Sequence[Any]) -> list[dict[str, Any]]:
                 "label": labels[key],
                 "avgCoverage": stats["avg"],
                 "count": stats["endpoints"],
+                "scored": stats["scored"],
                 "calls": stats["calls"],
                 "full": stats["full"],
                 "partial": stats["partial"],
                 "empty": stats["empty"],
+                "exception": stats["exception"],
             }
         )
     rows.sort(key=_by_avg_coverage)
@@ -228,6 +291,8 @@ def aggregate_methods(endpoints: Sequence[Any]) -> list[dict[str, Any]]:
                 "method": method,
                 "avgCoverage": stats["avg"],
                 "count": stats["endpoints"],
+                "scored": stats["scored"],
+                "exception": stats["exception"],
                 "calls": stats["calls"],
             }
         )
@@ -245,6 +310,7 @@ def top_missing_p1(endpoints: Sequence[Any], *, limit: int = 12) -> list[dict[st
 
 def heatmap(endpoints: Sequence[Any]) -> dict[str, Any]:
     cells: dict[tuple[str, str], list[float]] = defaultdict(list)
+    counts: Counter[tuple[str, str]] = Counter()
     services: dict[str, str] = {}
     subtypes: dict[str, str] = {}
     for ep in endpoints:
@@ -252,17 +318,20 @@ def heatmap(endpoints: Sequence[Any]) -> dict[str, Any]:
         t_key = str(_get(ep, "subtypeKey") or _get(ep, "subtype") or "unknown")
         services[s_key] = str(_get(ep, "serviceLabel") or s_key)
         subtypes[t_key] = str(_get(ep, "subtype") or t_key)
-        cells[(s_key, t_key)].append(float(_get(ep, "coverage", "coverage_pct") or 0.0))
+        counts[(s_key, t_key)] += 1
+        if not is_exception_row(ep):
+            cells[(s_key, t_key)].append(float(_get(ep, "coverage", "coverage_pct") or 0.0))
     matrix = []
-    # A cell exists only once an endpoint put a value in it, so `values` is never empty
-    # here and the cell average is always a measurement; an empty run has no cells.
-    for (s_key, t_key), values in cells.items():
+    # A cell exists once an endpoint is in it, and an empty run has no cells. Its average
+    # is over the rows that are not `exception` (`AVG_RULE` 2), `null` when there are none.
+    for (s_key, t_key), count in counts.items():
+        values = cells.get((s_key, t_key)) or []
         matrix.append(
             {
                 "service": s_key,
                 "subtype": t_key,
-                "avg": round(sum(values) / len(values), 2) if values else 0.0,
-                "count": len(values),
+                "avg": round(sum(values) / len(values), 2) if values else None,
+                "count": count,
             }
         )
     return {
@@ -383,6 +452,9 @@ def build_payload(
             "partialRun": partial_run,
             "callsTotal": calls_total,
             "unseenRatio": unseen_ratio,
+            # The rule `summary.avg`, `avgCoverage`, the heatmap and `covered` follow — see
+            # `AVG_RULE`. A reader that trends the average compares it within one rule.
+            "avgRule": AVG_RULE,
             # A run without certificate verification is a fact about the artifact, not
             # about one call: the warning it emitted does not outlive the session, and
             # whoever reads the report a week later has no other way to know. It does not

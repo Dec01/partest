@@ -8,7 +8,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Union
 
+from partest.reports._rules import bucket_average, bucket_order, pct_text, report_average
 from partest.reports.analyzer import CoverageReport, EndpointCoverage
+from partest.reports.payload import summarize_depth
 from partest.test_types import TYPE_LABELS
 
 
@@ -35,6 +37,20 @@ def _types_html(types) -> str:
     return "".join(chips)
 
 
+def _script_json(value) -> str:
+    """JSON for a ``<script>`` block: ``<`` escaped, so no string in it can end the block."""
+    return json.dumps(value).replace("<", "\\u003c")
+
+
+def _depth_text(depth) -> str:
+    """Filled required cells where a call asked for a status / a schema check; a dash when
+    not measured."""
+    if not depth or not depth.get("cells"):
+        return "—"
+    cells = depth["cells"]
+    return f"status {depth['status']}/{cells} · schema {depth['schema']}/{cells}"
+
+
 def _row_html(ep: EndpointCoverage) -> str:
     return f"""
     <tr class="{_status_class(ep.status)}">
@@ -44,6 +60,7 @@ def _row_html(ep: EndpointCoverage) -> str:
       <td class="num">{ep.calls}</td>
       <td class="num">{ep.coverage_pct:.0f}%</td>
       <td><span class="badge {_status_class(ep.status)}">{_esc(ep.status)}</span></td>
+      <td class="muted">{_esc(_depth_text(getattr(ep, "depth", None)))}</td>
       <td>{_types_html(ep.executed_types)}</td>
       <td>{_types_html(ep.missing_p1)}</td>
       <td class="desc">{_esc(ep.description)}</td>
@@ -57,13 +74,14 @@ def render_html(report: CoverageReport, *, title: str = "partest API coverage") 
     rows = "\n".join(_row_html(ep) for ep in sorted(
         report.endpoints, key=lambda e: (e.coverage_pct, e.method, e.path)
     ))
+    depth = summarize_depth(report.endpoints)
 
     subtype_cards = []
-    for key, bucket in sorted(report.by_subtype.items(), key=lambda x: -x[1]["avg_pct"]):
+    for key, bucket in sorted(report.by_subtype.items(), key=bucket_order):
         subtype_cards.append(
             f"""<div class="card">
               <div class="card-title">{_esc(bucket.get('label', key))}</div>
-              <div class="card-metric">{bucket['avg_pct']:.0f}%</div>
+              <div class="card-metric">{pct_text(bucket_average(bucket), 0)}</div>
               <div class="muted">{bucket['count']} endpoints</div>
             </div>"""
         )
@@ -162,12 +180,14 @@ footer {{ margin-top: 2rem; color: var(--muted); font-size: .8rem; }}
 </header>
 <main>
   <div class="grid">
-    <div class="stat"><div class="label">Average coverage</div><div class="value">{report.average_pct:.1f}%</div></div>
+    <div class="stat"><div class="label">Average coverage</div><div class="value">{pct_text(report_average(report), 1)}</div></div>
     <div class="stat"><div class="label">Total calls</div><div class="value">{report.total_calls}</div></div>
     <div class="stat ok"><div class="label">Full (P1 set)</div><div class="value">{report.full_count}</div></div>
     <div class="stat warn"><div class="label">Partial</div><div class="value">{report.partial_count}</div></div>
     <div class="stat bad"><div class="label">Empty</div><div class="value">{report.empty_count}</div></div>
-    <div class="stat exc"><div class="label">Exception 100%</div><div class="value">{report.exception_count}</div></div>
+    <div class="stat exc"><div class="label">Exception (not averaged)</div><div class="value">{report.exception_count}</div></div>
+    <div class="stat" title="Filled required cells where a call asked for a status check"><div class="label">Cells: status asked</div><div class="value">{pct_text(depth and depth['statusPct'], 0)}</div></div>
+    <div class="stat" title="Filled required cells where a call asked for a schema check (validate_model with expected_status_code)"><div class="label">Cells: schema asked</div><div class="value">{pct_text(depth and depth['schemaPct'], 0)}</div></div>
   </div>
 
   <section>
@@ -201,6 +221,7 @@ footer {{ margin-top: 2rem; color: var(--muted); font-size: .8rem; }}
             <th>Calls</th>
             <th>Cover</th>
             <th>Status</th>
+            <th>Depth</th>
             <th>Executed TC</th>
             <th>Missing P1</th>
             <th>Description</th>
@@ -219,16 +240,28 @@ footer {{ margin-top: 2rem; color: var(--muted); font-size: .8rem; }}
   </footer>
 </main>
 <script>
-const data = {json.dumps(chart_data)};
+// The labels are paths from the specification: never markup. `<` is escaped in the data so a
+// path cannot close this block, and every label goes in as text.
+const data = {_script_json(chart_data)};
 const root = document.getElementById('bars');
+function el(tag, cls, text) {{
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}}
 data.labels.forEach((label, i) => {{
-  const pct = data.values[i] || 0;
-  const row = document.createElement('div');
-  row.className = 'bar-row';
-  row.innerHTML = `
-    <div class="bar-label" title="${{label}}">${{label}}</div>
-    <div class="bar-track"><div class="bar-fill" style="width:${{Math.min(100, pct)}}%"></div></div>
-    <div class="num">${{pct.toFixed(0)}}%</div>`;
+  const pct = Number(data.values[i]) || 0;
+  const row = el('div', 'bar-row');
+  const name = el('div', 'bar-label', String(label));
+  name.title = String(label);
+  const track = el('div', 'bar-track');
+  const fill = el('div', 'bar-fill');
+  fill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+  track.appendChild(fill);
+  row.appendChild(name);
+  row.appendChild(track);
+  row.appendChild(el('div', 'num', pct.toFixed(0) + '%'));
   root.appendChild(row);
 }});
 </script>

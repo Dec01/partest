@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-#: Shown, in grey, for a run that measured nothing (``summary.avg`` is ``null``).
+#: Shown, in grey, for a run whose average was not measured (``summary.avg`` is ``null``):
+#: no endpoints, or ``exception`` rows only.
 _NOT_MEASURED_TEXT = "n/a"
 _NOT_MEASURED_COLOR = "#9f9f9f"
 
@@ -20,8 +21,9 @@ def _color(avg: float) -> str:
 def badge_svg(avg: Optional[float], *, label: str = "coverage") -> str:
     """Shields-style SVG. ``avg`` is 0..100, or ``None`` for "not measured".
 
-    ``None`` is drawn as ``n/a`` in grey, not as ``0.0%`` in red: a run with no endpoints
-    has no average, and a red zero would say it covered nothing.
+    ``None`` is drawn as ``n/a`` in grey, not as ``0.0%`` in red: a run with no endpoints, or
+    with ``exception`` rows only (``meta.avgRule`` 2), has no average, and a red zero would
+    say it covered nothing.
     """
     if avg is None:
         value = _NOT_MEASURED_TEXT
@@ -50,7 +52,8 @@ def badge_svg(avg: Optional[float], *, label: str = "coverage") -> str:
 def badge_from_payload(payload: dict[str, Any], *, label: str = "coverage") -> str:
     """Badge for ``summary.avg``.
 
-    ``"avg": null`` (a run with no endpoints, 2.7.0 and later) is ``n/a``, and so is the
+    ``"avg": null`` (a run with no endpoints, or of ``exception`` rows only — 2.7.0 and
+    later) is ``n/a``, and so is the
     ``0.0`` older releases wrote for a run with no endpoints (``summary.endpoints == 0`` or
     ``endpoints: []``) — read the way ``compare`` and ``validate`` read it. A ``0.0`` with
     endpoints is a measured zero; a payload without the key reads as ``0.0`` as it always
