@@ -13,6 +13,11 @@ allow_version_literals: true
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
 
+## 2026-10-25 · update · выпуск 2.7.0
+
+`CHANGELOG.md` «2.7.0 — unreleased» → «2.7.0 — 2026-10-25»; [[status]] — 2.7.0 на PyPI;
+[[howto/migration]] — раздел без пометки «candidate».
+
 ## 2026-10-19 · update · 2.7.0-кандидат: маскировка — линейное время, без второго прохода
 
 [[howto/enterprise]], [[howto/migration]], [[proposals]] §E2/§E3: скобки внутри строк в обеих

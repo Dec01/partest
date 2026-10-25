@@ -13,7 +13,7 @@ pip install -U 'partest[ui]'   # UI suites
 pip install --no-cache-dir "partest==X.Y.Z"
 ```
 
-## 2.7.0 (candidate, not released) — `summary.avg: null`, `exception` outside the average, depth, masking in every channel
+## 2.7.0 — `summary.avg: null`, `exception` outside the average, depth, masking in every channel
 
 Nothing to change in a suite that neither reads `coverage.json` nor matches log or message
 text. Subtypes do not change: every valid OpenAPI path keeps the cell 2.6.0 gave it. In 2.6.0 GET BY PARENT went only to a malformed template with two or more `/` inside braces (`/a/b/{x/y/z}`); such a path is now read by the general rules — usually GET DYNAMIC, GET LIST or GET STATIC with list or static hints (`GET /orders/status/{a/b/c}` "List statuses" is GET STATIC). Behaviours that change:

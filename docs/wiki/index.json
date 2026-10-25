@@ -823,7 +823,7 @@
         },
         {
           "level": 2,
-          "text": "2.7.0 (candidate, not released) — `summary.avg: null`, `exception` outside the average, depth, masking in every channel"
+          "text": "2.7.0 — `summary.avg: null`, `exception` outside the average, depth, masking in every channel"
         },
         {
           "level": 2,
@@ -974,7 +974,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 45000
+      "chars": 44974
     },
     {
       "slug": "howto/permissions",
@@ -1610,6 +1610,10 @@
         },
         {
           "level": 2,
+          "text": "2026-10-25 · update · выпуск 2.7.0"
+        },
+        {
+          "level": 2,
           "text": "2026-10-19 · update · 2.7.0-кандидат: маскировка — линейное время, без второго прохода"
         },
         {
@@ -1773,7 +1777,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 40366
+      "chars": 40548
     },
     {
       "slug": "proposals",
@@ -2056,7 +2060,7 @@
         },
         {
           "level": 3,
-          "text": "2.7.0 — кандидат: маскировка во всех каналах, `summary.avg: null`, `exception` вне среднего и глубина (F1), находки перехода потребителя · **кандидат** (версия в коде 2.7.0, на PyPI не выпущен)"
+          "text": "2.7.0 — маскировка во всех каналах, `summary.avg: null`, `exception` вне среднего и глубина (F1), находки перехода потребителя · **выпущено** 2026-10-25"
         },
         {
           "level": 3,
@@ -2099,7 +2103,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 26647
+      "chars": 26497
     },
     {
       "slug": "WIKI",
