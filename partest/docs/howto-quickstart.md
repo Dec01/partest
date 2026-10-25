@@ -97,7 +97,9 @@ def _coverage_session():
 ```
 
 Reset the counters once per session, never per test. The report is built from what the whole
-run recorded; a reset after each test leaves nothing for it to read.
+run recorded; a reset after each test leaves nothing for it to read. Nor after the `yield`:
+session fixtures are finalized before `pytest_sessionfinish`, where the `PARTEST_COVERAGE_JSON`
+report and each xdist worker's shard are written, so a reset there leaves them an empty run.
 
 **test_health.py**
 

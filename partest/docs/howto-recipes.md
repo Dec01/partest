@@ -215,9 +215,14 @@ spec = resolve_from_confpartest(service="myservice")
 ## generate package exports
 
 ```bash
-python -m partest.tools.generate_init -d src/api/resources
-partest-gen init-package-exports src/api/resources -v   # same thing, needs partest-gen
+python -m partest.tools.generate_init -d src/my_helpers
+partest-gen init-package-exports src/my_helpers -v   # same thing, needs partest-gen
 ```
+
+For a package you wrote by hand. Every `__init__.py` under the directory that holds modules is
+rewritten whole, recursively — commit first. Never run it on a directory partest-gen writes,
+`src/api/resources` above all: the banner it writes is not the generator's, so the next
+`sync-openapi` keeps those files as yours and stops refreshing them.
 
 ## Collections + HeadersBind
 

@@ -393,6 +393,13 @@
   design); [[howto/migration]] said "with it chained". Which calls raise `ConfpartestError`
   for which failure is corrected in 2.6.0 Changed, in [[howto/migration]] and in the status
   page, by the code: the report never raises, it reports `NOT COUNTED`.
+- `partest.tools.generate_init` (docstring, `--directory` help) and [[howto/recipes]] gave
+  `src/api/resources` as the example — in a partest-gen tree that takes the generator's
+  `__init__.py` files from it. The example is now a hand-written package, with the warning
+  partest-gen 1.2.1 gives.
+- `reset_storage`: once, before the `yield` of a session fixture. After it, the
+  `PARTEST_COVERAGE_JSON` report and the xdist shards, written in `pytest_sessionfinish`, see
+  an empty run (docstring, [[howto/quickstart]], the `partest-cover-api` skill).
 
 ### Known issues
 

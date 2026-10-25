@@ -1,7 +1,7 @@
 ---
 title: Quickstart — first green API test
 status: current
-verified: 2026-10-19
+verified: 2026-10-25
 sources: [partest/client.py, partest/conf.py, partest/coverage.py, partest/call_storage.py, partest/env/__init__.py, partest/zorro_report.py, partest/tls.py, partest/pytest_plugin.py]
 audience: user
 ships_in_wheel: true
@@ -103,7 +103,9 @@ def _coverage_session():
 ```
 
 Reset the counters once per session, never per test. The report is built from what the whole
-run recorded; a reset after each test leaves nothing for it to read.
+run recorded; a reset after each test leaves nothing for it to read. Nor after the `yield`:
+session fixtures are finalized before `pytest_sessionfinish`, where the `PARTEST_COVERAGE_JSON`
+report and each xdist worker's shard are written, so a reset there leaves them an empty run.
 
 **test_health.py**
 

@@ -1,7 +1,7 @@
 ---
 title: Coverage honesty — when the number lies
 status: current
-verified: 2026-10-19
+verified: 2026-10-25
 sources: [partest/call_storage.py, partest/coverage.py, partest/reports/analyzer.py, partest/reports/compare.py, partest/reports/payload.py, partest/pytest_plugin.py]
 audience: agent
 ships_in_wheel: true

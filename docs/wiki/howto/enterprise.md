@@ -1,7 +1,7 @@
 ---
 title: Enterprise notes — shared client, retries, redaction, xdist
 status: current
-verified: 2026-10-19
+verified: 2026-10-25
 sources: [partest/http_retry.py, partest/redact.py, partest/call_storage.py, partest/client.py, partest/tls.py, partest/http/client.py, partest/utils/logger.py, partest/reporting/attach.py, partest/reporting/instrument.py, partest/reporting/templates.py, partest/reporting/checks.py, partest/sideeffects.py, partest/utils/checking.py, partest/auth/token_manager.py, partest/ui/allure_ui.py, partest/pytest_plugin.py]
 audience: user
 ships_in_wheel: true

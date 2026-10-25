@@ -1,7 +1,7 @@
 ---
 title: Статус, версии и что дальше
 status: current
-verified: 2026-10-19
+verified: 2026-10-25
 sources: [partest/__init__.py, CHANGELOG.md]
 audience: maintainer
 ships_in_wheel: false

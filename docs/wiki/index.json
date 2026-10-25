@@ -6,7 +6,7 @@
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-10-25",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -68,7 +68,7 @@
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-10-25",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -186,7 +186,7 @@
       "path": "docs/wiki/concepts/coverage-honesty.md",
       "title": "Coverage honesty — when the number lies",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-10-25",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -634,7 +634,7 @@
       "path": "docs/wiki/howto/enterprise.md",
       "title": "Enterprise notes — shared client, retries, redaction, xdist",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-10-25",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1025,7 +1025,7 @@
       "path": "docs/wiki/howto/quickstart.md",
       "title": "Quickstart — first green API test",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-10-25",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1100,7 +1100,7 @@
           "text": "Next"
         }
       ],
-      "chars": 7749
+      "chars": 7961
     },
     {
       "slug": "howto/recipes",
@@ -1216,7 +1216,7 @@
           "text": "\"errors\": [{\"field\": \"name\", \"code\": \"required\", \"message\": \"must not be blank\"}]}"
         }
       ],
-      "chars": 16735
+      "chars": 17075
     },
     {
       "slug": "howto/release",
@@ -2026,7 +2026,7 @@
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-10-25",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [

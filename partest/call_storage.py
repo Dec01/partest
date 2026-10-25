@@ -87,7 +87,13 @@ DEFAULT_SHARD_DIR = ".partest/call_storage"
 
 
 def reset_storage() -> None:
-    """Clear all coverage counters (session fixture)."""
+    """Clear all coverage counters — once, at the start of the session.
+
+    Call it before the first ``yield`` of a session fixture, never after it: session
+    fixtures are finalized before ``pytest_sessionfinish``, and that is where the
+    ``PARTEST_COVERAGE_JSON`` / ``PARTEST_COVERAGE_HTML`` report and each xdist worker's
+    shard are written — a reset after ``yield`` leaves them an empty run.
+    """
     with _lock:
         call_count.clear()
         call_type.clear()

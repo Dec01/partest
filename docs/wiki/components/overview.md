@@ -1,7 +1,7 @@
 ---
 title: Package map — what lives where
 status: current
-verified: 2026-10-19
+verified: 2026-10-25
 sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/http/client.py, partest/call_storage.py, partest/reports/payload.py, partest/pytest_plugin.py, partest/conf.py, partest/optin.py, partest/polling.py, partest/rounding.py, partest/known_defect.py, partest/reports/compare.py]
 audience: agent
 ships_in_wheel: true

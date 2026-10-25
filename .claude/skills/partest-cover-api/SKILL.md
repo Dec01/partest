@@ -49,7 +49,7 @@ description: >
 
 ```text
 confpartest.py            # swagger_files: {"service": ["local"|"url", "<path or url>"]}
-conftest.py               # domain, api_client, reset_storage()
+conftest.py               # domain, api_client; reset_storage() once, before yield of a session fixture
 src/tests/test_zorro.py   # calls zorro() last
 ```
 

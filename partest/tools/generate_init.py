@@ -2,8 +2,13 @@
 
 Usage::
 
-    python -m partest.tools.generate_init --directory src/api/resources
-    partest-gen init-package-exports src/api/resources
+    python -m partest.tools.generate_init --directory src/my_helpers
+    partest-gen init-package-exports src/my_helpers
+
+For a package you wrote by hand. Every ``__init__.py`` under the directory that holds
+modules is rewritten whole, recursively — commit first. Never point it at a directory
+partest-gen writes, such as ``src/api/resources``: the generator then keeps those files
+as yours and stops refreshing them.
 """
 
 from __future__ import annotations
@@ -83,7 +88,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--directory",
         "-d",
         required=True,
-        help="Root directory to scan (e.g. src/api/resources)",
+        help=(
+            "Root of a package you wrote by hand (e.g. src/my_helpers). The __init__.py "
+            "of every directory under it that holds modules is rewritten whole, "
+            "recursively — commit first. Never a directory partest-gen writes, such as "
+            "src/api/resources: sync-openapi then keeps those files as yours and stops "
+            "refreshing them"
+        ),
     )
     parser.add_argument(
         "--output-file",
