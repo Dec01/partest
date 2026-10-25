@@ -1,7 +1,7 @@
 ---
 title: partest-gen — генератор в соседнем репозитории
 status: current
-verified: 2026-10-18
+verified: 2026-10-25
 sources: [partest/project_gen/__init__.py, setup.py]
 audience: agent
 ships_in_wheel: false

@@ -105,20 +105,35 @@ def _split(requirement: str) -> tuple[str, str]:
     return name.strip().lower(), requirement[len(name):].strip()
 
 
-def _declared_for_audit() -> dict[str, str]:
+def _by_name(requirements) -> dict[str, list[str]]:
+    """Requirements grouped by distribution, every bound of each kept.
+
+    A plain ``dict(_split(...))`` keeps the *last* line per name, and one name can carry
+    several: Pillow has an unconditional floor in `ui` and a stricter one behind a
+    ``python_version`` marker in `install_requires`. Collapsing them would compare one bound
+    and let the other drift unseen — the marker one, the one that closes the advisories.
+    """
+    grouped: dict[str, list[str]] = {}
+    for item in requirements:
+        name, spec = _split(item)
+        grouped.setdefault(name, []).append(spec)
+    return {name: sorted(specs) for name, specs in grouped.items()}
+
+
+def _declared_for_audit() -> dict[str, list[str]]:
     """Every bound a consumer can get: `install_requires` plus the consumer-facing extras."""
     extras = _setup_keyword("extras_require")
     declared = list(_setup_keyword("install_requires"))
     for extra in AUDITED_EXTRAS:
         declared.extend(extras[extra])
-    return dict(_split(item) for item in declared)
+    return _by_name(declared)
 
 
-def _audited() -> dict[str, str]:
+def _audited() -> dict[str, list[str]]:
     """`requirements.txt` as `pip-audit` reads it — comments and blank lines dropped."""
     text = (REPO_ROOT / "requirements.txt").read_text(encoding="utf-8")
-    return dict(
-        _split(line)
+    return _by_name(
+        line
         for line in text.splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     )
@@ -338,12 +353,52 @@ def test_the_pytest_the_suite_runs_on_is_inside_the_declared_range():
     """
     from packaging.specifiers import SpecifierSet
 
-    declared = _declared_for_audit()["pytest"]
+    (declared,) = _declared_for_audit()["pytest"]
     running = pytest.__version__
 
     assert SpecifierSet(declared).contains(running, prereleases=True), (
         f"the suite is running on pytest {running}, which setup.py excludes ({declared}): "
         "either the run is wrong or the declaration is"
+    )
+
+
+def test_the_pillow_the_suite_runs_on_is_inside_the_declared_range():
+    """The Pillow floor that applies to this interpreter is the one the suite ran on.
+
+    Pillow gets two floors in `install_requires`, split by marker: 13.0.0 on 3.11+, 12.3.0 on
+    3.10, the newest that installs there. They sit in the core dependencies, not only in
+    `ui`, because matplotlib pulls Pillow into every install — an extra-only floor would miss
+    consumers without `ui`, so every interpreter must find one there. A floor raised past
+    what the suite was run on is a compatibility promise nobody checked; this fails when the
+    environment and the declaration disagree, on whichever interpreter runs it.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+
+    from packaging.requirements import Requirement
+
+    try:
+        running = version("pillow")
+    except PackageNotFoundError:
+        pytest.skip("Pillow is not installed")
+
+    def applicable_in(requirements):
+        return [
+            requirement
+            for requirement in map(Requirement, requirements)
+            if requirement.name.lower() == "pillow"
+            and (requirement.marker is None or requirement.marker.evaluate())
+        ]
+
+    core = applicable_in(_setup_keyword("install_requires"))
+    assert core, (
+        "install_requires declares no Pillow bound for this interpreter, so an install without "
+        "`ui` takes whatever Pillow matplotlib accepts"
+    )
+    applicable = core + applicable_in(_setup_keyword("extras_require")["ui"])
+
+    outside = [str(r) for r in applicable if not r.specifier.contains(running, prereleases=True)]
+    assert not outside, (
+        f"the suite is running on Pillow {running}, which setup.py excludes here: {outside}"
     )
 
 

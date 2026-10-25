@@ -210,7 +210,10 @@ def compare_images(
     try:
         from PIL import Image, ImageChops
     except ImportError as e:
-        raise RuntimeError("Pillow required — pip install partest[ui]") from e
+        raise RuntimeError(
+            "Pillow not installed, though partest depends on it (and matplotlib does) — "
+            "pip install Pillow"
+        ) from e
 
     ref_p = Path(reference)
     act_p = Path(actual)

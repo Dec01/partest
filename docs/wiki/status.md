@@ -128,6 +128,7 @@ pytest загружается по месту (кроме `--noconftest`, чуж
 | маркер `known_defect`: строгий xfail, засчитывающий только `AssertionError` тела (кроме `StatusMismatchError` 502/503/504 — статусов шлюза; 429 — воспроизведение); вердикт виден allure-pytest и pytest-rerunfailures; `xfail`, добавленный во время прогона, — отказ | `partest/known_defect.py`, `partest/pytest_plugin.py` | [[components/overview]] |
 | `Logger.warning` — `make_request(data={...})` и GraphQL не через POST падали `AttributeError` | `partest/utils/logger.py` | [[howto/enterprise]] |
 | совет `pip install --no-cache-dir` сразу после выпуска | документы | [[howto/quickstart]] |
+| пол `Pillow>=13.0.0` на Python 3.11+ в `install_requires` (маркер `python_version >= "3.11"`): в 12.3.0 открыты уязвимости, известные pip-audit на 2026-10-25 (OSV показывает больше), достижимые через `compare_images` на непроверенных файлах; Pillow приходит через matplotlib и без `ui`. На 3.10 13.0.0 не ставится — там `>=12.3.0`, тоже в `install_requires` (маркер `< "3.11"`), уязвимости на 3.10 не исправимы (решение человека 2026-10-25) | `setup.py`, `requirements.txt`, `tests/test_packaging.py` | [[howto/migration]] |
 
 Отложено: признак секрета по подстроке ключа тела (`new_password`, Keycloak `value`) (мажор, решение мейнтейнера), умолчание
 `attach_response` (перевернуть в 3.0), секрет в XML-теле — [[proposals]] §E2;

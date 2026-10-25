@@ -122,8 +122,12 @@ print(read_doc("concepts-methodology.md"))
 ## Requirements
 
 Python 3.10+, with the suite run on 3.10 and 3.14. Core dependencies: `httpx`, `pydantic`, `pyyaml`, `pytest`, `pytest-asyncio`,
-`allure-pytest`, `requests`, `python-dotenv`, `Faker`, `matplotlib`. The `ui` extra adds
-`playwright` and `Pillow`.
+`allure-pytest`, `requests`, `python-dotenv`, `Faker`, `matplotlib`, and on Python 3.11+
+`Pillow>=13.0.0`, on 3.10 `Pillow>=12.3.0` (matplotlib pulls Pillow in anyway). 13.0.0 fixes
+the advisories `pip-audit` knew on 2026-10-25 as open in 12.3.0, and needs Python 3.11, so on
+3.10 they cannot be fixed — upgrade to 3.11+. PIL decodes foreign input only in
+`partest.ui.visual.compare_images` (baseline and screenshot); the coverage chart only encodes a
+PNG matplotlib drew. The `ui` extra adds `playwright`.
 
 **pytest 9 is required from 2.1.0 on** (`pytest>=9.0.3,<10`). The advisory that raised the
 floor, `PYSEC-2026-1845`, has no fix in any 8.x release, so pytest 8 is not supported rather

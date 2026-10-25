@@ -115,6 +115,27 @@
   this package (`meta.avgRule` above 2) — not an error; the checks that depend on the rule are
   skipped.
 
+### Security
+
+- **`Pillow>=13.0.0` on Python 3.11+, in the core dependencies.** The advisories `pip-audit`
+  knew on 2026-10-25 as open in Pillow 12.3.0, the previous floor — CVE-2026-112405,
+  CVE-2026-96636 to -96644 and GHSA-78g4-xqwv-q3g8 among them; OSV lists more since — are
+  fixed in 13.0.0. Reachable from partest: PIL decodes foreign input only in
+  `partest.ui.visual.compare_images` (`Image.open` on the baseline and the screenshot —
+  reachable when those files are not trusted); `allure_graph` only encodes a PNG matplotlib
+  drew. The floor
+  goes into `install_requires` with the marker `python_version >= "3.11"`, not only into the
+  `ui` extra: matplotlib, a core dependency, pulls Pillow into every install, so a consumer
+  without `ui` would otherwise keep whatever matplotlib accepts. Run on 3.14 with Pillow
+  13.0.0: `compare_images` and the `allure_graph` chart unchanged.
+- **Python 3.10 stays on Pillow 12.3.0 with those advisories open.** Pillow 13.0.0 declares
+  `Requires-Python >=3.11` and no 12.x release fixes them, so on 3.10 there is nothing to raise
+  the floor to beyond 12.3.0. That floor now sits in `install_requires` too
+  (`python_version < "3.11"`), so a 3.10 install without `ui` no longer takes an older Pillow
+  from matplotlib. The same reachability applies (`compare_images` on files that are not
+  trusted); the fix on 3.10 is to upgrade to Python 3.11+. `requirements.txt` lists both lines, so `pip-audit -r` reports against the
+  floor of the interpreter it runs on.
+
 ### Changed
 
 - **`exception` endpoints are left out of every average** (proposals F1, option 3). A row on

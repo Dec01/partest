@@ -79,6 +79,19 @@ setup(
         "requests>=2.33.0",  # PYSEC-2026-1873 / -1872 / -2275, last of them fixed in 2.33.0
         "python-dotenv>=1.2.2",  # PYSEC-2026-2270, fixed in 1.2.2
         "Faker>=13.12.0",
+        # Not a dependency of partest's own: matplotlib above pulls Pillow into every
+        # install, `ui` extra or not, so the floor has to sit here or a consumer without
+        # `ui` keeps whatever matplotlib accepts. The advisories `pip-audit` knew on
+        # 2026-10-25 as open in 12.3.0 (CVE-2026-112405, CVE-2026-96636 to -96644,
+        # GHSA-78g4-xqwv-q3g8 among them; OSV lists more since) are fixed in 13.0.0 — which
+        # declares `Requires-Python >=3.11`. PIL decodes foreign input only in
+        # `partest.ui.visual.compare_images` (`Image.open` on the baseline and the screenshot);
+        # `allure_graph` only encodes a PNG matplotlib drew.
+        # On 3.10 there is no Pillow release that fixes them, so 3.10 gets the old floor of
+        # 12.3.0 — here too, not only in `ui`, so matplotlib cannot bring anything older —
+        # knowingly vulnerable; the only way out there is 3.11+.
+        'Pillow>=13.0.0; python_version >= "3.11"',
+        'Pillow>=12.3.0; python_version < "3.11"',
     ],
     extras_require={
         "ui": [
@@ -86,6 +99,8 @@ setup(
             # Eighteen advisories at the old floor of 10.0.0, the last of them fixed in
             # 12.3.0. An extra is installed by consumers like everything else, and this one
             # had never been audited: `requirements.txt` did not list it.
+            # Repeats the 3.10 floor of `install_requires` and is outranked there on 3.11+
+            # by `Pillow>=13.0.0`; kept so the extra still names what it needs.
             "Pillow>=12.3.0",
         ],
         # The scaffold generator is a separate distribution: it runs once when a project is

@@ -146,7 +146,7 @@
       "path": "docs/wiki/components/project-gen.md",
       "title": "partest-gen — генератор в соседнем репозитории",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-25",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [
@@ -318,7 +318,7 @@
       "path": "docs/wiki/decisions/distribution.md",
       "title": "ADR — как распространяется partest",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-25",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -407,7 +407,7 @@
       "path": "docs/wiki/decisions/docs-in-wheel.md",
       "title": "ADR — документация внутри колеса и генерация partest/docs",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-25",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -515,7 +515,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-10-25",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -974,7 +974,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 44036
+      "chars": 45000
     },
     {
       "slug": "howto/permissions",
@@ -1223,7 +1223,7 @@
       "path": "docs/wiki/howto/release.md",
       "title": "Release checklist",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-10-25",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1400,7 +1400,7 @@
       "path": "docs/wiki/howto/ui.md",
       "title": "UI quickstart (partest[ui])",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-25",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1780,7 +1780,7 @@
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-10-19",
+      "verified": "2026-10-25",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -2099,7 +2099,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 26120
+      "chars": 26647
     },
     {
       "slug": "WIKI",
