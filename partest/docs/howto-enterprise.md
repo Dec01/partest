@@ -190,8 +190,10 @@ plain text (in a header dict the whole value is masked), and a value a custom va
 into its message without the key. Addresses in free text — log lines, messages, `redact_text`
 — are not covered in these shapes (`redact_url`, for one address, closes the ones marked †):
 
-- a bare DSN with a `/` in its password (`app:pa/ss@db.internal`), and Oracle's
-  `scott/tiger@db`;
+- a bare DSN whose password holds a `/` (`app:pa/ss@db.internal`), a quote, `<`, `>` or
+  whitespace, and Oracle's `scott/tiger@db`;
+- an address whose scheme is prefixed by another one (the `jdbc:` style): `redact_url` reads
+  the whole string as text, not as one address, so its closing rule does not apply;
 - a token in a path: a bot API `/bot<id>:<token>/…`, a Slack webhook
   `/services/T…/B…/<secret>`, an access key id `/AKIA…/`;
 - a URL nested in a query value (`?next=https%3A%2F%2Fu%3Ap%40h`) — encoded, it is not seen

@@ -241,7 +241,7 @@ exception (a YAML parse error keeps the parser's exception chained). For a URL:
   request and between chunks of the body, and each step's timeout is cut to what is left of
   it: the body and the redirects overrun it by at most one `timeout`. **The headers are bounded
   only by `timeout` per read**: a server that sends them a byte at a time, each within
-  `timeout`, holds the call as long as it likes (the review measured `timeout=1, total_timeout=2` → 35 s).
+  `timeout`, holds the call as long as it likes (measured: `timeout=1, total_timeout=2` → 35 s).
   Resolving the host name (DNS) is bounded by neither;
 - a compressed body that ends before its stream does (a cut connection) is refused, though
   what arrived might parse as half a spec;

@@ -344,7 +344,7 @@ def test_any_failure_is_an_open_api_error_without_the_secret(monkeypatch, exc):
     _no_part_of(SECRETS, str(caught.value))
 
 
-# --- round of 2026-10-26: a mistyped scheme, a cut stream, the C loader ---------------------
+# --- a mistyped scheme, a path with a query, a cut stream, the C loader -------------------
 
 MISTYPED = [
     "https:/alice:PWSECRET@h.example/x?k=KSECRET",

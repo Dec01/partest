@@ -711,7 +711,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 21171
+      "chars": 21381
     },
     {
       "slug": "howto/layers",
@@ -1228,7 +1228,7 @@
           "text": "\"errors\": [{\"field\": \"name\", \"code\": \"required\", \"message\": \"must not be blank\"}]}"
         }
       ],
-      "chars": 21330
+      "chars": 21320
     },
     {
       "slug": "howto/release",
@@ -2040,7 +2040,7 @@
         },
         {
           "level": 2,
-          "text": "H. Из ревью кандидата 2.8.0: адреса и загрузка спецификации · 2026-10-26"
+          "text": "H. Адреса в выводе и загрузка спецификации · 2026-10-26"
         },
         {
           "level": 3,
@@ -2067,7 +2067,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 55461
+      "chars": 55099
     },
     {
       "slug": "status",
