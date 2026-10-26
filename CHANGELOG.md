@@ -25,7 +25,9 @@
   behalf. `max_bytes` bounds the document, local or fetched (64 MiB; `None` lifts it): the
   body is read raw and decoded by partest, so a compressed one stops at the limit of output.
   `total_timeout` is checked before each request and between chunks of the body and cuts each
-  step's timeout to what is left — overrun by at most one `timeout`, DNS not bounded.
+  step's timeout to what is left: the body and the redirects overrun it by at most one
+  `timeout`; the headers are bounded only by `timeout` per read (a server that drips them a
+  byte at a time holds the call), and DNS by neither.
   `max_redirects` — httpx's own default.
 - **The `swagger_files` grammar, public, in one home — `partest.conf`**: `SWAGGER_SOURCE_KINDS`
   (`local`, `file`, `path`, `url`), `SwaggerEntry(kind, location)`,
@@ -55,6 +57,14 @@
   `UnicodeError` (IDNA, `charset=undefined` — now decoded as UTF-8), `ValueError` from
   `urlsplit`, `RecursionError` from a deep document reached the caller raw, some quoting the
   password.
+- **A `url` entry must start with `http://` or `https://`** (any case): `https:/user:pw@h`,
+  `https//…`, a full-width `ｈttps://` were fetched as a path and quoted back whole, password
+  included. Every `resolve_swagger` message now names the location as `redact_url` shows it —
+  a string read as a local path (`s3://…?X-Amz-Signature=…`) loses its query and fragment.
+  A compressed body that ends before its stream does is refused instead of parsed as half a
+  spec.
+- `redact_url` gives `<redacted>` for an object whose `str()` raises;
+  `validate_confpartest` masks the `swagger_files` key it quotes.
 - **An address a client cannot read is refused before any request** — by validation,
   coverage and `resolve_swagger`: a raw `/`, `?`, `#` or `@` in the password, a "port" that is
   not a number, `＠` (U+FF20) in the host. It never worked, and the client's error quoted part
@@ -83,7 +93,8 @@ masks more or refuses what is unsafe or could not work — is listed in
   channels, shown by `redact_text`); `mailto:` addresses are kept;
 - `__all__` in `partest.redact`, `partest.conf` and `partest.openapi` narrows
   `from … import *` to the public names;
-- `parse_swagger_entry` refuses an empty or non-string location and an unreadable URL, and
+- `parse_swagger_entry` refuses an empty or non-string location, a `url` not starting with
+  `http://` / `https://`, and an unreadable URL, and
   `require_confpartest` — used by `resolve_from_confpartest()` without `conf` — raises on one
   bad entry whichever service is asked for (as it did for a bad shape or kind);
   `validate_confpartest` accepts a kind with spaces and no longer quotes a malformed entry;

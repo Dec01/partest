@@ -214,7 +214,7 @@ a test that is still holding a mark.
 from partest.openapi import OpenApiResolveError, resolve_swagger, resolve_from_confpartest
 
 spec = resolve_swagger("docs/openapi.yaml")
-spec = resolve_swagger(["url", "https://api/v3/api-docs"], verify=False)
+spec = resolve_swagger(["url", "https://api/v3/api-docs"])  # TLS: the package policy
 spec = resolve_swagger(entry, project_root=root,          # one swagger_files entry
                        max_bytes=8 * 1024 * 1024,         # default 64 MiB; None — no limit
                        total_timeout=30,                  # default None; see below
@@ -239,11 +239,18 @@ exception (a YAML parse error keeps the parser's exception chained). For a URL:
   before any limit could see them;
 - `timeout` bounds each step (connect, each read). `total_timeout` is checked before each
   request and between chunks of the body, and each step's timeout is cut to what is left of
-  it: it can be overrun by at most one `timeout`, and resolving the host name (DNS) is bounded
-  by neither;
-- an address a client cannot read — a raw `/`, `?`, `#` or `@` in the password, a "port"
-  that is not a number, `＠` (U+FF20) in the host — is refused before any request:
-  percent-encode them.
+  it: the body and the redirects overrun it by at most one `timeout`. **The headers are bounded
+  only by `timeout` per read**: a server that sends them a byte at a time, each within
+  `timeout`, holds the call as long as it likes (the review measured `timeout=1, total_timeout=2` → 35 s).
+  Resolving the host name (DNS) is bounded by neither;
+- a compressed body that ends before its stream does (a cut connection) is refused, though
+  what arrived might parse as half a spec;
+- a `url` must start with `http://` or `https://` (any case); an address a client cannot read
+  — a raw `/`, `?`, `#` or `@` in the password, a "port" that is not a number, `＠` (U+FF20)
+  in the host — is refused before any request: percent-encode them;
+- every message names the location the way `partest.redact.redact_url` shows it: without
+  credentials, query or fragment, closed on doubt — a string read as a local path
+  (`s3://bucket/spec.yaml?X-Amz-Signature=…`) included.
 
 YAML is parsed with PyYAML's C loader when it is installed (`CSafeLoader`): the pure-Python one
 takes minutes and gigabytes on a document near the size limit.
@@ -262,7 +269,8 @@ resolve_entry_location(entry, conf_dir)                 # the file partest would
 ```
 
 `SWAGGER_SOURCE_KINDS` is `local | file | path | url` in any case, spaces around allowed;
-`file` and `path` come back as `local`. A list or tuple of two items or more — items after the
+`file` and `path` come back as `local`; a `url` starts with `http://` or `https://`. A list or
+tuple of two items or more — items after the
 second are reserved; the location a non-empty string or `os.PathLike`, stripped. Anything else
 is a `ConfpartestError` whose message never quotes the location; `validate_confpartest`,
 coverage and `resolve_swagger` all read entries through it.

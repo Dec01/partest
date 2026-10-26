@@ -35,6 +35,8 @@ what is unsafe or never worked:
 | `;jsessionid=` in `redact_text` | shown | `***` | nothing |
 | errors about the project's configuration on an address with an `@` outside its userinfo, a quote, `<` or `>` in the password, a non-numeric port | shown | `scheme://<redacted>` | nothing |
 | a `swagger_files` URL a client cannot read — a raw `/`, `?`, `#` or `@` in the password, a "port" that is not a number, `＠` U+FF20 in the host | fetched; the client failed with `Invalid port: 'pa'` or `Failed to parse: <URL>` — part of the password in the message | refused before any request, `percent-encode` in the message (validation, coverage, `resolve_swagger`) | percent-encode: `%2F`, `%3F`, `%23`, `%40` |
+| a `url` entry not starting with `http://` / `https://` (`https:/…`, `https//…`, `ftp://…`) | fetched as a path or by another scheme, failed — the client's error quoting the address, password included | `ConfpartestError` from the grammar, the address not quoted | write `http://` or `https://` |
+| a compressed spec body cut short | parsed as far as it went | refused: `the body ends before its gzip stream does` | nothing; retry |
 | a `swagger_files` entry with an empty or non-string location | coverage failed on it later | `ConfpartestError` from validation | write the path or URL |
 | one bad `swagger_files` entry and `resolve_from_confpartest(service=…)` without `conf` | `require_confpartest` raised for a bad shape or kind only | it raises for any bad entry, whichever service is asked for | fix the entry, or pass `conf=` |
 | a `swagger_files` kind with spaces (`" url "`) | accepted by coverage, refused by `validate_confpartest` and `resolve_swagger` | accepted everywhere | nothing |

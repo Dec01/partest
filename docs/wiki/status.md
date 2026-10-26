@@ -1,7 +1,7 @@
 ---
 title: Статус, версии и что дальше
 status: current
-verified: 2026-10-25
+verified: 2026-10-26
 sources: [partest/__init__.py, CHANGELOG.md]
 audience: maintainer
 ships_in_wheel: false
@@ -15,9 +15,10 @@ allow_version_literals: true
 
 | | |
 |---|---|
-| **Дата актуализации** | 2026-10-25 |
+| **Дата актуализации** | 2026-10-26 |
 | **Версия в коде** | **2.7.0** |
 | **Последний релиз на PyPI** | **2.7.0** (выпуск 2026-10-25; 2.6.0 — 2026-10-18). Минимальный Python — 3.10, pytest `>=9.0.3,<10` |
+| **Кандидат** | `Unreleased` в `CHANGELOG.md`, не выпущен, версия не поднята (предложен минор 2.8.0): публичные `redact_url` / `REDACTED`, грамматика `swagger_files` в `partest.conf`, пределы `resolve_swagger` |
 | **Дистрибуция** | PyPI — пакет, GitHub — исходники и история; см. [[decisions/distribution]] |
 | **Соседний пакет** | `partest-gen` выделен из `partest.project_gen` 2026-09-07; см. §5 |
 | **Consumer proof** | переезд `1.5.0 → 1.8.0` **состоялся** 2026-09-07: `8 failed, 2122 passed`, все падения предсуществующие; пять находок по пакету разобраны, см. §6 |

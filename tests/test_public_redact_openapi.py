@@ -412,3 +412,35 @@ def test_resolve_entry_location_agrees_with_coverage(tmp_path, monkeypatch):
         public = resolve_entry_location(["local", written], tmp_path).location
         private = _resolve_relative(written, module)
         assert Path(public).resolve() == Path(private).resolve(), written
+
+
+def test_redact_url_closes_on_an_object_it_cannot_read():
+    class Broken:
+        def __str__(self):
+            raise RuntimeError("s3cr3t")
+
+    assert redact_url(Broken()) == REDACTED
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https:/alice:s3cr3t@h.example/x",
+        "https//alice:s3cr3t@h.example/x",
+        "ｈttps://alice:s3cr3t@h.example/x",
+        "ftp://h.example/spec.yaml",
+    ],
+)
+def test_a_url_entry_must_start_with_http(url):
+    with pytest.raises(ConfpartestError, match="must start with http:// or https://") as caught:
+        parse_swagger_entry(["url", url])
+    _no_part_of(["s3cr3t", "alice"], str(caught.value))
+
+
+def test_validation_does_not_quote_a_secret_key():
+    class Conf:
+        swagger_files = {"https://alice:s3cr3t@h.example/x": ["svn", "x"]}
+
+    errors = validate_confpartest(Conf)
+    assert len(errors) == 1
+    _no_part_of(["s3cr3t", "alice"], errors[0])

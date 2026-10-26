@@ -577,6 +577,15 @@ def _has_at(text: str) -> bool:
     return not text.isascii() and "@" in unicodedata.normalize("NFKC", text)
 
 
+def _userinfo_like(segment: str) -> bool:
+    """A path segment that reads ``user:password@host`` — a colon before an ``@`` (NFKC
+    folded, so ``：`` and ``＠`` count)."""
+    if not segment.isascii():
+        segment = unicodedata.normalize("NFKC", segment)
+    colon = segment.find(":")
+    return colon >= 0 and segment.find("@", colon) > colon
+
+
 def _cut_password(rest: str) -> bool:
     """Whether the host part of *rest* reads as ``user:pa`` — a colon before something that is
     not a port. That is what is left of ``user:password@host`` when a raw ``/``, ``?`` or ``#``
@@ -727,7 +736,8 @@ def redact_url(url: Any) -> str:
       (``https://h/My Specs/openapi.yaml``): it is not one address.
 
     A password with those characters has to be percent-encoded (``%2F``, ``%3F``, ``%23``,
-    ``%40``) to reach a server anyway. ``redact_url(redact_url(x)) == redact_url(x)``.
+    ``%40``) to reach a server anyway. ``redact_url(redact_url(x)) == redact_url(x)``; an
+    object whose ``str()`` raises gives :data:`REDACTED`.
 
     A scheme-relative ``//user:password@host/x`` is read the same way. Text without
     ``scheme://`` — a path, ``host:port/x`` — loses its query string and fragment and goes
@@ -735,7 +745,10 @@ def redact_url(url: Any) -> str:
     ``@`` in what was dropped gives ``<redacted>``. For text that holds addresses among other
     words use :func:`redact_text`.
     """
-    s = "" if url is None else str(url).strip()
+    try:
+        s = "" if url is None else str(url).strip()
+    except Exception:  # an object whose `__str__` fails: nothing of it can be checked
+        return REDACTED
     if not s:
         return s
     relative = s.startswith("//")
@@ -748,7 +761,11 @@ def redact_url(url: Any) -> str:
         bad = _BROKEN_SCHEME_RE.match(head)
         if bad and _has_at(head):  # `https:/user:pw@host`: a URL with a slash lost
             return bad.group(0) + REDACTED
-        return redact_text(head)
+        out = redact_text(head)
+        if any(_userinfo_like(segment) for segment in re.split(r"[/\\]", out)):
+            # `https//user:pw@host`, `specs/user:pw@host/x`: what free text leaves alone
+            return REDACTED
+        return out
     scheme = m.group("scheme")
     if m.end() != len(probe):  # whitespace, a quote, `<` or `>`: not one address
         out = scheme + REDACTED

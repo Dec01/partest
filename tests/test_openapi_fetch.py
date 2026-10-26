@@ -342,3 +342,72 @@ def test_any_failure_is_an_open_api_error_without_the_secret(monkeypatch, exc):
         resolve_swagger("https://alice:s3cr3tpw@h.example/spec")
     _assert_unchained(caught.value)
     _no_part_of(SECRETS, str(caught.value))
+
+
+# --- round of 2026-10-26: a mistyped scheme, a cut stream, the C loader ---------------------
+
+MISTYPED = [
+    "https:/alice:PWSECRET@h.example/x?k=KSECRET",
+    "https//alice:PWSECRET@h.example/x?k=KSECRET",
+    "ｈttps://alice:PWSECRET@h.example/x?k=KSECRET",  # a full-width `h`
+]
+
+
+@pytest.mark.parametrize("url", MISTYPED + ["ftp://alice:PWSECRET@h.example/x?k=KSECRET"])
+def test_a_url_entry_must_be_http_and_is_never_quoted(url):
+    with pytest.raises(OpenApiResolveError, match="must start with http") as caught:
+        resolve_swagger(["url", url])
+    _no_part_of(["PWSECRET", "KSECRET", "alice"], str(caught.value))
+
+
+@pytest.mark.parametrize(
+    "source",
+    MISTYPED
+    + [
+        "s3://bucket/spec.yaml?X-Amz-Signature=KSECRET",
+        "ftp://h.example/spec.yaml?t=KSECRET#PWSECRET",
+    ],
+)
+def test_a_string_read_as_a_path_is_named_without_secrets(source):
+    with pytest.raises(OpenApiResolveError, match="not found") as caught:
+        resolve_swagger(source)
+    _no_part_of(["PWSECRET", "KSECRET", "alice"], str(caught.value))
+
+
+def test_a_failure_names_the_url_as_redact_url_shows_it(mock):
+    def handler(request):
+        raise httpx.ConnectError(f"cannot reach {request.url}")
+
+    mock["handler"] = handler
+    with pytest.raises(OpenApiResolveError) as caught:
+        resolve_swagger("https://alice:s3cr3tpw@h.example/spec?token=t0k3nvalue#frag")
+    text = str(caught.value)
+    assert "Failed to fetch OpenAPI URL https://h.example/spec:" in text
+    _no_part_of(SECRETS + ["frag"], text)
+
+
+def test_a_cut_compressed_stream_is_refused(mock):
+    """A cut connection or file: half a gzip stream can still decode to valid YAML."""
+    whole = gzip.compress((SPEC + "# " + "x" * 5000 + "\n").encode())
+    mock["handler"] = lambda r: _body(whole[: len(whole) // 2], {"Content-Encoding": "gzip"})
+    with pytest.raises(OpenApiResolveError, match="ends before its gzip stream"):
+        resolve_swagger("https://h.example/spec")
+    mock["handler"] = lambda r: _body(b"", {"Content-Encoding": "gzip"})
+    with pytest.raises(OpenApiResolveError, match="gzip stream"):  # an empty one too
+        resolve_swagger("https://h.example/spec")
+
+
+@pytest.mark.skipif(not hasattr(__import__("yaml"), "CSafeLoader"), reason="PyYAML without libyaml")
+def test_yaml_goes_through_the_c_loader(monkeypatch):
+    import yaml
+
+    seen = []
+    real = yaml.load
+
+    def spy(stream, Loader):  # noqa: N803 - PyYAML's name
+        seen.append(Loader)
+        return real(stream, Loader=Loader)
+
+    monkeypatch.setattr(openapi.yaml, "load", spy)
+    assert "paths" in resolve_swagger(FIXTURE)
+    assert seen == [yaml.CSafeLoader]

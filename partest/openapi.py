@@ -148,10 +148,14 @@ def resolve_swagger(
       *max_bytes*; ``br``, ``zstd`` and several layers are refused;
     * *timeout* bounds each step (connect, each read). *total_timeout*, when set, is checked
       before each request and between the chunks of the body, and each step's timeout is cut
-      to what is left of it — so it can be overrun by at most one *timeout*, and resolving
-      the host name (DNS) is not bounded by either;
-    * a URL whose password holds a raw ``/``, ``?`` or ``#``, or whose "port" is not a number,
-      is refused before any request.
+      to what is left of it: past the headers, the body and the redirects overrun it by at
+      most one *timeout*. While the headers arrive it does not apply — a server that sends
+      them a byte at a time, each within *timeout*, holds the call as long as it keeps
+      sending — and resolving the host name (DNS) is bounded by neither;
+    * a ``url`` must start with ``http://`` or ``https://``; one whose password holds a raw
+      ``/``, ``?``, ``#`` or ``@``, or whose "port" is not a number, is refused before any
+      request;
+    * every message names the location the way :func:`partest.redact.redact_url` shows it.
 
     *max_bytes* bounds the document, local or fetched (decoded); ``None`` lifts it. Every
     failure is :class:`OpenApiResolveError`, its text without URL credentials or the query
@@ -176,11 +180,24 @@ def resolve_swagger(
 
         location = source[1] if isinstance(source, (list, tuple)) and len(source) > 1 else source
         try:
-            secrets_of: Optional[str] = str(location)
+            raw: Optional[str] = str(location)
         except Exception:
-            secrets_of = None
-        text = _safe_text(f"{type(exc).__name__}: {exc}", secrets_of=secrets_of)
-        raise OpenApiResolveError(f"Cannot load OpenAPI: {text}") from None
+            raw = None
+        text = f"{type(exc).__name__}: {exc}"
+        raise OpenApiResolveError(f"Cannot load OpenAPI: {_shown_error(text, raw)}") from None
+
+
+def _shown_error(text: str, location: Optional[str], *also: str) -> str:
+    """*text* safe to show: the location — and *also*, other spellings of it, such as the
+    URL without its credentials that httpx quotes —, wherever quoted whole, as
+    :func:`redact_url` shows it (closed on doubt); then the configuration-error rule over the
+    rest."""
+    from partest.conf import _safe_text
+    from partest.redact import redact_url
+
+    for spelling in sorted({s for s in (location, *also) if s}, key=len, reverse=True):
+        text = text.replace(spelling, redact_url(spelling))
+    return _safe_text(text, secrets_of=location)
 
 
 def _resolve(
@@ -195,24 +212,28 @@ def _resolve(
     max_redirects: int,
 ) -> Dict[str, Any]:
     from partest.conf import _safe_text
+    from partest.redact import redact_url
 
     kind, location = _normalize_source(source)
+    # The location as written, the way redact_url shows one address: no credentials, no
+    # query string or fragment (`s3://bucket/spec.yaml?X-Amz-Signature=…` read as a path),
+    # closed on doubt (`https:/user:pw@host` with a slash lost).
+    shown = redact_url(location)
     if kind == "local":
         root = Path(project_root).resolve() if project_root else Path.cwd()
         path = Path(location)
+        where = shown
         if not path.is_absolute():
             path = (root / path).resolve()
+            where = f"{shown} (relative to {_safe_text(str(root))})"
         if not path.is_file():
-            raise OpenApiResolveError(f"OpenAPI file not found: {_safe_text(str(path))}")
+            raise OpenApiResolveError(f"OpenAPI file not found: {where}")
         if max_bytes is not None and path.stat().st_size > max_bytes:
-            raise OpenApiResolveError(
-                f"OpenAPI file {_safe_text(str(path))} is larger than max_bytes={max_bytes}"
-            )
-        return _parse_spec_text(path.read_text(encoding="utf-8"), hint=_safe_text(str(path)))
+            raise OpenApiResolveError(f"OpenAPI file {where} is larger than max_bytes={max_bytes}")
+        return _parse_spec_text(path.read_text(encoding="utf-8"), hint=shown)
 
     from partest.redact import _unreadable_address
 
-    shown = _safe_text(location, secrets_of=location)
     if _unreadable_address(location):
         # httpx would read `user:pa` as host and port, and quote the "port" back.
         raise OpenApiResolveError(
@@ -254,16 +275,16 @@ def _resolve(
             # A specification usually lives on a different host from the stand, and
             # this failure happens while tests are being collected, not while one
             # runs — so the message has to carry the whole answer on its own.
-            failure = str(certificate_error(e, url=location, verify=settled))
+            failure = str(certificate_error(e, url=shown, verify=settled))
         else:
-            failure = f"Failed to fetch OpenAPI URL {location}: {e}"
+            failure = f"Failed to fetch OpenAPI URL {shown}: {e}"
     except _FetchRefused as e:
-        failure = f"Failed to fetch OpenAPI URL {location}: {e}"
+        failure = f"Failed to fetch OpenAPI URL {shown}: {e}"
     finally:
         if quiet is not None:
             httpx_logger.removeFilter(quiet)
     if failure is not None:
-        raise OpenApiResolveError(_safe_text(failure, secrets_of=location)) from None
+        raise OpenApiResolveError(_shown_error(failure, location, url)) from None
     return _parse_spec_text(text, hint=shown)
 
 
@@ -392,10 +413,15 @@ def _read_body(
         head = b""
     if head:
         take(head)
+    if encodings and decoder is None:  # an empty compressed body
+        raise _FetchRefused(f"the body is not valid {encodings[0]}")
     if decoder is not None:
         out.extend(decoder.flush())
         if max_bytes is not None and len(out) > max_bytes:
             raise _FetchRefused(too_large)
+        if not decoder.eof:
+            # A cut connection or a cut file: what arrived may still parse, as half a spec.
+            raise _FetchRefused(f"the body ends before its {encodings[0]} stream does")
     body = bytes(out)
     try:
         return body.decode(response.charset_encoding or "utf-8", errors="replace")

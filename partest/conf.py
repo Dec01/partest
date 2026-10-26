@@ -415,7 +415,8 @@ def parse_swagger_entry(entry: Any) -> SwaggerEntry:
     path is returned as written; :func:`resolve_entry_location` applies the rule partest
     uses to find it.
 
-    A ``url`` that a client cannot read as an address is refused: a raw ``/``, ``?`` or
+    A ``url`` must start with ``http://`` or ``https://`` (in any case). One that a client
+    cannot read as an address is refused too: a raw ``/``, ``?`` or
     ``#`` in the password (``https://user:pa?ss@host``) or a password without its ``@``
     (``https://admin:hunter2/api``) — the host part reads ``user:pa`` and the client's error
     quotes the "port" — and a host part ``urllib.parse`` refuses (``PW＠host``, U+FF20).
@@ -445,6 +446,10 @@ def parse_swagger_entry(entry: Any) -> SwaggerEntry:
     if kind == "url":
         from partest.redact import _unreadable_address
 
+        if not location.lower().startswith(("http://", "https://")):
+            # `https:/…`, `https//…`, a full-width `ｈttps://` — read as a path by every
+            # client, and quoted back whole in its error.
+            raise ConfpartestError("a url must start with http:// or https://")
         if _unreadable_address(location):
             raise ConfpartestError(
                 "the URL cannot be read as an address — a password with a raw '/', '?', '#' "
@@ -495,7 +500,7 @@ def validate_confpartest(conf: Any) -> List[str]:
             try:
                 parse_swagger_entry(spec)
             except ConfpartestError as exc:
-                errors.append(f"swagger_files[{name!r}] {exc}")
+                errors.append(f"swagger_files[{_safe_text(repr(name))}] {exc}")
 
     for attr in ("test_types_coverage", "test_types_exception"):
         val = getattr(conf, attr, None)

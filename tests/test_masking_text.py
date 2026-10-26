@@ -9,7 +9,6 @@ from __future__ import annotations
 import base64
 import json
 import logging
-import time
 
 import allure
 import httpx
@@ -33,15 +32,6 @@ def attachments(monkeypatch):
     return seen
 
 
-def _best_time(text: str) -> float:
-    best = float("inf")
-    for _ in range(3):
-        started = time.perf_counter()
-        redact_text(text)
-        best = min(best, time.perf_counter() - started)
-    return best
-
-
 @pytest.mark.parametrize(
     "build",
     [
@@ -51,10 +41,11 @@ def _best_time(text: str) -> float:
     ids=["open_values_on_one_line", "closed_values_then_indented_lines"],
 )
 def test_time_grows_linearly(build):
-    small, large = build(4000), build(8000)
-    t_small, t_large = _best_time(small), _best_time(large)
-    assert t_large < 2.0
-    assert t_large <= max(t_small, 0.005) * 2.5
+    """Growth, not a time limit (see ``tests/_growth.py``); the large input is the original
+    one, 8000 units."""
+    from _growth import assert_linear
+
+    assert_linear(build, redact_text, 2000)
 
 
 @pytest.mark.parametrize(

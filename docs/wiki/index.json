@@ -711,7 +711,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 21006
+      "chars": 21171
     },
     {
       "slug": "howto/layers",
@@ -980,7 +980,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 48536
+      "chars": 48970
     },
     {
       "slug": "howto/permissions",
@@ -1228,7 +1228,7 @@
           "text": "\"errors\": [{\"field\": \"name\", \"code\": \"required\", \"message\": \"must not be blank\"}]}"
         }
       ],
-      "chars": 20615
+      "chars": 21330
     },
     {
       "slug": "howto/release",
@@ -2067,14 +2067,14 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 53715
+      "chars": 55461
     },
     {
       "slug": "status",
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-10-26",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -2147,7 +2147,7 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 26497
+      "chars": 26710
     },
     {
       "slug": "WIKI",

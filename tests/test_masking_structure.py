@@ -287,33 +287,20 @@ def test_secret_query_and_fragment_parameters(url):
 # --- 6. cycles ----------------------------------------------------------------------------------
 
 
-def _count_scrub_calls(monkeypatch):
-    """Count the steps of the walk: `_scrub` recurses through its module-level name, so a
-    counting wrapper sees every one. Counted, not timed — a time limit measures the machine."""
-    from partest import redact
-
-    calls = {"n": 0}
-    real = redact._scrub
-
-    def counting(*args, **kwargs):
-        calls["n"] += 1
-        return real(*args, **kwargs)
-
-    monkeypatch.setattr(redact, "_scrub", counting)
-    return calls
-
-
 def test_a_cycle_is_cut_quickly(monkeypatch):
     """A cycle met again is `<cycle>` at once. Not cut, two self-references go to the depth
-    limit along every path: 2**33 steps."""
+    limit along every path: 2**33 steps — the counter (``tests/_steps.py``) stops that at its
+    ceiling instead of letting it run."""
+    from _steps import count_steps
+
     from partest import redact
 
-    calls = _count_scrub_calls(monkeypatch)
+    # the dict, and one step for each self-reference
+    calls = count_steps(monkeypatch, redact, ("_scrub",), 3)
     a: dict = {"token": MARKER}
     a["x"] = a
     a["y"] = a
     walked = redact._scrub(a)
-    assert calls["n"] <= 3, calls["n"]  # the dict, and one step for each self-reference
     assert walked["x"] == "<cycle>" and walked["token"] == "***"
 
     @dataclass
@@ -325,10 +312,10 @@ def test_a_cycle_is_cut_quickly(monkeypatch):
     root = Node("root")
     child = Node("child", parent=root)
     root.children.append(child)
-    calls["n"] = 0
-    text = _body_text(root)
     # two dataclasses, their field dicts, a list and their leaves: a few dozen steps at most
-    assert 0 < calls["n"] <= 40, calls["n"]
+    calls["n"], calls["ceiling"] = 0, 40
+    text = _body_text(root)
+    assert calls["n"] > 0
     assert "<cycle>" in text
 
 

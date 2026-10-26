@@ -250,32 +250,24 @@ def test_a_status_is_shown_as_a_number_and_anything_else_masked(titles):
 def test_shared_references_are_walked_in_bounded_time(monkeypatch):
     """The work of one walk is bounded by the node budget, not by the number of paths.
 
-    Counted, not timed: a wall-clock limit measures the machine (a loaded CI host failed it
-    with a correct walker). Both walkers recurse through their module-level names, so a
-    counting wrapper sees every step. Without the budget a DAG of 26 objects is 2**26 steps.
+    Counted, not timed (see ``tests/_steps.py``): a wall-clock limit measures the machine.
+    Without the budget a DAG of 26 objects is 2**26 steps; the counter stops such a walk at
+    its ceiling instead of letting it run.
     """
+    from _steps import count_steps
+
     from partest import redact
 
-    calls = {"n": 0}
-    for name in ("_scrub", "_scrub_check"):
-        real = getattr(redact, name)
-
-        def counting(*args, _real=real, **kwargs):
-            calls["n"] += 1
-            return _real(*args, **kwargs)
-
-        monkeypatch.setattr(redact, name, counting)
-
+    # Each opened container makes at most two child steps; past the budget a step is a
+    # marker. A few times the budget is the ceiling.
+    calls = count_steps(monkeypatch, redact, ("_scrub", "_scrub_check"), 4 * redact._MAX_NODES)
     node: object = {"leaf": "x"}
     for _ in range(25):
         node = {"a": node, "b": node}  # a DAG: 2**25 paths, 26 objects
-    # Each opened container makes at most two child steps; past the budget a step is a
-    # marker. A few times the budget is the ceiling; an exponential walk is 2**26.
-    ceiling = 4 * redact._MAX_NODES
     for walk in (lambda v: redact._scrub(v), lambda v: redact._field_value("v", v)):
         calls["n"] = 0
         out = walk(node)
-        assert 0 < calls["n"] <= ceiling, calls["n"]
+        assert calls["n"] > 0
         assert redact._TOO_LARGE in json.dumps(out)  # the budget, not the depth, stopped it
 
 
