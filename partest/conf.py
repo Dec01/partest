@@ -404,6 +404,20 @@ class SwaggerEntry(NamedTuple):
     location: str
 
 
+def _shown_kind(value: Any) -> str:
+    """A kind that is not one, for a message. A pair written the other way round puts the
+    address first (``["https:/u:pw@h/x?sig=…", "url"]``): text is shown the way the strict
+    :func:`partest.redact.redact_url` shows one address, anything else by its type only."""
+    from partest.redact import redact_url
+
+    if isinstance(value, (str, os.PathLike)) and not isinstance(value, bytes):
+        try:
+            return repr(redact_url(os.fspath(value)))
+        except Exception:
+            pass
+    return f"a {type(value).__name__}"
+
+
 def parse_swagger_entry(entry: Any) -> SwaggerEntry:
     """Read one value of ``confpartest.swagger_files`` — ``[kind, path_or_url]``.
 
@@ -435,7 +449,7 @@ def parse_swagger_entry(entry: Any) -> SwaggerEntry:
     if kind not in SWAGGER_SOURCE_KINDS:
         raise ConfpartestError(
             f"source_type must be one of {'|'.join(sorted(SWAGGER_SOURCE_KINDS))}, "
-            f"got {_safe_text(repr(entry[0]))}"
+            f"got {_shown_kind(entry[0])}"
         )
     location = entry[1]
     if isinstance(location, os.PathLike):

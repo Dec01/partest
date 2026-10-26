@@ -444,3 +444,35 @@ def test_validation_does_not_quote_a_secret_key():
     errors = validate_confpartest(Conf)
     assert len(errors) == 1
     _no_part_of(["s3cr3t", "alice"], errors[0])
+
+
+SWAPPED = [  # a pair written the other way round: the address where the kind goes
+    "https://u:PWD5ECRET@h.example/x?sig=S1GSECRET",
+    "https:/u:PWD5ECRET@h.example/x?sig=S1GSECRET",
+    "https//u:PWD5ECRET@h.example/x?sig=S1GSECRET",
+    "ｈttps://u:PWD5ECRET@h.example/x?sig=S1GSECRET",
+]
+
+
+@pytest.mark.parametrize("address", SWAPPED + [_PathLike(SWAPPED[1])])
+def test_a_swapped_pair_does_not_quote_the_address(address):
+    from partest.openapi import OpenApiResolveError, resolve_swagger
+
+    with pytest.raises(ConfpartestError, match="source_type must be one of") as parsed:
+        parse_swagger_entry([address, "url"])
+
+    class Conf:
+        swagger_files = {"api": [address, "url"]}
+
+    errors = validate_confpartest(Conf)
+    with pytest.raises(OpenApiResolveError, match="source_type must be one of") as resolved:
+        resolve_swagger([address, "url"])
+    for text in (str(parsed.value), " ".join(errors), str(resolved.value)):
+        _no_part_of(["PWD5ECRET", "S1GSECRET"], text)
+    assert len(errors) == 1
+
+
+def test_a_kind_that_is_not_text_is_shown_by_its_type():
+    with pytest.raises(ConfpartestError, match="got a bytes") as caught:
+        parse_swagger_entry([b"https://u:PWD5ECRET@h/x", "url"])
+    _no_part_of(["PWD5ECRET"], str(caught.value))
