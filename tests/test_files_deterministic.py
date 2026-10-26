@@ -220,19 +220,28 @@ def test_too_many_entries_are_refused():
         deterministic_zip(many, max_entries=10)
 
 
-def test_a_pathological_core_part_is_handled_in_linear_time():
-    import time
-
-    hostile = (
+def _hostile_core(n):
+    """Open date tags that never close, then a long run of text: bait for backtracking."""
+    return (
         b"<cp:coreProperties>"
-        + b"<dcterms:created " * 20000
-        + b"x" * 200000
-        + b"<dcterms:modified>" + b"y" * 100000
+        + b"<dcterms:created " * (n // 10)
+        + b"x" * n
+        + b"<dcterms:modified>" + b"y" * (n // 2)
         + b"</cp:coreProperties>"
     )
-    raw = package([("[Content_Types].xml", "<Types/>"), ("docProps/core.xml", hostile)])
-    started = time.perf_counter()
-    out = deterministic_xlsx(raw)
-    assert time.perf_counter() - started < 2.0
+
+
+def _core_package(n):
+    return package([("[Content_Types].xml", "<Types/>"), ("docProps/core.xml", _hostile_core(n))])
+
+
+def test_a_pathological_core_part_is_handled_in_linear_time():
+    """Growth, not a time limit (see ``tests/_growth.py``); the large input is the original
+    one — 20 000 open tags, 200 000 bytes of text."""
+    from _growth import assert_linear
+
+    assert_linear(_core_package, deterministic_xlsx, 50000)
+    out = deterministic_xlsx(_core_package(200000))
     with zipfile.ZipFile(io.BytesIO(out)) as zf:
-        assert zf.read("docProps/core.xml") == hostile  # nothing matched, nothing changed
+        # nothing matched, nothing changed
+        assert zf.read("docProps/core.xml") == _hostile_core(200000)

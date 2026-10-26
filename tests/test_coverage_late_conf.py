@@ -386,6 +386,37 @@ def test_paths_info_is_filled_in_place(monkeypatch, tmp_path, coverage_state):
     assert imported is coverage_state.paths_info and len(imported) == 1
 
 
+def test_coverage_reads_swagger_files_by_the_public_grammar(monkeypatch, tmp_path, coverage_state):
+    """`parse_swagger_entry`: any case, spaces around the kind and the path, extra items."""
+    (tmp_path / "openapi.yaml").write_text(SPEC, encoding="utf-8")
+    _fake_conf(
+        monkeypatch, tmp_path, swagger_files={"api": [" File ", " openapi.yaml ", "extra"]}
+    )
+
+    coverage_state._ensure_spec()
+
+    assert coverage_state.SWAGGER_AVAILABLE is True
+    assert len(coverage_state.paths_info) == 1
+
+
+@pytest.mark.parametrize("raw", ["/", "?", "#"])
+def test_coverage_refuses_a_cut_password_without_a_request(monkeypatch, coverage_state, raw):
+    """`requests` would answer `Failed to parse: <the whole URL>`; httpx `Invalid port: 'pa'`."""
+    from partest.conf import ConfpartestError
+
+    _fake_conf(
+        monkeypatch,
+        swagger_files={"api": ["url", f"http://alice:s3cr{raw}3tpw@127.0.0.1:9/openapi.json"]},
+    )
+
+    with pytest.raises(ConfpartestError) as caught:
+        coverage_state._ensure_spec()
+
+    text = str(caught.value)
+    assert "swagger_files['api']" in text and "percent-encode" in text
+    assert "s3cr" not in text and "3tpw" not in text and "alice" not in text
+
+
 def test_switching_counting_off_by_hand_still_works(monkeypatch, tmp_path, coverage_state):
     import asyncio
 
@@ -961,14 +992,17 @@ def test_a_successful_fetch_logs_no_secret_at_info(spec_server, caplog, monkeypa
     assert SEEN_AUTH[:2] == [expected, expected]  # the credentials still reach the server
 
 
-def test_cleaning_text_is_linear_on_hostile_input():
+@pytest.mark.parametrize("chunk", ["a:@!", "a.", "ab-", "a:", "x@", "/a?"])
+def test_cleaning_text_is_linear_on_hostile_input(chunk):
+    """Text built to look like many half-URLs: the URL patterns must not backtrack over it.
+
+    Growth, not a time limit (see ``tests/_growth.py``): 16 K and 64 K characters.
+    """
+    from _growth import assert_linear
+
     from partest.conf import _safe_text
 
-    for chunk in ("a:@!", "a.", "ab-", "a:", "x@", "/a?"):
-        text = chunk * (65536 // len(chunk))
-        started = time.perf_counter()
-        _safe_text(text)
-        assert time.perf_counter() - started < 1.0, chunk
+    assert_linear(lambda n: chunk * (n // len(chunk)), _safe_text, 16384, label=chunk)
 
 
 def test_the_same_failure_from_two_processes_is_one_summary_line(monkeypatch):

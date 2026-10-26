@@ -2,6 +2,17 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "DEFAULT_SENSITIVE_HEADERS",
+    "DEFAULT_SENSITIVE_BODY_KEYS",
+    "mask_secret",
+    "redact_text",
+    "redact_headers",
+    "redact_mapping",
+    "redact_url",
+    "REDACTED",
+]
+
 import base64
 import binascii
 import bisect
@@ -9,9 +20,10 @@ import copy
 import dataclasses
 import json
 import re
+import unicodedata
 from enum import Enum
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Set, Tuple
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 DEFAULT_SENSITIVE_HEADERS = frozenset(
     {
@@ -343,10 +355,19 @@ def redact_text(text: str) -> str:
     quoted value keeps its quotes. Where a value ends is decided towards masking
     more: free text gives no reliable way to tell which string a quote belongs to. Pattern-
     based, so best effort: prefer :func:`redact_mapping` while the data is still a mapping.
+
+    The credentials of an address are removed: ``scheme://user:password@host`` loses
+    ``user:password@``; a bare ``user:password@host`` — a DSN quoted by a database driver's
+    exception (``app:S3cr3t@db.internal/prod``) — becomes ``***@db.internal/prod``. Only a
+    colon before the ``@`` makes it a credential: ``a@b.example``, ``mailto:a@b.example`` and
+    ``git@host:org/repo.git`` stay. An address whose password was cut short by a raw ``?``,
+    ``#`` or an apostrophe (``https://user:pa?ss@host``) becomes ``https://<redacted>``;
+    ``;jsessionid=`` is masked. The query string is left to the key rules above.
     """
     if not text:
         return text
-    masked = _TEXT_COOKIE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}***", _mask_pem(text))
+    masked = _scrub_urls(_mask_pem(text), query="keep")
+    masked = _TEXT_COOKIE_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}***", masked)
     masked = _mask_pairs(masked)
     masked = _TEXT_TUPLE_RE.sub(
         lambda m: f"{m.group(1)}{m.group(2)}{m.group(3)}{m.group(2)}{m.group(4)}{m.group(5)}***{m.group(5)}",
@@ -496,13 +517,18 @@ _MAX_DEPTH = 32
 _URL_RE = re.compile(
     r"(?P<scheme>\b[a-zA-Z][a-zA-Z0-9+.-]{0,31}://)"
     r"(?P<userinfo>[^/\s'\"<>?#]{0,512}@"
-    r"|[^/\s'\"<>?#:@]{1,128}:(?![0-9]{1,5}(?:[/\s'\"<>?#]|$))[^\s'\"<>?#@]{0,512}@)?"
+    r"|[^/\s'\"<>?#:@\[]{1,128}:(?![0-9]{1,5}(?:[/\s'\"<>?#]|$))[^\s'\"<>?#@]{0,512}@)?"
     r"(?P<rest>[^\s?#'\"<>]*)(?P<query>\?[^\s#'\"<>)]*)?(?P<frag>#[^\s'\"<>)]*)?"
 )
-# ``user:password@host/...`` without a scheme.
+# (The user name of the second form never starts with `[`: `[::1]:8080/@scope/x` is an IPv6
+# host and a path, not `[` and a password.)
+#
+# ``user:password@host`` without a scheme — a DSN quoted by a database driver — up to the
+# last ``@`` before a host: anything that is not whitespace or ``/`` (`db_internal`, `[::1]`,
+# an IDN, `db.internal: refused`). Replaced by ``***@``. Not ``mailto:a@b.example``, an
+# address; ``git@host:org/repo`` has no colon before its ``@``.
 _BARE_USERINFO_RE = re.compile(
-    r"(?<![\w/@:.%+~-])[\w.%+~-]{1,128}:[^\s/'\"<>]{0,512}@"
-    r"(?=[A-Za-z0-9.-]{1,253}(?::\d{1,5})?(?:[/\s'\")]|$))"
+    r"(?<![\w/@:.%+~-])(?!(?i:mailto):)[\w.%+~-]{1,128}:[^\s/'\"<>]{0,512}@(?=[^\s/])"
 )
 # A query string or fragment after a bare path, as in ``... for url: /openapi.json?token=...``.
 _PATH_QUERY_RE = re.compile(
@@ -530,30 +556,234 @@ def _mask_params(params: str) -> str:
     return "".join(parts)
 
 
-def _scrub_urls(text: Any, *, drop_query: bool = False) -> str:
+#: What stands for an address that cannot be cleaned safely: no part of it is shown.
+#: :func:`redact_url` gives ``scheme://<redacted>`` (or ``<redacted>`` alone); compare with
+#: this constant rather than with the string.
+REDACTED = "<redacted>"
+_PORT_RE = re.compile(r"[0-9]{0,5}")
+_WS_RE = re.compile(r"\s")
+# `https:/host` — a scheme that lost one of its two slashes.
+_BROKEN_SCHEME_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9+.-]{1,31}:/(?!/)")  # two letters at least: not `C:/`
+# How far past a URL the scanner looks for the `@` of a password the URL pattern stopped
+# short of (a quote, `<`, `>` in it) — the bound of the userinfo itself.
+_TAIL_LIMIT = 513
+
+
+def _has_at(text: str) -> bool:
+    """An ``@`` in *text* — also one that NFKC folds into ``@`` (``＠``, U+FF20), the way
+    ``urllib.parse`` and IDNA read a host."""
+    if "@" in text:
+        return True
+    return not text.isascii() and "@" in unicodedata.normalize("NFKC", text)
+
+
+def _cut_password(rest: str) -> bool:
+    """Whether the host part of *rest* reads as ``user:pa`` — a colon before something that is
+    not a port. That is what is left of ``user:password@host`` when a raw ``/``, ``?`` or ``#``
+    in the password ends the authority before its ``@`` — and of ``https://admin:hunter2/api``,
+    a password without its ``@``. No client can reach such an address: the "port" is not a
+    number, and the client's error quotes it."""
+    authority = rest.split("/", 1)[0]
+    if authority.startswith("["):  # an IPv6 literal, `[::1]:8080`
+        return False
+    _, colon, port = authority.partition(":")
+    return bool(colon) and _PORT_RE.fullmatch(port) is None
+
+
+def _orphan_at(params: str) -> bool:
+    """Whether a parameter of a query or fragment holds an ``@`` before any ``=``: ``?ss@h/x``
+    is the end of a cut password, ``?email=a@b.example`` is a value."""
+    for param in re.split(r"[&;]", params):
+        before, at, _ = param.partition("@")
+        if at and "=" not in before:
+            return True
+    return False
+
+
+def _ambiguous_url(m: "re.Match[str]", *, strict: bool) -> bool:
+    """Whether the userinfo of the URL *m* cannot be told apart from the rest of it.
+
+    *strict* — for one address shown on its own (:func:`redact_url`) and for errors about the
+    project's configuration: any ``@`` the userinfo did not take, a raw ``/`` inside the
+    userinfo (a parser that follows RFC 3986, ``urllib.parse.urlsplit`` and httpx among them,
+    reads the host before that ``/``), and a "port" that is not a number. Otherwise — the
+    output channels, which show URLs of real requests: only the shapes a cut password leaves,
+    ``https://user:pa?ss@host`` (see :func:`_cut_password`, :func:`_orphan_at`); an ``@`` in a
+    path or a query value stays.
+    """
+    userinfo = m.group("userinfo") or ""
+    rest = m.group("rest")
+    query, frag = m.group("query") or "", m.group("frag") or ""
+    stray_at = _has_at(rest + query + frag)
+    if strict:
+        return stray_at or "/" in userinfo or _cut_password(rest)
+    if not stray_at or userinfo:
+        return False
+    return _cut_password(rest) or _orphan_at(query[1:]) or _orphan_at(frag[1:])
+
+
+def _unreadable_address(url: str) -> bool:
+    """Whether a client cannot read *url* as an address and would quote part of it back.
+
+    ``scheme://user:pa…`` with a raw ``/``, ``?`` or ``#`` in the password, or a password
+    without its ``@``: the host reads ``user`` and the port ``pa`` (httpx:
+    ``Invalid port: 'pa'``). A host part that ``urllib.parse`` refuses — characters that NFKC
+    folds into ``@``, ``/``, ``?``, ``#`` or ``:`` (``PW＠host``), a broken IPv6 bracket.
+    """
+    text = str(url).strip()
+    m = _URL_RE.match(text)
+    if m is None:
+        return False
+    if "/" in (m.group("userinfo") or "") or _cut_password(m.group("rest")):
+        return True
+    try:
+        urlsplit(text)
+    except ValueError:
+        return True
+    return False
+
+
+def _clean_url(m: "re.Match[str]", *, query: str, strict: bool = False) -> str:
+    """One URL found by ``_URL_RE``, without its credentials — the core behind
+    :func:`redact_url`, :func:`redact_text` and the output channels.
+
+    ``user:password@`` is removed. An address whose userinfo cannot be told apart from the
+    rest (:func:`_ambiguous_url`) is ``scheme://<redacted>`` whole: no part of a password
+    survives a guess. *query* says what happens to the query string and the fragment:
+    ``"keep"`` — as they are; ``"mask"`` — the values of secret keys become ``***``;
+    ``"mark"`` — the query string becomes ``?…``, the fragment is masked by key;
+    ``"drop"`` — both go.
+    """
+    scheme = m.group("scheme")
+    if _ambiguous_url(m, strict=strict):
+        return scheme + REDACTED
+    out = scheme + m.group("rest")
+    if query == "drop":
+        return out
+    q, f = m.group("query"), m.group("frag")
+    if query == "keep":
+        return out + (q or "") + (f or "")
+    return out + _url_tail(q, f, mark=query == "mark")
+
+
+def _url_tail(q: Optional[str], f: Optional[str], *, mark: bool) -> str:
+    out = ""
+    if q:
+        out += "?…" if mark else "?" + _mask_params(q[1:])
+    if f:
+        out += "#" + _mask_params(f[1:])
+    return out
+
+
+def _sub_urls(text: str, *, query: str, strict: bool) -> str:
+    """Every URL in *text* through :func:`_clean_url`.
+
+    The URL pattern stops at a quote, ``<``, ``>`` and whitespace, so a password holding one
+    (``https://user:pa'PW@host/x``) leaves its ``@`` past the match. When the text that
+    follows the match, up to whitespace, holds an ``@``, the address and that text are
+    ``scheme://<redacted>``: always in *strict* mode, and in the channels when it starts with
+    an apostrophe (a sub-delimiter RFC 3986 allows in a password). A password with whitespace
+    in it is not recognised in free text.
+    """
+    out: List[str] = []
+    pos = 0
+    for m in _URL_RE.finditer(text):
+        if m.start() < pos:
+            continue
+        end = m.end()
+        limit = min(len(text), end + _TAIL_LIMIT)
+        ws = _WS_RE.search(text, end, limit)
+        tail_end = ws.start() if ws else limit
+        tail = text[end:tail_end]
+        out.append(text[pos : m.start()])
+        if tail and (strict or tail.startswith("'")) and _has_at(tail):
+            out.append(m.group("scheme") + REDACTED)
+            pos = tail_end
+        else:
+            out.append(_clean_url(m, query=query, strict=strict))
+            pos = end
+    out.append(text[pos:])
+    return "".join(out)
+
+
+def redact_url(url: Any) -> str:
+    """One address, safe to show: no credentials, no query string, no fragment.
+
+    For a place that keeps an address — an artifact's ``source``, a log line about where a
+    document came from. ``https://user:password@host:8443/v3/api-docs?token=…#frag`` becomes
+    ``https://host:8443/v3/api-docs``; what is left goes through :func:`redact_text` (a
+    ``…/password=…/`` segment) and ``;jsessionid=…`` is masked.
+
+    **Closed on doubt** — the result is ``scheme://`` + :data:`REDACTED`, no part of the
+    address shown:
+
+    * an ``@`` anywhere after ``scheme://`` other than in the userinfo — a raw ``/``, ``?``
+      or ``#`` in a password (``https://user:pa/ss@host/x``, ``https://user:pa?ss@host``), but
+      also ``/@me`` in a path or ``?email=a@b.example``: the userinfo cannot be told from the
+      rest, and a guess could show part of a password. ``＠`` (U+FF20) counts as ``@``;
+    * a "port" that is not a number (``https://admin:hunter2/api``) — a password without its
+      ``@``;
+    * anything after the address — whitespace, a quote, ``<`` or ``>`` and what follows
+      (``https://h/My Specs/openapi.yaml``): it is not one address.
+
+    A password with those characters has to be percent-encoded (``%2F``, ``%3F``, ``%23``,
+    ``%40``) to reach a server anyway. ``redact_url(redact_url(x)) == redact_url(x)``.
+
+    A scheme-relative ``//user:password@host/x`` is read the same way. Text without
+    ``scheme://`` — a path, ``host:port/x`` — loses its query string and fragment and goes
+    through :func:`redact_text` (a bare ``user:password@host`` becomes ``***@host``); an
+    ``@`` in what was dropped gives ``<redacted>``. For text that holds addresses among other
+    words use :func:`redact_text`.
+    """
+    s = "" if url is None else str(url).strip()
+    if not s:
+        return s
+    relative = s.startswith("//")
+    probe = "x:" + s if relative else s
+    m = _URL_RE.match(probe)
+    if m is None:
+        head = re.split(r"[?#]", s, maxsplit=1)[0]
+        if _has_at(s[len(head):]):
+            return REDACTED
+        bad = _BROKEN_SCHEME_RE.match(head)
+        if bad and _has_at(head):  # `https:/user:pw@host`: a URL with a slash lost
+            return bad.group(0) + REDACTED
+        return redact_text(head)
+    scheme = m.group("scheme")
+    if m.end() != len(probe):  # whitespace, a quote, `<` or `>`: not one address
+        out = scheme + REDACTED
+    else:
+        out = _clean_url(m, query="drop", strict=True)
+        if not out.endswith(REDACTED):
+            rest = _JSESSIONID_RE.sub(lambda j: j.group(1) + _MASK, out[len(scheme):])
+            out = scheme + redact_text(rest)
+    return out[2:] if relative else out
+
+
+def _scrub_urls(text: Any, *, drop_query: bool = False, query: Optional[str] = None) -> str:
     """URLs in *text*: credentials removed, the query string masked by key — or dropped.
 
-    ``scheme://user:password@host`` and a bare ``user:password@host`` lose the userinfo. With
-    *drop_query* every query string becomes ``?…`` (errors about the project's configuration,
-    :func:`partest.conf._strip_url_secrets`); otherwise only the values of secret keys go. A
-    fragment (``#access_token=…``) is masked by key either way.
+    ``scheme://user:password@host`` loses the userinfo (:func:`_clean_url`), a bare
+    ``user:password@host`` becomes ``***@host``. With *drop_query* every query string becomes
+    ``?…`` and an address is closed on doubt the way :func:`redact_url` closes it — errors
+    about the project's configuration, :func:`partest.conf._strip_url_secrets`; otherwise only
+    the values of secret keys go, and only the shapes a cut password leaves are
+    ``<redacted>``. A fragment (``#access_token=…``) is masked by key either way.
+    *query="keep"* leaves queries, fragments and bare paths as they are — the address rule of
+    :func:`redact_text`, whose key rules mask the query.
     """
     s = "" if text is None else str(text)
     if not s:
         return s
-
-    def tail(m: "re.Match[str]") -> str:
-        q, f = m.group("query"), m.group("frag")
-        out = ""
-        if q:
-            out += "?…" if drop_query else "?" + _mask_params(q[1:])
-        if f:
-            out += "#" + _mask_params(f[1:])
-        return out
-
-    s = _URL_RE.sub(lambda m: m.group("scheme") + m.group("rest") + tail(m), s)
-    s = _BARE_USERINFO_RE.sub("", s)
-    s = _PATH_QUERY_RE.sub(lambda m: m.group("path") + tail(m), s)
+    mode = query or ("mark" if drop_query else "mask")
+    s = _sub_urls(s, query=mode, strict=drop_query)
+    s = _BARE_USERINFO_RE.sub("***@", s)
+    if mode != "keep":
+        s = _PATH_QUERY_RE.sub(
+            lambda m: m.group("path")
+            + _url_tail(m.group("query"), m.group("frag"), mark=drop_query),
+            s,
+        )
     return _JSESSIONID_RE.sub(lambda m: m.group(1) + _MASK, s)
 
 

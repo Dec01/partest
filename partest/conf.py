@@ -2,14 +2,31 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "ConfpartestError",
+    "load_confpartest",
+    "require_confpartest",
+    "validate_confpartest",
+    "confpartest_snapshot",
+    "conf_attr",
+    "NOTES_CONFIG",
+    "NOTES_COVERAGE",
+    # the grammar of a `swagger_files` entry
+    "SWAGGER_SOURCE_KINDS",
+    "SwaggerEntry",
+    "parse_swagger_entry",
+    "resolve_entry_location",
+]
+
 import importlib
 import importlib.util
+import os
 import re
 import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import unquote, urlsplit
 
 
@@ -144,9 +161,11 @@ _ADDRESS_RE = re.compile(r" at 0x[0-9a-fA-F]+")
 def _strip_url_secrets(text: str) -> str:
     """URL credentials removed and every query string replaced by ``?…``.
 
-    The same URL scanner the package's output channels use (:func:`partest.redact._scrub_urls`);
-    errors about the project's configuration drop the whole query, the channels only the
-    values of secret keys.
+    The same URL core the package's output channels and :func:`partest.redact.redact_url`
+    use (:func:`partest.redact._scrub_urls`); errors about the project's configuration drop
+    the whole query and close an address on doubt the way ``redact_url`` does — any ``@``
+    outside the userinfo gives ``scheme://<redacted>`` — the channels mask only the values of
+    secret keys.
     """
     from partest.redact import _scrub_urls
 
@@ -160,8 +179,7 @@ def _safe_text(text: Any, *, secrets_of: Optional[str] = None) -> str:
     shorter ones would blank out ordinary words) are removed wherever they appear, for
     messages that quote them out of the URL.
 
-    Not covered: a token in the path, ``;jsessionid=``, a fragment, and a snippet of a spec
-    quoted by a YAML parse error.
+    Not covered: a token in the path, and a snippet of a spec quoted by a YAML parse error.
     """
     from partest.redact import redact_text
 
@@ -340,22 +358,125 @@ def conf_attr(
     return getattr(module, name, default)
 
 
+def _local_candidate(path: Path, base: Optional[Path]) -> Optional[Path]:
+    """The rule for a relative local path: as given when it is absolute or exists from the
+    current directory, else under *base* when it exists there, else ``None``."""
+    if path.is_absolute() or path.exists():
+        return path
+    if base is not None and (base / path).exists():
+        return base / path
+    return None
+
+
 def _resolve_relative(value: Any, module: Any) -> Any:
     """A relative path that does not exist from the cwd, taken from *module*'s directory.
 
     ``swagger_files`` ``local`` entries and ``subtype_overrides`` paths are written relative
     to the project root, and a run started from a subdirectory (``cd tests && pytest``, an
     IDE) would otherwise not find them. A path that exists from the cwd keeps its meaning.
+    The rule is :func:`resolve_entry_location`'s.
     """
     if not isinstance(value, (str, Path)):
         return value
     path = Path(value)
-    if path.is_absolute() or path.exists():
+    found = _local_candidate(path, _module_dir(module))
+    if found is None or found is path:
         return value
-    base = _module_dir(module)
-    if base is not None and (base / path).exists():
-        return str(base / path)
-    return value
+    return str(found)
+
+
+# --- swagger_files: the grammar of one entry --------------------------------------------
+
+#: Every kind a ``swagger_files`` entry may name, in any case and with spaces around it.
+#: ``file`` and ``path`` are other spellings of ``local``.
+SWAGGER_SOURCE_KINDS = frozenset({"local", "file", "path", "url"})
+_LOCAL_KINDS = frozenset({"local", "file", "path"})
+
+
+class SwaggerEntry(NamedTuple):
+    """One ``swagger_files`` entry, read: ``kind`` is ``"local"`` or ``"url"``.
+
+    Items of an entry after the second are reserved: ignored today, they may mean something
+    in a later version.
+    """
+
+    kind: str
+    location: str
+
+
+def parse_swagger_entry(entry: Any) -> SwaggerEntry:
+    """Read one value of ``confpartest.swagger_files`` — ``[kind, path_or_url]``.
+
+    The one reading of the grammar the package itself uses (validation, coverage,
+    :mod:`partest.openapi`): a list or tuple of at least two items (the rest are reserved,
+    see :class:`SwaggerEntry`); the kind is one of :data:`SWAGGER_SOURCE_KINDS`, in any case,
+    with spaces around it allowed, and ``file`` / ``path`` come back as ``local``; the
+    location is a string or an ``os.PathLike``, with spaces around it removed. A ``local``
+    path is returned as written; :func:`resolve_entry_location` applies the rule partest
+    uses to find it.
+
+    A ``url`` that a client cannot read as an address is refused: a raw ``/``, ``?`` or
+    ``#`` in the password (``https://user:pa?ss@host``) or a password without its ``@``
+    (``https://admin:hunter2/api``) — the host part reads ``user:pa`` and the client's error
+    quotes the "port" — and a host part ``urllib.parse`` refuses (``PW＠host``, U+FF20).
+    Percent-encode those characters (``%2F``, ``%3F``, ``%23``, ``%40`` for ``@``).
+
+    Raises :class:`ConfpartestError` with a message that never quotes the location.
+    """
+    if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+        shape = (
+            f"a {type(entry).__name__} of {len(entry)}"
+            if isinstance(entry, (list, tuple))
+            else f"a {type(entry).__name__}"
+        )
+        raise ConfpartestError(f"must be [source_type, path_or_url], got {shape}")
+    kind = str(entry[0]).strip().lower()
+    if kind not in SWAGGER_SOURCE_KINDS:
+        raise ConfpartestError(
+            f"source_type must be one of {'|'.join(sorted(SWAGGER_SOURCE_KINDS))}, "
+            f"got {_safe_text(repr(entry[0]))}"
+        )
+    location = entry[1]
+    if isinstance(location, os.PathLike):
+        location = os.fspath(location)
+    if isinstance(location, bytes) or not isinstance(location, str) or not location.strip():
+        raise ConfpartestError("path_or_url must be a non-empty string or path")
+    location = location.strip()
+    if kind == "url":
+        from partest.redact import _unreadable_address
+
+        if _unreadable_address(location):
+            raise ConfpartestError(
+                "the URL cannot be read as an address — a password with a raw '/', '?', '#' "
+                "or '@', or a port that is not a number; percent-encode them (%2F, %3F, %23, "
+                "%40)"
+            )
+    return SwaggerEntry("local" if kind in _LOCAL_KINDS else "url", location)
+
+
+def resolve_entry_location(
+    entry: Any, conf_dir: Optional[Union[str, "os.PathLike[str]"]] = None
+) -> SwaggerEntry:
+    """:func:`parse_swagger_entry`, and for a ``local`` entry the file partest would read.
+
+    The rule partest applies to a relative path (coverage, ``resolve_from_confpartest``):
+
+    1. an absolute path is itself;
+    2. a relative one that exists from the **current directory** is taken from there;
+    3. otherwise, one that exists under *conf_dir* — the directory of ``confpartest.py`` — is
+       taken from there (a run started from a subdirectory, ``cd tests && pytest``);
+    4. otherwise it is returned as written, and the reader's "not found" names it.
+
+    A path found by 2 or 3 comes back absolute. A ``url`` entry is returned as parsed.
+    """
+    parsed = parse_swagger_entry(entry)
+    if parsed.kind != "local":
+        return parsed
+    base = Path(conf_dir) if conf_dir is not None else None
+    found = _local_candidate(Path(parsed.location), base)
+    if found is None:
+        return parsed
+    return SwaggerEntry("local", str(found if found.is_absolute() else found.resolve()))
 
 
 def validate_confpartest(conf: Any) -> List[str]:
@@ -371,16 +492,10 @@ def validate_confpartest(conf: Any) -> List[str]:
         errors.append(f"swagger_files must be a dict, got {type(swagger).__name__}")
     else:
         for name, spec in swagger.items():
-            if not isinstance(spec, (list, tuple)) or len(spec) < 2:
-                errors.append(
-                    f"swagger_files[{name!r}] must be [source_type, path_or_url], got {spec!r}"
-                )
-            else:
-                kind = str(spec[0]).lower()
-                if kind not in {"local", "url", "file", "path"}:
-                    errors.append(
-                        f"swagger_files[{name!r}] source_type must be local|url, got {spec[0]!r}"
-                    )
+            try:
+                parse_swagger_entry(spec)
+            except ConfpartestError as exc:
+                errors.append(f"swagger_files[{name!r}] {exc}")
 
     for attr in ("test_types_coverage", "test_types_exception"):
         val = getattr(conf, attr, None)

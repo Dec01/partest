@@ -1,5 +1,97 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`partest.redact.redact_url(url) -> str`** — one address, safe to keep: no credentials, no
+  query string, no fragment (`https://user:pw@h:8443/v3/api-docs?token=…#x` →
+  `https://h:8443/v3/api-docs`), the rest through `redact_text`, `;jsessionid=` masked.
+  **Closed on doubt** — `scheme://<redacted>`, no part of the address shown — for any `@`
+  after `scheme://` other than in the userinfo (a raw `/`, `?` or `#` in a password, `/@me` in
+  a path, `?email=a@b.example`; `＠` U+FF20 counts), a "port" that is not a number
+  (`https://admin:hunter2/api`), and anything after the address (whitespace, a quote, `<`,
+  `>`: `https://h/My Specs/x.yaml`). Idempotent. A scheme-relative `//user:pw@h/x` is read the
+  same way, `https:/user:pw@h` is closed; text without `scheme://` loses its query and
+  fragment and goes through `redact_text`.
+- **`partest.redact.REDACTED`** (`"<redacted>"`) — the marker of a closed address; compare with
+  the constant, not the string.
+- **`partest.redact.__all__`**: `DEFAULT_SENSITIVE_HEADERS`, `DEFAULT_SENSITIVE_BODY_KEYS`,
+  `mask_secret`, `redact_text`, `redact_headers`, `redact_mapping`, `redact_url`, `REDACTED`.
+- **`partest.openapi.__all__`**: `resolve_swagger`, `resolve_from_confpartest`,
+  `OpenApiResolveError`, `SpecSource`, `DEFAULT_MAX_SPEC_BYTES`.
+- **`resolve_swagger(..., max_bytes=DEFAULT_MAX_SPEC_BYTES, total_timeout=None,
+  max_redirects=20)`** — keyword-only, for a caller that fetches a spec on someone else's
+  behalf. `max_bytes` bounds the document, local or fetched (64 MiB; `None` lifts it): the
+  body is read raw and decoded by partest, so a compressed one stops at the limit of output.
+  `total_timeout` is checked before each request and between chunks of the body and cuts each
+  step's timeout to what is left — overrun by at most one `timeout`, DNS not bounded.
+  `max_redirects` — httpx's own default.
+- **The `swagger_files` grammar, public, in one home — `partest.conf`**: `SWAGGER_SOURCE_KINDS`
+  (`local`, `file`, `path`, `url`), `SwaggerEntry(kind, location)`,
+  `parse_swagger_entry(entry)` — kind in any case with spaces around it, `file`/`path` read as
+  `local`, location a string or `os.PathLike`, stripped, items after the second reserved; a
+  malformed entry is a `ConfpartestError` that never quotes the location — and
+  `resolve_entry_location(entry, conf_dir=None)`: the file partest reads for a `local` entry
+  (absolute as is; relative from the current directory when it exists there, else from
+  `conf_dir`, else as written). `validate_confpartest`, coverage and `resolve_swagger` read
+  entries through them; they used to repeat the kinds and disagreed on spaces around them.
+- **`partest.conf.__all__`**: `ConfpartestError`, `load_confpartest`, `require_confpartest`,
+  `validate_confpartest`, `confpartest_snapshot`, `conf_attr`, `NOTES_CONFIG`,
+  `NOTES_COVERAGE` and the grammar above.
+
+### Security
+
+- **`resolve_swagger` against a hostile server.** Only `identity` or one layer of `gzip` /
+  `deflate` is accepted, decoded within `max_bytes` (`Accept-Encoding: gzip, deflate` is
+  sent): httpx's own decoder inflated a `gzip, gzip` body of 645 bytes to 595 MiB and a `br`
+  body of 455 bytes to 293 MiB before any limit saw a byte; `br`, `zstd` and several layers are
+  refused now. Redirects are followed by partest: a step to another origin drops the caller's
+  headers and the credentials (httpx dropped `Authorization` alone, and kept it on
+  http → https), a step from `https` to `http` is refused. YAML goes through PyYAML's C loader
+  when available.
+- **Every failure of `resolve_swagger` is an `OpenApiResolveError`**, its text through the
+  configuration-error rule and not chained: `httpx.InvalidURL` (`Invalid port: 'hunter2'`),
+  `UnicodeError` (IDNA, `charset=undefined` — now decoded as UTF-8), `ValueError` from
+  `urlsplit`, `RecursionError` from a deep document reached the caller raw, some quoting the
+  password.
+- **An address a client cannot read is refused before any request** — by validation,
+  coverage and `resolve_swagger`: a raw `/`, `?`, `#` or `@` in the password, a "port" that is
+  not a number, `＠` (U+FF20) in the host. It never worked, and the client's error quoted part
+  of the password (httpx `Invalid port: 'pa'`, requests `Failed to parse: <URL>`).
+- **`redact_text` removes the credentials of an address**: `scheme://user:pw@host` loses
+  `user:pw@`; the bare `user:pw@host` a database driver quotes in its exception (psycopg puts
+  the whole DSN, `app:S3cr3tPass@db.internal/prod`, into the message) becomes
+  `***@db.internal/prod`, whatever the host looks like (`db_internal`, `[::1]`, an IDN,
+  `db.internal: refused`). Only a colon before the `@` makes a credential: `a@b.example`,
+  `mailto:a@b.example`, `git@host:org/repo.git` stay. It also masks `;jsessionid=`. The output
+  channels did most of this already; the public function did not.
+- **An address whose password holds a raw `?`, `#` or an apostrophe is `scheme://<redacted>`**
+  in `redact_text` and every output channel: `https://user:pa?ss@h/x` showed `user:pa` and the
+  rest of the password as a query or fragment. Errors about the project's configuration close
+  an address as `redact_url` does, a password with `"`, `<` or `>` included.
+- An IPv6 address with an `@` in its path (`http://[::1]:8080/@scope/openapi.json`) is no
+  longer read as `[` and a password: it is fetched, and shown whole in the channels.
+
+### Compatibility
+
+The API only gains names and keyword arguments with defaults. Behaviour that differs — each
+masks more or refuses what is unsafe or could not work — is listed in
+`docs/wiki/howto/migration.md` (Unreleased):
+
+- a bare DSN reads `***@host` in the channels and in `redact_text` (it was removed in the
+  channels, shown by `redact_text`); `mailto:` addresses are kept;
+- `__all__` in `partest.redact`, `partest.conf` and `partest.openapi` narrows
+  `from … import *` to the public names;
+- `parse_swagger_entry` refuses an empty or non-string location and an unreadable URL, and
+  `require_confpartest` — used by `resolve_from_confpartest()` without `conf` — raises on one
+  bad entry whichever service is asked for (as it did for a bad shape or kind);
+  `validate_confpartest` accepts a kind with spaces and no longer quotes a malformed entry;
+- `resolve_swagger` messages for a bad pair (`OpenAPI source pair: …`) and for a failure
+  outside httpx (`Cannot load OpenAPI: …`) are new; a document over 64 MiB, a `br` / `zstd`
+  / layered body, a redirect from `https` to `http` are refused; a redirect to another origin
+  goes without the caller's headers.
+
 ## 2.7.0 — 2026-10-25
 
 ### Added

@@ -1,7 +1,7 @@
 ---
 title: Package map — what lives where
 status: current
-verified: 2026-10-25
+verified: 2026-10-26
 sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/http/client.py, partest/call_storage.py, partest/reports/payload.py, partest/pytest_plugin.py, partest/conf.py, partest/optin.py, partest/polling.py, partest/rounding.py, partest/known_defect.py, partest/reports/compare.py]
 audience: agent
 ships_in_wheel: true
@@ -18,8 +18,8 @@ partest/
   coverage.py          track_api_calls, endpoint classification entry point; spec loaded on first use
   call_storage.py      per-process counters; dump/merge for xdist
   test_types.py        TypesTestCases, canonicalize_type, TYPE_LABELS
-  conf.py              load/validate confpartest
-  openapi.py           spec loading and path matching
+  conf.py              load/validate confpartest; parse_swagger_entry — the swagger_files grammar
+  openapi.py           resolve_swagger / resolve_from_confpartest — load a spec (size, time, redirect limits)
   tracking.py          TrackingApiClient, CreatedRegistry, id extractors, resource owners
   polling.py           poll_until / poll_until_sync — wait for a terminal state, keep the path
   rounding.py          agrees_with_formula / agrees_with_sum / assert_all_agree — tolerance derived from scales
@@ -42,7 +42,7 @@ partest/
   collections/         BaseCollection, CollectionsManager
   ui/                  partest[ui]: BasePage, PageMonitor, Storage, visual, capture_baselines
   project_gen/         deprecated bridge to the separate partest-gen distribution
-  redact.py            secret redaction for attaches
+  redact.py            secret redaction: redact_text, redact_url, redact_mapping, redact_headers
   http_retry.py        transport retries
   flags.py             coerce_bool/env_bool — one reading of every on/off switch
   tls.py               one place deciding verify= for every client (see below)

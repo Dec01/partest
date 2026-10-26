@@ -1,7 +1,7 @@
 ---
 title: Предложения по развитию сверх бэклога
 status: draft
-verified: 2026-10-25
+verified: 2026-10-26
 sources: [partest/coverage.py, partest/http/client.py, partest/tracking.py, partest/pytest_plugin.py, partest/reports/payload.py, partest/security/risk.py, setup.py, requirements.txt]
 audience: maintainer
 ships_in_wheel: false
@@ -798,6 +798,48 @@ override.
 готовую проверку (`python -m partest.reports gate --min 60`, `null` → код выхода 2) — за:
 ворота пишут все одинаково и с той же ошибкой; против: ещё одна команда CLI, а `compare
 --strict` уже отделяет неизмеренное.
+
+## H. Из ревью кандидата 2.8.0: адреса и загрузка спецификации · 2026-10-26
+
+Последний раунд по краевым случаям маскировки адресов закрыт в коде (CHANGELOG Unreleased).
+Находки того же класса низкой тяжести дальше идут сюда, а не в код.
+
+### H1. Одно правило закрытия адреса во всём семействе
+
+partest закрывает адрес при любом `@` вне userinfo (`redact_url`, ошибки конфигурации), а
+partest-gen показывает CDN-адреса вида `/npm/@scope/pkg@1.0` как есть. **Решение координатора
+2026-10-26:** partest остаётся строгим; переход partest-gen на `partest.redact.redact_url` —
+отдельной задачей в его репозитории. Спорное там же: CDN-адрес с `@` в пути после перехода
+станет `https://<redacted>` в выводе генератора.
+
+### H2. Предел загрузки для дороги coverage (`parparser`, `requests`)
+
+`resolve_swagger` получил `max_bytes`, `total_timeout`, защиту от бомб распаковки и правила
+редиректов; загрузка спецификации для покрытия (`swagger_files` → `parparser` → `requests`) —
+нет: ни предела размера, ни общего срока, `requests` распаковывает `gzip`/`deflate` сам и без
+предела. Естественный путь — A14 выше:
+дорога coverage идёт через `openapi.resolve_swagger`, и пределы появляются у неё даром.
+
+### H3. Маскировка query по ключам в `redact_url`
+
+Сейчас `redact_url` выбрасывает строку запроса и фрагмент целиком. Потребителю, которому
+нужен `?version=2` в источнике артефакта, нужен режим «маскировать по ключам»
+(`redact_url(url, query="mask")`, как в каналах). Против: ещё одна ручка, а ключевое правило
+пропускает `key` и `code` ([[howto/security]]).
+
+### H4. `["local", "https://…"]` — предупреждение
+
+Запись вида `local` с URL на месте пути читается как путь и падает «file not found». Шаблон
+partest-gen писал так и для URL. Предупреждать в `parse_swagger_entry` /
+`validate_confpartest`, если `local`-путь начинается со `scheme://`? Против: путь с `://` на
+диске возможен; за: такой путь почти всегда ошибка.
+
+### H5. Остаток свободного текста
+
+Перечислен в [[howto/enterprise]] («Addresses in free text … are not covered»): голый DSN с
+`/` в пароле, Oracle `scott/tiger@db`, токены в пути (`/bot<id>:<token>/`, Slack webhook,
+`/AKIA…/`), закодированный URL в query, пароль с `"`, `<`, `>` или пробелом в каналах.
+Каждый — отдельный образец, со своей ценой ложных срабатываний; брать по одному, с корпусом.
 
 ## Чего делать не стоит
 

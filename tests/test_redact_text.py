@@ -34,7 +34,11 @@ def test_ordinary_text_is_untouched(text):
 
 
 def test_pathological_input_is_linear():
-    hostile = 'token: "' + "\\" * 50000 + " " + "token=" + "a" * 200000
-    started = time.perf_counter()
-    redact_text(hostile)
-    assert time.perf_counter() - started < 2.0
+    """Growth, not a time limit (see ``tests/_growth.py``); the large input is the original
+    one — 50 000 backslashes in an open value, then 200 000 characters."""
+    from _growth import assert_linear
+
+    def hostile(n):
+        return 'token: "' + "\\" * (n // 4) + " " + "token=" + "a" * n
+
+    assert_linear(hostile, redact_text, 50000)

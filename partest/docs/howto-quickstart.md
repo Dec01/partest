@@ -55,7 +55,7 @@ directory — keep a `pytest.ini`, or `pythonpath = .`.
 ```python
 swagger_files = {
     "api": ["local", "docs/openapi.yaml"],  # or ["url", "https://…/openapi.json"]
-}
+}  # kinds: local | file | path | url — partest.conf.parse_swagger_entry reads one entry
 test_types_exception = ["health"]
 # pytest_plugin = False   # if you already own Allure hooks — Allure only, see below
 # tls_verify = False      # if the stand serves a self-signed certificate

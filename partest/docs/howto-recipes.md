@@ -205,12 +205,67 @@ a test that is still holding a mark.
 ## Resolve OpenAPI
 
 ```python
-from partest.openapi import resolve_swagger, resolve_from_confpartest
+from partest.openapi import OpenApiResolveError, resolve_swagger, resolve_from_confpartest
 
 spec = resolve_swagger("docs/openapi.yaml")
 spec = resolve_swagger(["url", "https://api/v3/api-docs"], verify=False)
+spec = resolve_swagger(entry, project_root=root,          # one swagger_files entry
+                       max_bytes=8 * 1024 * 1024,         # default 64 MiB; None — no limit
+                       total_timeout=30,                  # default None; see below
+                       max_redirects=5)                   # default 20, as httpx
 spec = resolve_from_confpartest(service="myservice")
 ```
+
+Public names (`partest.openapi.__all__`): `resolve_swagger`, `resolve_from_confpartest`,
+`OpenApiResolveError`, `SpecSource`, `DEFAULT_MAX_SPEC_BYTES`. A string is a URL when it starts
+with `http://` or `https://` in any case, else a local path. Every failure is
+`OpenApiResolveError`, its text without URL credentials or query string and without a chained
+exception (a YAML parse error keeps the parser's exception chained). For a URL:
+
+- `user:password@` goes as basic `auth=` (a caller's `Authorization` header wins); the query
+  string stays out of httpx's INFO `HTTP Request:` line;
+- redirects are followed by partest itself, `max_redirects` at most: one to another origin
+  (scheme, host or port) goes without the caller's `headers` and without the credentials;
+  one from `https` to `http` is refused;
+- the body may be plain or one layer of `gzip` / `deflate` (`Accept-Encoding: gzip, deflate`
+  is sent); it is decoded by partest, never past `max_bytes`. `br`, `zstd` and several layers
+  (`gzip, gzip`) are refused — a few hundred bytes of those inflate to hundreds of megabytes
+  before any limit could see them;
+- `timeout` bounds each step (connect, each read). `total_timeout` is checked before each
+  request and between chunks of the body, and each step's timeout is cut to what is left of
+  it: it can be overrun by at most one `timeout`, and resolving the host name (DNS) is bounded
+  by neither;
+- an address a client cannot read — a raw `/`, `?`, `#` or `@` in the password, a "port"
+  that is not a number, `＠` (U+FF20) in the host — is refused before any request:
+  percent-encode them.
+
+YAML is parsed with PyYAML's C loader when it is installed (`CSafeLoader`): the pure-Python one
+takes minutes and gigabytes on a document near the size limit.
+
+### The `swagger_files` grammar
+
+One entry is `[kind, path_or_url]`. Read it the way partest does instead of repeating the kinds
+(`partest.conf.__all__` is its one home):
+
+```python
+from partest.conf import SWAGGER_SOURCE_KINDS, parse_swagger_entry, resolve_entry_location
+
+parse_swagger_entry([" File ", "docs/openapi.yaml "])   # SwaggerEntry(kind='local', location='docs/openapi.yaml')
+parse_swagger_entry(["url", "https://h/v3/api-docs"])   # SwaggerEntry(kind='url', ...)
+resolve_entry_location(entry, conf_dir)                 # the file partest would read
+```
+
+`SWAGGER_SOURCE_KINDS` is `local | file | path | url` in any case, spaces around allowed;
+`file` and `path` come back as `local`. A list or tuple of two items or more — items after the
+second are reserved; the location a non-empty string or `os.PathLike`, stripped. Anything else
+is a `ConfpartestError` whose message never quotes the location; `validate_confpartest`,
+coverage and `resolve_swagger` all read entries through it.
+
+Where a relative `local` path points — the rule partest applies, given by
+`resolve_entry_location(entry, conf_dir)` with `conf_dir` the directory of `confpartest.py`:
+an absolute path is itself; a relative one is taken from the **current directory** when it
+exists there, else from `conf_dir` when it exists there (a run started from a subdirectory),
+else returned as written. Found, it comes back absolute.
 
 ## generate package exports
 

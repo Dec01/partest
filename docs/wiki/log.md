@@ -13,6 +13,23 @@ allow_version_literals: true
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
 
+## 2026-10-26 · update · ревью кандидата 2.8.0: адреса, загрузка спецификации
+
+[[howto/enterprise]] — строки таблицы про ошибки конфигурации и `resolve_swagger`, правило
+закрытия `redact_url`, `***@host` для голого DSN, перечень того, что в свободном тексте не
+покрыто (устаревшие `;jsessionid=` и фрагмент убраны); [[howto/recipes]] — редиректы,
+кодировки тела, честная формулировка `total_timeout`, `resolve_entry_location`, грамматика
+только в `partest.conf`; [[howto/migration]] — Unreleased по полной; [[proposals]] — раздел H.
+
+## 2026-10-26 · update · публичные redact_url, грамматика swagger_files, пределы загрузки спецификации
+
+[[howto/enterprise]] — `redact_url`, учётные данные адреса в `redact_text`, строки таблицы про
+ошибки конфигурации и `resolve_swagger`; [[howto/recipes]] — публичные имена `partest.openapi`,
+`max_bytes` / `total_timeout` / `max_redirects`, раздел о грамматике `swagger_files`;
+[[howto/migration]] — раздел Unreleased; [[howto/quickstart]] — виды записи; [[components/overview]]
+— строки модулей. `verified` обновлён у страниц, чьи `sources` менялись (`conf.py`, `coverage.py`,
+`redact.py`, `openapi.py`).
+
 ## 2026-10-25 · update · выпуск 2.7.0
 
 `CHANGELOG.md` «2.7.0 — unreleased» → «2.7.0 — 2026-10-25»; [[status]] — 2.7.0 на PyPI;

@@ -491,6 +491,12 @@ def test_the_spec_loader_explains_it_too(monkeypatch):
         def get(self, *a, **k):
             raise _rejected_certificate()
 
+        # resolve_swagger builds each request itself and follows redirects by hand
+        send = get
+
+        def build_request(self, method, url, **k):
+            return httpx.Request(method, url, **k)
+
     monkeypatch.setattr(openapi.httpx, "Client", Boom)
 
     with pytest.raises(openapi.OpenApiResolveError, match=tls.VERIFY_ENV):

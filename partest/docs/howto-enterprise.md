@@ -100,7 +100,7 @@ Business 4xx are **not** retried.
 ## Secret redaction
 
 ```python
-from partest.redact import redact_headers, redact_mapping, redact_text, mask_secret
+from partest.redact import redact_headers, redact_mapping, redact_text, redact_url, mask_secret
 ```
 
 Body keys like `password`, `token`, `access_token`, `client_secret` and the headers
@@ -135,8 +135,12 @@ writes to applies one rule:
   yourself (`attach_response(redact_body=False)`);
 - text that is not JSON — a plain-text body, an exception message — gets the full
   `redact_text`;
-- in a URL, `user:password@` is removed (an `@` or a `/` in the password included, and
-  without a scheme) and `?token=…` becomes `?token=***` — in the query (`&` or `;`) and in the
+- in a URL, `user:password@` is removed (an `@` or a `/` in the password included); without
+  a scheme — the DSN a database driver quotes, `app:S3cr3t@db.internal/prod` — it becomes
+  `***@db.internal/prod` (`mailto:a@b.example` is an address and stays); an address whose
+  password holds a raw `?`, `#` or an apostrophe — what is left reads `user:pa` before a
+  stray `@`, `https://user:pa?ss@host` — is `https://<redacted>` whole; `?token=…`
+  becomes `?token=***` — in the query (`&` or `;`) and in the
   fragment (`#access_token=…`), for the secret keys and for `X-Amz-Signature`,
   `X-Amz-Security-Token`, `X-Amz-Credential`, `X-Goog-Signature`, `signature`, `sig`,
   `auth_token`, `sessionid`, `session_id`, `jsessionid` — also `;jsessionid=` in a path, and
@@ -175,15 +179,29 @@ that is a separate, breaking decision.
 | `partest.reporting.format_http_status_failure`, `ErrorTemplates.status` / `conflict_409` | yes: path, both bodies, the Problem Detail summary, `Entity context:` and `Original error: …` |
 | `sideeffects.assert_locator`, `assert_status_enum`, `Observation.require` | yes: the body in the message; a value read from it is masked like a check value (free text at every level) |
 | `StepTemplates.assert_field`, `assert_list_contains`, `assert_status` (step titles) | yes: a check value as above, `***` under a secret field name; a status as a number |
-| errors about the project's own configuration: a `confpartest` that fails to import, a spec in `swagger_files` that cannot be loaded (`ConfpartestError`, `OpenApiResolveError`) | URL credentials, query strings and secret-looking values removed; the original exception is not chained; for coverage, the raw sources are not among the locals `pytest -l` shows. Not covered: a token in the URL path, `;jsessionid=`, a fragment, a spec snippet quoted by a YAML parse error (that one keeps the parser's exception chained), and the locals of your own frames that hold the URL |
-| fetching a spec: `openapi.resolve_swagger` (httpx) | `user:password@` is sent as `auth=`, never logged; the query string is kept out of httpx's INFO `HTTP Request:` line |
+| errors about the project's own configuration: a `confpartest` that fails to import, a spec in `swagger_files` that cannot be loaded (`ConfpartestError`, `OpenApiResolveError`) | URL credentials and query strings removed, a fragment and `;jsessionid=` masked by key, secret-looking values masked; an address is closed on doubt as `redact_url` closes it — any `@` outside its userinfo, a password with a quote, `<` or `>`, a "port" that is not a number give `scheme://<redacted>`; a `swagger_files` URL that cannot be read as an address (a raw `/`, `?`, `#` or `@` in the password, a non-numeric port, `＠` U+FF20 in the host) is refused before any request (`percent-encode` in the message: an HTTP client would quote part of that password back); the original exception is not chained; for coverage, the raw sources are not among the locals `pytest -l` shows. Not covered: a token in the URL path, a spec snippet quoted by a YAML parse error (that one keeps the parser's exception chained), and the locals of your own frames that hold the URL |
+| fetching a spec: `openapi.resolve_swagger` (httpx) | `user:password@` is sent as `auth=`, never logged; the query string is kept out of httpx's INFO `HTTP Request:` line; a redirect to another origin drops the caller's headers and the credentials, one from `https` to `http` is refused, `max_redirects` (20) at most; the body is plain or one layer of `gzip` / `deflate`, decoded here within `max_bytes` (64 MiB) — `br`, `zstd` and several layers are refused; `total_timeout`, when given, is checked between steps and chunks and cuts each step's timeout (overrun at most one `timeout`; DNS is not bounded); every failure is `OpenApiResolveError`, unchained, its text through the configuration-error rule |
 | fetching a spec for coverage (`swagger_files`, via `requests`) | INFO is clean; the `urllib3` DEBUG line shows the path with its query string |
 
 Masking is by key, so it is only as good as the key list: a value under a key it does not know
 is shown as is, and so is a secret inside an XML body (`<password>…</password>`), a multipart
 body sent through `content=`, an `Authorization: Token …` / `Digest …` / `AWS4-…` value in
-plain text (in a header dict the whole value is masked), a scheme-relative
-`//user:password@host`, and a value a custom validator puts into its message without the key.
+plain text (in a header dict the whole value is masked), and a value a custom validator puts
+into its message without the key. Addresses in free text — log lines, messages, `redact_text`
+— are not covered in these shapes (`redact_url`, for one address, closes the ones marked †):
+
+- a bare DSN with a `/` in its password (`app:pa/ss@db.internal`), and Oracle's
+  `scott/tiger@db`;
+- a token in a path: a bot API `/bot<id>:<token>/…`, a Slack webhook
+  `/services/T…/B…/<secret>`, an access key id `/AKIA…/`;
+- a URL nested in a query value (`?next=https%3A%2F%2Fu%3Ap%40h`) — encoded, it is not seen
+  as a URL;
+- a scheme-relative `//user:password@host` and a malformed `https:/user:password@host` †;
+- a token alone cut by a raw `/`, `?` or `#` (`https://tok/en@host` — in a log line it cannot
+  be told from an `@` in a path) †, a password with a `"`, `<`, `>` or whitespace in it — the
+  output channels close only the apostrophe; errors about the configuration close all but
+  whitespace †.
+
 A `logging.config.dictConfig` that configures the `httpx` logger drops partest's filter until
 the next client is built. Treat a CI log as carrying whatever the service sent under any other
 name.
@@ -197,9 +215,36 @@ string, a log line: it masks the values of the same keys in `"key": "value"`, `k
 `key=value` and `('key', 'value')` shapes (a quoted value keeps its quotes), an object or
 array to its balancing bracket or else to the end of the indented block it opens, a whole
 `Cookie:` / `Set-Cookie:` line, `Bearer <token>` / `Basic <credentials>` anywhere (a
-`Bearer realm="…"` challenge keeps its parameters), and a PEM private key whole. It is
-pattern-based and best effort; mask the mapping while you still have it. Poll messages
-(`partest.polling`, `sideeffects.wait_for`) go through it.
+`Bearer realm="…"` challenge keeps its parameters), a PEM private key whole, `;jsessionid=`,
+and the credentials of an address: `postgresql://app:S3cr3t@db.internal/prod` loses
+`app:S3cr3t@`, and the bare DSN a database driver quotes in its exception,
+`app:S3cr3t@db.internal/prod`, becomes `***@db.internal/prod` — whatever the host looks like
+(`db_internal`, `[::1]`, an IDN, `db.internal: refused`). Only a colon before the `@` makes a
+credential: `a@b.example`, `mailto:a@b.example` and `git@host:org/repo.git` stay;
+`email:alice@example.com` reads `***@example.com`. An address whose password was cut by a raw
+`?`, `#` or an apostrophe is `https://<redacted>`. It is pattern-based and best effort; mask
+the mapping while you still have it. Poll messages (`partest.polling`, `sideeffects.wait_for`)
+go through it.
+
+`redact_url(url)` is for one address kept on its own — an artifact's `source`, a log line
+about where a document came from: no credentials, no query string, no fragment
+(`https://user:pw@h:8443/v3/api-docs?token=…#x` → `https://h:8443/v3/api-docs`), the rest
+through `redact_text`, `;jsessionid=` masked. It is **closed on doubt** and gives
+`scheme://` + `REDACTED` (`partest.redact.REDACTED == "<redacted>"`; compare with the
+constant) for:
+
+- any `@` after `scheme://` other than in the userinfo — a raw `/`, `?` or `#` in a password
+  (`https://user:pa/ss@h/x`), but also `/@me` in a path, `?email=a@b.example`, a working
+  `http://[::1]:8080/@scope/openapi.json`; `＠` (U+FF20) counts as `@`;
+- a "port" that is not a number (`https://admin:hunter2/api`, a password without its `@`);
+- anything after the address: whitespace, a quote, `<` or `>` and what follows
+  (`https://h/My Specs/openapi.yaml` — write `My%20Specs`).
+
+The userinfo cannot be told from the rest there, and a guess could show part of a password.
+Percent-encode such a password (`%2F`, `%3F`, `%23`, `%40`); a client needs that anyway.
+`redact_url(redact_url(x)) == redact_url(x)`. Text without `scheme://` (a path) loses its
+query and fragment and goes through `redact_text`. The output channels share its core; they
+show request URLs, so there an `@` in a path or a query value stays.
 
 ## Status hint locale
 

@@ -12,8 +12,8 @@ partest/
   coverage.py          track_api_calls, endpoint classification entry point; spec loaded on first use
   call_storage.py      per-process counters; dump/merge for xdist
   test_types.py        TypesTestCases, canonicalize_type, TYPE_LABELS
-  conf.py              load/validate confpartest
-  openapi.py           spec loading and path matching
+  conf.py              load/validate confpartest; parse_swagger_entry — the swagger_files grammar
+  openapi.py           resolve_swagger / resolve_from_confpartest — load a spec (size, time, redirect limits)
   tracking.py          TrackingApiClient, CreatedRegistry, id extractors, resource owners
   polling.py           poll_until / poll_until_sync — wait for a terminal state, keep the path
   rounding.py          agrees_with_formula / agrees_with_sum / assert_all_agree — tolerance derived from scales
@@ -36,7 +36,7 @@ partest/
   collections/         BaseCollection, CollectionsManager
   ui/                  partest[ui]: BasePage, PageMonitor, Storage, visual, capture_baselines
   project_gen/         deprecated bridge to the separate partest-gen distribution
-  redact.py            secret redaction for attaches
+  redact.py            secret redaction: redact_text, redact_url, redact_mapping, redact_headers
   http_retry.py        transport retries
   flags.py             coerce_bool/env_bool — one reading of every on/off switch
   tls.py               one place deciding verify= for every client (see below)

@@ -1,7 +1,7 @@
 ---
 title: Quickstart — first green API test
 status: current
-verified: 2026-10-25
+verified: 2026-10-26
 sources: [partest/client.py, partest/conf.py, partest/coverage.py, partest/call_storage.py, partest/env/__init__.py, partest/zorro_report.py, partest/tls.py, partest/pytest_plugin.py]
 audience: user
 ships_in_wheel: true
@@ -61,7 +61,7 @@ directory — keep a `pytest.ini`, or `pythonpath = .`.
 ```python
 swagger_files = {
     "api": ["local", "docs/openapi.yaml"],  # or ["url", "https://…/openapi.json"]
-}
+}  # kinds: local | file | path | url — partest.conf.parse_swagger_entry reads one entry
 test_types_exception = ["health"]
 # pytest_plugin = False   # if you already own Allure hooks — Allure only, see below
 # tls_verify = False      # if the stand serves a self-signed certificate

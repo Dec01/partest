@@ -48,8 +48,6 @@ _spec_note = ""
 # a slow fetch.
 _spec_lock = threading.RLock()
 
-_LOCAL_KINDS = {"local", "file", "path"}
-
 
 def _set_by_hand() -> bool:
     return not _spec_loaded and (
@@ -132,15 +130,12 @@ def _load_operations(module: Any) -> Optional[str]:
     for key, entry in dict(files).items():
         location = entry[1] if isinstance(entry, (list, tuple)) and len(entry) > 1 else None
         try:
-            if isinstance(entry, (list, tuple)) and len(entry) >= 2:
-                # The kinds `validate_confpartest` accepts, in any case; the parser
-                # itself knows only "local" and "url".
-                kind = str(entry[0]).strip().lower()
-                if kind in _LOCAL_KINDS:
-                    entry = ["local", _conf._resolve_relative(entry[1], module), *entry[2:]]
-                elif kind == "url":
-                    entry = ["url", *entry[1:]]
-            loaded.extend(SwaggerSettings({key: entry}).collect_paths_info())
+            # The grammar `validate_confpartest` checks; the parser itself knows only
+            # "local" and "url".
+            kind, where = _conf.parse_swagger_entry(entry)
+            if kind == "local":
+                where = _conf._resolve_relative(where, module)
+            loaded.extend(SwaggerSettings({key: [kind, where]}).collect_paths_info())
         except Exception as exc:
             # Text only: the original exception is not chained, or a traceback would print
             # its message — credentials and query strings included.

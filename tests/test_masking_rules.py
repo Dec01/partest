@@ -269,12 +269,10 @@ def test_an_open_value_is_masked_as_its_indented_block():
     "chunk", ["token: {\n", "x\ntoken: [a\n", "token={", '"token: [a ', "password: 'a\n"]
 )
 def test_many_open_values_take_linear_time(chunk):
-    import time
+    """Growth, not a time limit (see ``tests/_growth.py``): 16 K and 64 K characters."""
+    from _growth import assert_linear
 
-    text = chunk * (65536 // len(chunk))
-    started = time.perf_counter()
-    redact_text(text)
-    assert time.perf_counter() - started < 2.0
+    assert_linear(lambda n: chunk * (n // len(chunk)), redact_text, 16384, label=chunk)
 
 
 def test_known_defect_survives_a_session_without_the_skipping_plugin(pytester):

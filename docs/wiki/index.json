@@ -6,7 +6,7 @@
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-10-26",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -68,7 +68,7 @@
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-10-26",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -139,7 +139,7 @@
           "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 22341
+      "chars": 22490
     },
     {
       "slug": "components/project-gen",
@@ -186,7 +186,7 @@
       "path": "docs/wiki/concepts/coverage-honesty.md",
       "title": "Coverage honesty — when the number lies",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-10-26",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -234,7 +234,7 @@
       "path": "docs/wiki/concepts/methodology.md",
       "title": "Coverage methodology — two areas, three axes each",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-10-26",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -634,12 +634,14 @@
       "path": "docs/wiki/howto/enterprise.md",
       "title": "Enterprise notes — shared client, retries, redaction, xdist",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-10-26",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
         "partest/http_retry.py",
         "partest/redact.py",
+        "partest/openapi.py",
+        "partest/conf.py",
         "partest/call_storage.py",
         "partest/client.py",
         "partest/tls.py",
@@ -709,7 +711,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 16892
+      "chars": 21006
     },
     {
       "slug": "howto/layers",
@@ -791,7 +793,7 @@
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-10-26",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -820,6 +822,10 @@
         {
           "level": 1,
           "text": "right after a release pip may answer from its cache and not see the new version:"
+        },
+        {
+          "level": 2,
+          "text": "Unreleased — public `redact_url`, the `swagger_files` grammar, limits of a spec fetch"
         },
         {
           "level": 2,
@@ -974,7 +980,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 44974
+      "chars": 48536
     },
     {
       "slug": "howto/permissions",
@@ -1025,7 +1031,7 @@
       "path": "docs/wiki/howto/quickstart.md",
       "title": "Quickstart — first green API test",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-10-26",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1100,17 +1106,19 @@
           "text": "Next"
         }
       ],
-      "chars": 7961
+      "chars": 8048
     },
     {
       "slug": "howto/recipes",
       "path": "docs/wiki/howto/recipes.md",
       "title": "Recipes — consumer-side adapters",
       "status": "current",
-      "verified": "2026-10-18",
+      "verified": "2026-10-26",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
+        "partest/openapi.py",
+        "partest/conf.py",
         "partest/collections/base.py",
         "partest/http/config.py",
         "partest/validation/incorrect_body.py",
@@ -1172,6 +1180,10 @@
           "text": "Resolve OpenAPI"
         },
         {
+          "level": 3,
+          "text": "The `swagger_files` grammar"
+        },
+        {
           "level": 2,
           "text": "generate package exports"
         },
@@ -1216,7 +1228,7 @@
           "text": "\"errors\": [{\"field\": \"name\", \"code\": \"required\", \"message\": \"must not be blank\"}]}"
         }
       ],
-      "chars": 17075
+      "chars": 20615
     },
     {
       "slug": "howto/release",
@@ -1610,6 +1622,14 @@
         },
         {
           "level": 2,
+          "text": "2026-10-26 · update · ревью кандидата 2.8.0: адреса, загрузка спецификации"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-26 · update · публичные redact_url, грамматика swagger_files, пределы загрузки спецификации"
+        },
+        {
+          "level": 2,
           "text": "2026-10-25 · update · выпуск 2.7.0"
         },
         {
@@ -1777,14 +1797,14 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 40548
+      "chars": 41692
     },
     {
       "slug": "proposals",
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-10-25",
+      "verified": "2026-10-26",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -2020,10 +2040,34 @@
         },
         {
           "level": 2,
+          "text": "H. Из ревью кандидата 2.8.0: адреса и загрузка спецификации · 2026-10-26"
+        },
+        {
+          "level": 3,
+          "text": "H1. Одно правило закрытия адреса во всём семействе"
+        },
+        {
+          "level": 3,
+          "text": "H2. Предел загрузки для дороги coverage (`parparser`, `requests`)"
+        },
+        {
+          "level": 3,
+          "text": "H3. Маскировка query по ключам в `redact_url`"
+        },
+        {
+          "level": 3,
+          "text": "H4. `[\"local\", \"https://…\"]` — предупреждение"
+        },
+        {
+          "level": 3,
+          "text": "H5. Остаток свободного текста"
+        },
+        {
+          "level": 2,
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 51404
+      "chars": 53715
     },
     {
       "slug": "status",
@@ -2204,8 +2248,10 @@
     ],
     "partest/conf.py": [
       "components/overview",
+      "howto/enterprise",
       "howto/migration",
-      "howto/quickstart"
+      "howto/quickstart",
+      "howto/recipes"
     ],
     "partest/coverage.py": [
       "backlog-audit",
@@ -2291,6 +2337,10 @@
     ],
     "partest/methodology/ui/surfaces.py": [
       "concepts/methodology"
+    ],
+    "partest/openapi.py": [
+      "howto/enterprise",
+      "howto/recipes"
     ],
     "partest/optin.py": [
       "components/overview"

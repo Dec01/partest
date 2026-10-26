@@ -13,6 +13,33 @@ pip install -U 'partest[ui]'   # UI suites
 pip install --no-cache-dir "partest==X.Y.Z"
 ```
 
+## Unreleased — public `redact_url`, the `swagger_files` grammar, limits of a spec fetch
+
+New names (`partest.redact`, `partest.openapi`, `partest.conf` — each with `__all__` now) and
+keyword arguments with defaults; nothing to change in most suites. What masks more, or refuses
+what is unsafe or never worked:
+
+| What | Before | Now | Do |
+|---|---|---|---|
+| `redact_text` on `scheme://user:pw@host` | shown | `user:pw@` removed | nothing; a test that matched the old text expects the new one |
+| a bare `user:pw@host` (a DSN in a driver's exception) | removed in the channels, shown by `redact_text` | `***@host` in both | as above |
+| an address with a password cut by a raw `?`, `#` or an apostrophe (`https://user:pa?ss@host`) in the channels and `redact_text` | part of the password shown | `https://<redacted>` (`partest.redact.REDACTED`) | nothing |
+| `mailto:a@b.example` in the channels | `a@` removed | kept: an address, not a credential | nothing |
+| `;jsessionid=` in `redact_text` | shown | `***` | nothing |
+| errors about the project's configuration on an address with an `@` outside its userinfo, a quote, `<` or `>` in the password, a non-numeric port | shown | `scheme://<redacted>` | nothing |
+| a `swagger_files` URL a client cannot read — a raw `/`, `?`, `#` or `@` in the password, a "port" that is not a number, `＠` U+FF20 in the host | fetched; the client failed with `Invalid port: 'pa'` or `Failed to parse: <URL>` — part of the password in the message | refused before any request, `percent-encode` in the message (validation, coverage, `resolve_swagger`) | percent-encode: `%2F`, `%3F`, `%23`, `%40` |
+| a `swagger_files` entry with an empty or non-string location | coverage failed on it later | `ConfpartestError` from validation | write the path or URL |
+| one bad `swagger_files` entry and `resolve_from_confpartest(service=…)` without `conf` | `require_confpartest` raised for a bad shape or kind only | it raises for any bad entry, whichever service is asked for | fix the entry, or pass `conf=` |
+| a `swagger_files` kind with spaces (`" url "`) | accepted by coverage, refused by `validate_confpartest` and `resolve_swagger` | accepted everywhere | nothing |
+| `validate_confpartest` message for a malformed entry | quoted the entry (`got 'https://…'`) | names its type and length only | a test that matched the old message |
+| `resolve_swagger` with a bad pair, or failing outside httpx (`InvalidURL`, IDNA, `RecursionError`, `ValueError`) | `source pair needs …`; the raw exception | `OpenApiResolveError`: `OpenAPI source pair: …`, `Cannot load OpenAPI: …`, unchained | catch `OpenApiResolveError` |
+| `resolve_swagger("HTTP://…")` (scheme in upper case) | read as a local path | a URL | nothing |
+| `resolve_swagger` on a document over 64 MiB | read | refused, naming `max_bytes` | pass `max_bytes=None` or a larger value |
+| a spec served with `Content-Encoding: br`, `zstd` or several layers | decoded by httpx, without a size limit | refused (`Accept-Encoding: gzip, deflate` is sent) | serve it plain or with one layer of gzip / deflate |
+| a spec redirect to another origin | the caller's headers went along (httpx dropped `Authorization` only) | they are dropped, credentials too | pass the headers the new origin needs to that origin |
+| a spec redirect from `https` to `http` | followed | refused | fix the redirect |
+| `from partest.redact import *`, `from partest.conf import *`, `from partest.openapi import *` | every module-level name | the names in `__all__` | import private helpers by name, if at all |
+
 ## 2.7.0 — `summary.avg: null`, `exception` outside the average, depth, masking in every channel
 
 Nothing to change in a suite that neither reads `coverage.json` nor matches log or message
