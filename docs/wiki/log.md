@@ -13,6 +13,16 @@ allow_version_literals: true
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
 
+## 2026-11-14 · update · кроссплатформенный индекс wiki и зависимости релизной сборки
+
+`tools/docs_common.py` сортирует страницы по относительному POSIX-пути, поэтому `index.json`
+не зависит от case semantics файловой системы; regression test добавлен в `tests/test_docs.py`.
+В `release.yml` и [[howto/release]] добавлены `setuptools` и `wheel` для прямой сборки
+`setup.py sdist bdist_wheel`. [[decisions/distribution]] и [[decisions/docs-architecture]]
+актуализированы под перенос процедур в `procedures/`; даты сверки обновлены у страниц,
+проверенных по изменённым источникам. Отложенное предложение по канонической сортировке
+raw-источников зафиксировано в [[proposals]] (A16).
+
 ## 2026-11-14 · update · подготовка 2.9.0 и уточнение публикации 2.8.0
 
 `__version__` поднят до 2.9.0; `CHANGELOG.md` «Unreleased» → «2.9.0 — 2026-11-14»;

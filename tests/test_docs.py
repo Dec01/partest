@@ -42,6 +42,20 @@ def test_wheel_docs_match_the_wiki():
     )
 
 
+def test_wiki_pages_use_canonical_case_sensitive_order(tmp_path, monkeypatch):
+    """Path sorting must not depend on the host filesystem's case semantics."""
+    from tools import docs_common
+
+    for relative in ("a.md", "B.md", "c.md", "D.md", "nested/d.md", "nested/C.md"):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# page\n", encoding="utf-8")
+
+    monkeypatch.setattr(docs_common, "WIKI_DIR", tmp_path)
+    ordered = [page.path.relative_to(tmp_path).as_posix() for page in docs_common.load_pages()]
+    assert ordered == ["B.md", "D.md", "a.md", "c.md", "nested/C.md", "nested/d.md"]
+
+
 def test_shipped_docs_are_readable_through_the_package():
     from partest.docs import list_docs, read_doc
 

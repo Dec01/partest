@@ -1,8 +1,8 @@
 ---
-title: "ADR — архитектура документации: AGENTS + Skills + Wiki"
+title: "ADR — архитектура документации: AGENTS + Procedures + Wiki"
 status: current
-verified: 2026-10-19
-sources: [tools/docs_lint.py, tools/docs_index.py, docs/wiki/WIKI.md]
+verified: 2026-11-14
+sources: [tools/docs_common.py, tools/docs_lint.py, tools/docs_index.py, docs/wiki/WIKI.md]
 audience: maintainer
 ships_in_wheel: false
 allow_version_literals: true
@@ -33,7 +33,7 @@ allow_version_literals: true
 | Слой | Файл | Живёт | Кто читает |
 |---|---|---|---|
 | Границы | `AGENTS.md` ≤60 строк | месяцами | всегда в контексте |
-| Процедуры | `.claude/skills/*/SKILL.md` | неделями | по требованию |
+| Процедуры | `procedures/*.md` | неделями | по требованию |
 | Знание | `docs/wiki/**` | днями | по ссылке из индекса |
 | Источники | локально, вне репозитория и вне git | никогда | при разборе спорного места |
 
@@ -64,7 +64,7 @@ allow_version_literals: true
 Снапшот чужого бэклога — это чужой продукт: сущности, роли, инфраструктура, следы стенда.
 Репозиторий публичный, поэтому слой Raw живёт рядом с ним и закрыт `.gitignore`. В git
 попадает **вывод** из источника, написанный своими словами, а не сам источник. Правило
-записано в `WIKI.md` и в скилле `partest-docs`, чтобы следующий снапшот не закоммитили по
+записано в `WIKI.md` и в `procedures/docs.md`, чтобы следующий снапшот не закоммитили по
 привычке.
 
 ## Цена решения

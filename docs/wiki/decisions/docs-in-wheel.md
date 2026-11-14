@@ -1,8 +1,8 @@
 ---
 title: ADR — документация внутри колеса и генерация partest/docs
 status: current
-verified: 2026-10-25
-sources: [tools/docs_build_wheel.py, partest/docs/__init__.py, setup.py, MANIFEST.in]
+verified: 2026-11-14
+sources: [tools/docs_common.py, tools/docs_build_wheel.py, partest/docs/__init__.py, setup.py, MANIFEST.in]
 audience: maintainer
 ships_in_wheel: false
 allow_version_literals: true

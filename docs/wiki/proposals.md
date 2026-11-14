@@ -2,7 +2,7 @@
 title: Предложения по развитию сверх бэклога
 status: draft
 verified: 2026-11-14
-sources: [partest/coverage.py, partest/http/client.py, partest/tracking.py, partest/pytest_plugin.py, partest/reports/payload.py, partest/security/risk.py, setup.py, requirements.txt]
+sources: [partest/coverage.py, partest/http/client.py, partest/tracking.py, partest/pytest_plugin.py, partest/reports/payload.py, partest/security/risk.py, setup.py, requirements.txt, tools/docs_index.py]
 audience: maintainer
 ships_in_wheel: false
 allow_version_literals: true
@@ -215,6 +215,15 @@ Python, плюс отдельная работа собирает артефак
 Подстановку текста стоит делать только для тела, которое не разобралось как JSON, или для
 JSON-скаляра; объект и массив — провал схемы. Чинить вместе с распознаванием подкласса: оба
 меняют исход для существующих моделей.
+
+### A16. Канонический порядок raw-источников в `docs_index` · 2026-11-14
+
+`tools/docs_index.py` всё ещё сортирует `RAW_DIR.rglob("*.md")` через `Path`; при появлении
+raw-файлов со смешанным регистром порядок `raw` в `index.json` может различаться между ОС.
+Сейчас `docs/raw` отсутствует и генератор возвращает `raw: []`, поэтому текущий релиз не
+блокируется. **Предложение:** при появлении raw-источников сортировать по относительному
+POSIX-key и добавить regression test, как для страниц wiki. **Отложено**, чтобы не расширять
+текущий CI fix.
 
 ## B. Средняя стоимость, снимает системные проблемы
 

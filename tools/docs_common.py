@@ -96,7 +96,8 @@ def parse_page(path: Path) -> Page:
 
 
 def load_pages() -> List[Page]:
-    return [parse_page(p) for p in sorted(WIKI_DIR.rglob("*.md"))]
+    paths = sorted(WIKI_DIR.rglob("*.md"), key=lambda p: p.relative_to(WIKI_DIR).as_posix())
+    return [parse_page(p) for p in paths]
 
 
 def wheel_pages(pages: List[Page]) -> List[Page]:

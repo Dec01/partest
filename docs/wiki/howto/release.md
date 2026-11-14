@@ -61,7 +61,7 @@ python -m partest.ui.capture_baselines --dry-run
 ## 3. Build and inspect the artifact
 
 ```bash
-python -m pip install -U build twine
+python -m pip install -U build setuptools wheel twine
 python tools/check_all.py --package
 python -m zipfile -l dist/partest-*.whl | grep "partest/docs"
 ```

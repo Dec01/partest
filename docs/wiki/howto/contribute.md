@@ -1,7 +1,7 @@
 ---
 title: Developing partest
 status: current
-verified: 2026-11-10
+verified: 2026-11-14
 sources: [partest/__init__.py, setup.py, tests/test_docs.py, tools/docs_lint.py]
 audience: maintainer
 ships_in_wheel: false

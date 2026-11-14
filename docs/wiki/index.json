@@ -2,6 +2,55 @@
   "generated_by": "tools/docs_index.py",
   "pages": [
     {
+      "slug": "WIKI",
+      "path": "docs/wiki/WIKI.md",
+      "title": "Схема документации",
+      "status": "current",
+      "verified": "2026-11-10",
+      "audience": "maintainer",
+      "ships_in_wheel": false,
+      "sources": [],
+      "headings": [
+        {
+          "level": 1,
+          "text": "WIKI.md — схема документации partest"
+        },
+        {
+          "level": 2,
+          "text": "Три слоя"
+        },
+        {
+          "level": 2,
+          "text": "Структура wiki"
+        },
+        {
+          "level": 2,
+          "text": "Frontmatter — обязателен на каждой странице"
+        },
+        {
+          "level": 2,
+          "text": "Ссылки"
+        },
+        {
+          "level": 2,
+          "text": "Версии"
+        },
+        {
+          "level": 2,
+          "text": "Рабочие циклы"
+        },
+        {
+          "level": 2,
+          "text": "RAG — когда включать"
+        },
+        {
+          "level": 2,
+          "text": "Инварианты правки"
+        }
+      ],
+      "chars": 5208
+    },
+    {
       "slug": "backlog-audit",
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
@@ -148,7 +197,7 @@
       "path": "docs/wiki/components/project-gen.md",
       "title": "partest-gen — генератор в соседнем репозитории",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-11-14",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [
@@ -320,7 +369,7 @@
       "path": "docs/wiki/decisions/distribution.md",
       "title": "ADR — как распространяется partest",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-11-14",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -357,17 +406,18 @@
           "text": "Что изменит решение"
         }
       ],
-      "chars": 4526
+      "chars": 4521
     },
     {
       "slug": "decisions/docs-architecture",
       "path": "docs/wiki/decisions/docs-architecture.md",
-      "title": "ADR — архитектура документации: AGENTS + Skills + Wiki",
+      "title": "ADR — архитектура документации: AGENTS + Procedures + Wiki",
       "status": "current",
-      "verified": "2026-10-19",
+      "verified": "2026-11-14",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
+        "tools/docs_common.py",
         "tools/docs_lint.py",
         "tools/docs_index.py",
         "docs/wiki/WIKI.md"
@@ -402,17 +452,18 @@
           "text": "Цена решения"
         }
       ],
-      "chars": 3099
+      "chars": 3088
     },
     {
       "slug": "decisions/docs-in-wheel",
       "path": "docs/wiki/decisions/docs-in-wheel.md",
       "title": "ADR — документация внутри колеса и генерация partest/docs",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-11-14",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
+        "tools/docs_common.py",
         "tools/docs_build_wheel.py",
         "partest/docs/__init__.py",
         "setup.py",
@@ -517,7 +568,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-11-10",
+      "verified": "2026-11-14",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1293,7 +1344,7 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 5793
+      "chars": 5810
     },
     {
       "slug": "howto/reporting",
@@ -1629,6 +1680,10 @@
         },
         {
           "level": 2,
+          "text": "2026-11-14 · update · кроссплатформенный индекс wiki и зависимости релизной сборки"
+        },
+        {
+          "level": 2,
           "text": "2026-11-14 · update · подготовка 2.9.0 и уточнение публикации 2.8.0"
         },
         {
@@ -1824,7 +1879,7 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 44015
+      "chars": 44697
     },
     {
       "slug": "proposals",
@@ -1842,7 +1897,8 @@
         "partest/reports/payload.py",
         "partest/security/risk.py",
         "setup.py",
-        "requirements.txt"
+        "requirements.txt",
+        "tools/docs_index.py"
       ],
       "headings": [
         {
@@ -1912,6 +1968,10 @@
         {
           "level": 3,
           "text": "A15. Подкласс `RootModel[str]` не получает сырой текст ответа · 2026-10-09"
+        },
+        {
+          "level": 3,
+          "text": "A16. Канонический порядок raw-источников в `docs_index` · 2026-11-14"
         },
         {
           "level": 2,
@@ -2114,7 +2174,7 @@
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 57565
+      "chars": 58110
     },
     {
       "slug": "status",
@@ -2199,55 +2259,6 @@
         }
       ],
       "chars": 27872
-    },
-    {
-      "slug": "WIKI",
-      "path": "docs/wiki/WIKI.md",
-      "title": "Схема документации",
-      "status": "current",
-      "verified": "2026-11-10",
-      "audience": "maintainer",
-      "ships_in_wheel": false,
-      "sources": [],
-      "headings": [
-        {
-          "level": 1,
-          "text": "WIKI.md — схема документации partest"
-        },
-        {
-          "level": 2,
-          "text": "Три слоя"
-        },
-        {
-          "level": 2,
-          "text": "Структура wiki"
-        },
-        {
-          "level": 2,
-          "text": "Frontmatter — обязателен на каждой странице"
-        },
-        {
-          "level": 2,
-          "text": "Ссылки"
-        },
-        {
-          "level": 2,
-          "text": "Версии"
-        },
-        {
-          "level": 2,
-          "text": "Рабочие циклы"
-        },
-        {
-          "level": 2,
-          "text": "RAG — когда включать"
-        },
-        {
-          "level": 2,
-          "text": "Инварианты правки"
-        }
-      ],
-      "chars": 5208
     }
   ],
   "raw": [],
@@ -2596,8 +2607,13 @@
       "decisions/docs-in-wheel",
       "howto/release"
     ],
+    "tools/docs_common.py": [
+      "decisions/docs-architecture",
+      "decisions/docs-in-wheel"
+    ],
     "tools/docs_index.py": [
-      "decisions/docs-architecture"
+      "decisions/docs-architecture",
+      "proposals"
     ],
     "tools/docs_lint.py": [
       "decisions/docs-architecture",

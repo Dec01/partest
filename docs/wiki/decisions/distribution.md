@@ -1,7 +1,7 @@
 ---
 title: ADR — как распространяется partest
 status: current
-verified: 2026-10-25
+verified: 2026-11-14
 sources: [setup.py, MANIFEST.in]
 audience: maintainer
 ships_in_wheel: false
@@ -20,7 +20,7 @@ allow_version_literals: true
 | Канал | Роль |
 |---|---|
 | **PyPI** — `pip install partest` / `partest[ui]` | как **пользоваться** библиотекой |
-| **GitHub** — `github.com/Dec01/partest` | как она **устроена**: исходники, wiki, скиллы, история |
+| **GitHub** — `github.com/Dec01/partest` | как она **устроена**: исходники, wiki, процедуры, история |
 
 Устанавливают из PyPI. Читают, изучают и присылают замечания — на GitHub.
 
@@ -51,8 +51,8 @@ allow_version_literals: true
 - название консьюмер-проекта в прозе wiki и в docstring пакета.
 
 Слой источников (`docs/raw/`) остаётся локальным и закрыт `.gitignore`. В git попадает вывод
-из источника своими словами, а не сам источник — правило записано в `WIKI.md` и в скилле
-`partest-docs`.
+из источника своими словами, а не сам источник — правило записано в `WIKI.md` и в
+`procedures/docs.md`.
 
 Удерживают это `tests/test_docs.py`: `test_nothing_published_names_the_consumer_project`,
 `test_manifest_excludes_the_repository_only_material`,
@@ -74,9 +74,9 @@ git-ignored `.private-names` или `PARTEST_PRIVATE_NAMES` — в коде ег
 корнем, а `tests/test_packaging.py` падает, если что-то внутри `partest/`, кроме байткода,
 игнорируется git.
 
-`MANIFEST.in` вычищает из дистрибутивов `tests/`, `docs/`, `tools/`, `.claude/`, `.grok/` и
-корневой `README.md`. Причина не в секретности, а в назначении: это материал для того, кто
-читает репозиторий, а не для того, кто установил пакет.
+`MANIFEST.in` вычищает из дистрибутивов `tests/`, `docs/`, `tools/`, `procedures/` и корневой
+`README.md`. Причина не в секретности, а в назначении: это материал для того, кто читает
+репозиторий, а не для того, кто установил пакет.
 
 ## Следствия
 
