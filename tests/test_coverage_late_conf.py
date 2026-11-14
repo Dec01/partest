@@ -399,6 +399,69 @@ def test_coverage_reads_swagger_files_by_the_public_grammar(monkeypatch, tmp_pat
     assert len(coverage_state.paths_info) == 1
 
 
+def test_coverage_passes_only_the_matching_swagger_auth(monkeypatch, coverage_state):
+    from partest import parparser
+
+    seen = []
+
+    class FakeSettings:
+        def __init__(self, files, *, auth=None):
+            seen.append((files, auth))
+
+        def collect_paths_info(self):
+            return []
+
+    monkeypatch.setattr(parparser, "SwaggerSettings", FakeSettings)
+    _fake_conf(
+        monkeypatch,
+        swagger_files={"api": ["url", "https://example.invalid/openapi.yaml"]},
+        swagger_auth={"api": ("swagger-user", "s3cr3t")},
+    )
+
+    coverage_state._ensure_spec()
+
+    assert seen == [(
+        {"api": ["url", "https://example.invalid/openapi.yaml"]},
+        {"api": ("swagger-user", "s3cr3t")},
+    )]
+
+
+@pytest.mark.parametrize(
+    "auth, expected",
+    [
+        ({"ap1": ("swagger-user", "s3cr3t")}, "has no matching swagger_files entry"),
+        (("swagger-user", "s3cr3t"), "swagger_auth must be a dict"),
+        (
+            {"api": ("swagger-user", "s3cr3t", "extra")},
+            "must be (username, password) strings",
+        ),
+    ],
+)
+def test_coverage_validates_swagger_auth_before_constructing_a_loader(
+    monkeypatch, coverage_state, auth, expected
+):
+    from partest import parparser
+    from partest.conf import ConfpartestError
+
+    class NoSettings:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("the loader must not be constructed")
+
+    monkeypatch.setattr(parparser, "SwaggerSettings", NoSettings)
+    _fake_conf(
+        monkeypatch,
+        swagger_files={"api": ["url", "https://example.invalid/openapi.yaml"]},
+        swagger_auth=auth,
+    )
+
+    with pytest.raises(ConfpartestError) as caught:
+        coverage_state._ensure_spec()
+
+    text = str(caught.value)
+    assert expected in text
+    assert "swagger-user" not in text and "s3cr3t" not in text and "extra" not in text
+
+
 @pytest.mark.parametrize("raw", ["/", "?", "#"])
 def test_coverage_refuses_a_cut_password_without_a_request(monkeypatch, coverage_state, raw):
     """`requests` would answer `Failed to parse: <the whole URL>`; httpx `Invalid port: 'pa'`."""
@@ -971,25 +1034,28 @@ def test_report_settings_accept_any_iterable(monkeypatch):
     assert "health" in analyzer._load_exceptions_from_conf()
 
 
-def test_a_successful_fetch_logs_no_secret_at_info(spec_server, caplog, monkeypatch, coverage_state):
-    """Both roads to a spec: ``openapi.resolve_swagger`` (httpx) and coverage (requests)."""
-    import base64
+def test_http_basic_auth_is_refused_by_both_loaders_before_a_request(
+    spec_server, caplog, monkeypatch, coverage_state
+):
+    """Neither ``resolve_swagger`` (httpx) nor coverage (requests) sends cleartext auth."""
     import logging
 
-    from partest.openapi import resolve_swagger
+    from partest.conf import ConfpartestError
+    from partest.openapi import OpenApiResolveError, resolve_swagger
 
     url = _secret_url(spec_server, "/openapi.yaml")
     SEEN_AUTH.clear()
     with caplog.at_level(logging.INFO):
-        assert "/items" in resolve_swagger(["url", url], timeout=5)["paths"]
+        with pytest.raises(OpenApiResolveError, match="requires an https:// URL") as direct:
+            resolve_swagger(["url", url], timeout=5)
         _fake_conf(monkeypatch, swagger_files={"api": ["url", url]})
-        coverage_state._ensure_spec()
-        assert len(coverage_state.paths_info) == 1
+        with pytest.raises(ConfpartestError, match="requires an https:// URL") as coverage:
+            coverage_state._ensure_spec()
 
-    assert any("HTTP Request" in r.getMessage() for r in caplog.records)  # httpx did log it
     _assert_clean(caplog.text)
-    expected = "Basic " + base64.b64encode(f"alice:{SECRET_PW}".encode()).decode()
-    assert SEEN_AUTH[:2] == [expected, expected]  # the credentials still reach the server
+    _assert_clean(str(direct.value))
+    _assert_clean(str(coverage.value))
+    assert SEEN_AUTH == []
 
 
 @pytest.mark.parametrize("chunk", ["a:@!", "a.", "ab-", "a:", "x@", "/a?"])

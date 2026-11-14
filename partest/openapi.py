@@ -118,6 +118,7 @@ def resolve_swagger(
     # separately. An explicit value still wins.
     verify: Optional[VerifySetting] = None,
     headers: Optional[Mapping[str, str]] = None,
+    auth: Optional[Tuple[str, str]] = None,
     max_bytes: Optional[int] = DEFAULT_MAX_SPEC_BYTES,
     total_timeout: Optional[float] = None,
     max_redirects: int = 20,
@@ -138,9 +139,10 @@ def resolve_swagger(
 
     For a URL:
 
-    * ``user:password@`` is sent as basic ``auth=`` and never logged (a caller's own
-      ``Authorization`` header wins); the query string is kept out of httpx's INFO
-      ``HTTP Request:`` line;
+    * explicit *auth*, or ``user:password@`` when *auth* is omitted, is sent as basic
+      ``auth=`` and never logged (a caller's own ``Authorization`` header wins); credentials
+      require an ``https://`` URL and are refused over HTTP before any request; the query
+      string is kept out of httpx's INFO ``HTTP Request:`` line;
     * redirects are followed up to *max_redirects*; one to another origin (scheme, host or
       port) drops the caller's *headers* and the credentials, and one from ``https`` to
       ``http`` is refused;
@@ -159,9 +161,10 @@ def resolve_swagger(
 
     *max_bytes* bounds the document, local or fetched (decoded); ``None`` lifts it. Every
     failure is :class:`OpenApiResolveError`, its text without URL credentials or the query
-    string and without a chained exception — except a YAML parse error, which keeps the
-    parser's exception chained.
+    string and without a chained exception — except a YAML parse error without explicit
+    or URL credentials, which keeps the parser's exception chained.
     """
+    failure = None
     try:
         return _resolve(
             source,
@@ -169,22 +172,58 @@ def resolve_swagger(
             timeout=timeout,
             verify=verify,
             headers=headers,
+            auth=auth,
             max_bytes=max_bytes,
             total_timeout=total_timeout,
             max_redirects=max_redirects,
         )
-    except OpenApiResolveError:
-        raise
-    except Exception as exc:  # anything else may quote the address: httpx, IDNA, urlsplit
-        from partest.conf import _safe_text
+    except OpenApiResolveError as exc:
+        from partest.conf import _hide_auth_values
 
         location = source[1] if isinstance(source, (list, tuple)) and len(source) > 1 else source
         try:
             raw: Optional[str] = str(location)
         except Exception:
             raw = None
+        _, url_auth = _split_credentials(raw) if raw is not None else (raw, None)
+        hidden_auth = auth if auth is not None else url_auth
+        if hidden_auth is None:
+            raise
+        failure = _hide_auth_values(_shown_error(str(exc), raw), hidden_auth)
+        auth = None
+        source = None
+        headers = None
+        location = None
+        raw = None
+        url_auth = None
+        hidden_auth = None
+        del exc
+    except Exception as exc:  # anything else may quote the address: httpx, IDNA, urlsplit
+        from partest.conf import _hide_auth_values
+
+        location = source[1] if isinstance(source, (list, tuple)) and len(source) > 1 else source
+        try:
+            raw = str(location)
+        except Exception:
+            raw = None
+        _, url_auth = _split_credentials(raw) if raw is not None else (raw, None)
+        hidden_auth = auth if auth is not None else url_auth
         text = f"{type(exc).__name__}: {exc}"
-        raise OpenApiResolveError(f"Cannot load OpenAPI: {_shown_error(text, raw)}") from None
+        failure = _hide_auth_values(_shown_error(text, raw), hidden_auth)
+        failure = f"Cannot load OpenAPI: {failure}"
+        auth = None
+        source = None
+        headers = None
+        location = None
+        raw = None
+        url_auth = None
+        hidden_auth = None
+        del exc
+    if failure is not None:
+        # Raise after leaving ``except``: the new error has no ``__context__`` whose
+        # suppressed frames could still expose the URL or the extracted credentials.
+        raise OpenApiResolveError(failure) from None
+    raise AssertionError("unreachable")
 
 
 def _shown_error(text: str, location: Optional[str], *also: str) -> str:
@@ -207,11 +246,12 @@ def _resolve(
     timeout: float,
     verify: Optional[VerifySetting],
     headers: Optional[Mapping[str, str]],
+    auth: Optional[Tuple[str, str]],
     max_bytes: Optional[int],
     total_timeout: Optional[float],
     max_redirects: int,
 ) -> Dict[str, Any]:
-    from partest.conf import _safe_text
+    from partest.conf import _require_https_auth, _safe_text, _swagger_auth_pair_error
     from partest.redact import redact_url
 
     kind, location = _normalize_source(source)
@@ -244,10 +284,16 @@ def _resolve(
     # Settled here rather than left to the factory only because the failure message
     # below has to quote the value that was used.
     settled = resolve_verify(verify)
-    url, auth = _split_credentials(location)
+    url, url_auth = _split_credentials(location)
+    if auth is None:
+        auth = url_auth
     request_headers = dict(headers or {})
     if any(k.lower() == "authorization" for k in request_headers):
         auth = None  # the caller's header wins
+    pair_error = _swagger_auth_pair_error(auth) if auth is not None else None
+    if pair_error is not None:
+        raise ValueError(f"OpenAPI Basic Auth {pair_error}")
+    _require_https_auth(url, auth)
     if not any(k.lower() == "accept-encoding" for k in request_headers):
         request_headers["Accept-Encoding"] = _ACCEPT_ENCODING
     query = url.split("?", 1)[1].split("#", 1)[0] if "?" in url else ""
@@ -438,43 +484,112 @@ def resolve_from_confpartest(
 ) -> Dict[str, Any]:
     """Resolve first (or named) entry from ``confpartest.swagger_files``.
 
+    Unless explicit ``auth=`` is given, the selected service's ``swagger_auth`` pair is
+    passed to :func:`resolve_swagger`. An ``Authorization`` header still wins over Basic
+    Auth. Authenticated URLs must use HTTPS.
+
     Without *project_root*, a relative local path that does not exist from the current
     directory is taken from the directory of ``confpartest.py`` — the rule of
     :func:`partest.conf.resolve_entry_location`.
     """
-    if conf is None:
-        from partest.conf import require_confpartest
+    failure = None
+    configured_auth = None
+    swagger = None
+    entry = None
+    location = None
+    raw = None
+    url_auth = None
+    name = None
+    sensitive = kwargs.get("auth") is not None
+    try:
+        if conf is None:
+            from partest.conf import require_confpartest
 
-        conf = require_confpartest(project_root=project_root)
-    swagger = getattr(conf, "swagger_files", None) or {}
-    if project_root is None and isinstance(swagger, Mapping) and swagger:
-        from partest.conf import _module_dir
+            conf = require_confpartest(project_root=project_root)
+        configured_auth = getattr(conf, "swagger_auth", None)
+        sensitive = sensitive or configured_auth is not None
+        swagger = getattr(conf, "swagger_files", None) or {}
+        if not sensitive and isinstance(swagger, Mapping):
+            for entry in swagger.values():
+                location = entry[1] if isinstance(entry, (list, tuple)) and len(entry) > 1 else entry
+                try:
+                    raw = str(location)
+                except Exception:
+                    raw = None
+                _, url_auth = _split_credentials(raw) if raw is not None else (raw, None)
+                if url_auth is not None:
+                    sensitive = True
+                    break
+        if project_root is None and isinstance(swagger, Mapping) and swagger:
+            from partest.conf import _module_dir
 
-        entry = swagger[service] if service in swagger else next(iter(swagger.values()))
+            entry = swagger[service] if service in swagger else next(iter(swagger.values()))
+            try:
+                kind, location = _normalize_source(entry)
+            except OpenApiResolveError:
+                kind, location = "", ""
+            base = _module_dir(conf)
+            if (
+                kind == "local"
+                and base is not None
+                and not Path(location).is_absolute()
+                and not Path(location).exists()
+                and (base / location).exists()
+            ):
+                project_root = base
+        if not isinstance(swagger, Mapping) or not swagger:
+            raise OpenApiResolveError("confpartest.swagger_files is empty or invalid")
+        if service is not None:
+            if service not in swagger:
+                raise OpenApiResolveError(
+                    f"service {service!r} not in swagger_files; known={list(swagger)}"
+                )
+            name = service
+        else:
+            name = next(iter(swagger))
+        if "auth" not in kwargs:
+            from partest.conf import _validate_swagger_auth
+
+            auth_errors = _validate_swagger_auth(swagger, configured_auth)
+            if auth_errors:
+                raise OpenApiResolveError("invalid swagger_auth: " + "; ".join(auth_errors))
+            if configured_auth and name in configured_auth:
+                kwargs["auth"] = configured_auth[name]
+        return resolve_swagger(swagger[name], project_root=project_root, **kwargs)
+    except Exception as exc:
+        if not sensitive:
+            raise
+        from partest.conf import _hide_auth_values
+
+        source_entry = swagger.get(name) if isinstance(swagger, Mapping) and name in swagger else None
+        source_location = (
+            source_entry[1]
+            if isinstance(source_entry, (list, tuple)) and len(source_entry) > 1
+            else source_entry
+        )
         try:
-            kind, location = _normalize_source(entry)
-        except OpenApiResolveError:
-            kind, location = "", ""
-        base = _module_dir(conf)
-        if (
-            kind == "local"
-            and base is not None
-            and not Path(location).is_absolute()
-            and not Path(location).exists()
-            and (base / location).exists()
-        ):
-            project_root = base
-    if not isinstance(swagger, Mapping) or not swagger:
-        raise OpenApiResolveError("confpartest.swagger_files is empty or invalid")
-    if service is not None:
-        if service not in swagger:
-            raise OpenApiResolveError(
-                f"service {service!r} not in swagger_files; known={list(swagger)}"
-            )
-        return resolve_swagger(swagger[service], project_root=project_root, **kwargs)
-    # first entry
-    name = next(iter(swagger))
-    return resolve_swagger(swagger[name], project_root=project_root, **kwargs)
+            raw = str(source_location) if source_location is not None else None
+        except Exception:
+            raw = None
+        text = str(exc) if isinstance(exc, OpenApiResolveError) else f"{type(exc).__name__}: {exc}"
+        failure = _hide_auth_values(_shown_error(text, raw), configured_auth)
+        failure = _hide_auth_values(failure, kwargs.get("auth"))
+        conf = None
+        kwargs = None
+        configured_auth = None
+        swagger = None
+        entry = None
+        location = None
+        source_entry = None
+        source_location = None
+        raw = None
+        url_auth = None
+        auth_errors = None
+        del exc
+    if failure is not None:
+        # Do not retain the original wrapper exception in a suppressed ``__context__``.
+        raise OpenApiResolveError(failure) from None
+    raise AssertionError("unreachable")
 
 
 def _normalize_source(source: SpecSource) -> Tuple[str, str]:

@@ -1,7 +1,7 @@
 ---
 title: Developing partest
 status: current
-verified: 2026-10-25
+verified: 2026-11-10
 sources: [partest/__init__.py, setup.py, tests/test_docs.py, tools/docs_lint.py]
 audience: maintainer
 ships_in_wheel: false
@@ -29,7 +29,7 @@ Entry point for maintainers and agents working **on** the library (working **wit
 2. Add or adjust tests under `tests/`.
 3. Run `python -m pytest tests/ -q`.
 4. If the public API or CLI changed: update the matching `docs/wiki/components/` page,
-   `CHANGELOG.md`, and the affected skill under `.claude/skills/`.
+   `CHANGELOG.md`, and the affected procedure under `procedures/`.
 5. Refresh `verified:` on any wiki page whose `sources` you touched.
 6. Bump the version only when releasing — [[howto/release]].
 

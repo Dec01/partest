@@ -14,8 +14,8 @@ repository** and depends on this one; the dependency never points the other way.
 - Package map: `docs/wiki/components/overview.md` · what "covered" means:
   `docs/wiki/concepts/methodology.md` · catalog: `docs/wiki/index.md` · `docs/wiki/WIKI.md`
 - Current version, waves, what is next: `docs/wiki/status.md` — the only status source
-- Procedures load on demand from `.claude/skills/`: `partest-cover-api`, `partest-release`,
-  `partest-docs`. Scaffolding a suite is `partest-scaffold`, in the `partest-gen` repository.
+- Procedures: read `procedures/README.md`, then the matching file — `cover-api.md`, `release.md`
+  or `docs.md`. Scaffolding is `../partest_gen/procedures/scaffold.md` in the other repository.
 - Source of truth is code: `partest/methodology/*` for methodology. Documents describe it,
   they do not define it. Generator questions: `docs/wiki/components/project-gen.md`.
 
@@ -54,7 +54,7 @@ Red lines — violating any of these is a defect, not a trade-off:
 - Changes: minimal diff in the style of the surrounding module; tests under `tests/`.
 - Verify with `python -m pytest tests/ -q` before reporting done. Report failures with output.
 - Public API or CLI changed → update the `docs/wiki/components/` page, `CHANGELOG.md`, and the
-  affected skill in the same change.
+  affected procedure under `procedures/` in the same change.
 - Touched a file listed in a page's `sources:` → refresh that page's `verified:` date.
 - Reorganized documentation → append a line to `docs/wiki/log.md`.
 - State plainly what you did, what you skipped, and what remains.

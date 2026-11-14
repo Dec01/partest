@@ -1,13 +1,7 @@
----
-name: partest-docs
-description: >
-  Maintain the partest documentation wiki: ingest a new source snapshot, add or update a page,
-  resolve contradictions between documents, and run the doc linter. Use when documentation is
-  out of date, a new backlog snapshot arrived, a page must be added or archived, or the docs
-  lint fails.
----
-
 # Maintaining the documentation wiki
+
+Read this procedure before ingesting a source, adding or updating a page, resolving contradictions,
+or fixing the documentation linter.
 
 ## When to use this
 

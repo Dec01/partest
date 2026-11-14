@@ -1,11 +1,3 @@
----
-name: partest-release
-description: >
-  Publish a new partest version to PyPI: pick the version, regenerate the docs that ship in the
-  wheel, run the checks, build, inspect the artifact, upload, and record the release. Use when
-  asked to release, publish, cut a version, or bump partest on PyPI.
----
-
 # Releasing partest
 
 ## When to use this
@@ -16,8 +8,8 @@ The user explicitly asked to release, publish, or cut a version.
 
 ## Procedure
 
-The authoritative checklist is `docs/wiki/howto/release.md` — follow it. This skill exists so you
-load it at the right moment and do not skip the parts that are easy to forget.
+The authoritative checklist is `docs/wiki/howto/release.md` — follow it. Read this procedure at the
+start of a release so the parts that are easy to forget are not skipped.
 
 ## The parts that get skipped
 

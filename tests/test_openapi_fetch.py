@@ -146,7 +146,7 @@ def test_fetches_within_the_defaults(server):
 
 @pytest.mark.parametrize("path", ["/spec", "/chunked"])
 def test_a_document_past_max_bytes_is_refused(server, path):
-    url = f"http://alice:s3cr3tpw@{server}{path}?token=t0k3nvalue"
+    url = f"http://{server}{path}?token=t0k3nvalue"
     with pytest.raises(OpenApiResolveError, match="max_bytes=40") as caught:
         resolve_swagger(url, timeout=5, max_bytes=40)
     _assert_unchained(caught.value)
@@ -169,14 +169,15 @@ def test_redirects_are_bounded(server):
     "password, encoded",
     [("pa/ss", "pa%2Fss"), ("pa?ss", "pa%3Fss"), ("pa#ss", "pa%23ss"), ("pa＠ss", "pa%40ss")],
 )
-def test_an_unreadable_address_is_refused_before_any_request(server, password, encoded):
+def test_an_unreadable_address_is_refused_before_any_request(server, password, encoded, mock):
     with pytest.raises(OpenApiResolveError, match="percent-encode") as caught:
         resolve_swagger(["url", f"http://user:{password}@{server}/spec"], timeout=5)
     assert SEEN == []
     _no_part_of(["user", password], str(caught.value))
-    # percent-encoded, the same password reaches the server as basic auth
-    assert "/items" in resolve_swagger(f"http://user:{encoded}@{server}/spec", timeout=5)["paths"]
-    assert SEEN[-1][1]["Authorization"].startswith("Basic ")
+    # Percent-encoded, the same password reaches an HTTPS server as basic auth.
+    mock["handler"] = lambda r: _body(SPEC.encode())
+    assert "/items" in resolve_swagger(f"https://user:{encoded}@h.example/spec")["paths"]
+    assert mock["seen"][-1].headers["Authorization"].startswith("Basic ")
 
 
 def test_a_password_without_its_at_is_refused_before_any_request(server):
@@ -188,14 +189,18 @@ def test_a_password_without_its_at_is_refused_before_any_request(server):
     assert SEEN == []
 
 
-def test_the_query_stays_out_of_the_log_and_userinfo_goes_as_auth(server, caplog):
-    url = f"http://alice:s3cr3tpw@{server}/spec?token=t0k3nvalue&v=1"
+def test_the_query_stays_out_of_the_log_and_userinfo_goes_as_auth(mock, caplog):
+    url = "https://alice:s3cr3tpw@h.example/spec?token=t0k3nvalue&v=1"
+    mock["handler"] = lambda r: _body(SPEC.encode())
     with caplog.at_level(logging.INFO):
         assert "/items" in resolve_swagger(url, timeout=5)["paths"]
     assert any("HTTP Request" in r.getMessage() for r in caplog.records)
     _no_part_of(SECRETS, caplog.text)
-    assert SEEN[-1][1]["Authorization"] == "Basic " + base64.b64encode(b"alice:s3cr3tpw").decode()
-    assert "token=t0k3nvalue" in SEEN[-1][0]  # the query still reaches the server
+    request = mock["seen"][-1]
+    assert request.headers["Authorization"] == "Basic " + base64.b64encode(
+        b"alice:s3cr3tpw"
+    ).decode()
+    assert request.url.query == b"token=t0k3nvalue&v=1"  # the query still reaches the server
 
 
 # --- a mock transport: bodies and redirects the stdlib server cannot easily give -----------
@@ -411,3 +416,186 @@ def test_yaml_goes_through_the_c_loader(monkeypatch):
     monkeypatch.setattr(openapi.yaml, "load", spy)
     assert "paths" in resolve_swagger(FIXTURE)
     assert seen == [yaml.CSafeLoader]
+
+
+def test_explicit_basic_auth_uses_the_existing_https_fetch(mock):
+    mock["handler"] = lambda r: _body(SPEC.encode())
+
+    assert "/items" in resolve_swagger(
+        "https://h.example/spec", auth=("explicit-user", "explicit-secret")
+    )["paths"]
+
+    expected = "Basic " + base64.b64encode(b"explicit-user:explicit-secret").decode()
+    assert mock["seen"][-1].headers["Authorization"] == expected
+
+
+def test_explicit_basic_auth_over_http_is_refused_before_the_client(mock):
+    with pytest.raises(OpenApiResolveError, match="requires an https:// URL") as caught:
+        resolve_swagger("http://h.example/spec", auth=("http-user", "http-secret"))
+
+    assert mock["seen"] == []
+    _no_part_of(["http-user", "http-secret"], str(caught.value))
+    _assert_unchained(caught.value)
+
+
+def test_resolve_from_confpartest_selects_only_the_named_services_auth(mock):
+    from partest.openapi import resolve_from_confpartest
+
+    class Conf:
+        swagger_files = {
+            "public": ["url", "https://public.example/spec"],
+            "private": ["url", "https://private.example/spec"],
+        }
+        swagger_auth = {"private": ("private-user", "private-secret")}
+
+    mock["handler"] = lambda r: _body(SPEC.encode())
+    assert "/items" in resolve_from_confpartest(Conf)["paths"]
+    assert "Authorization" not in mock["seen"][-1].headers
+    assert "/items" in resolve_from_confpartest(Conf, service="private")["paths"]
+    expected = "Basic " + base64.b64encode(b"private-user:private-secret").decode()
+    assert mock["seen"][-1].headers["Authorization"] == expected
+
+
+def test_explicit_auth_and_authorization_header_keep_their_priority(mock):
+    from partest.openapi import resolve_from_confpartest
+
+    class Conf:
+        swagger_files = {"api": ["url", "https://h.example/spec"]}
+        swagger_auth = {"api": ("configured-user", "configured-secret")}
+
+    mock["handler"] = lambda r: _body(SPEC.encode())
+    resolve_from_confpartest(Conf, auth=("explicit-user", "explicit-secret"))
+    expected = "Basic " + base64.b64encode(b"explicit-user:explicit-secret").decode()
+    assert mock["seen"][-1].headers["Authorization"] == expected
+
+    resolve_from_confpartest(Conf, headers={"Authorization": "Bearer caller-token"})
+    assert mock["seen"][-1].headers["Authorization"] == "Bearer caller-token"
+
+    resolve_from_confpartest(Conf, auth=None)
+    assert "Authorization" not in mock["seen"][-1].headers
+
+
+def test_resolve_from_confpartest_rejects_http_auth_before_the_client(mock):
+    from partest.openapi import resolve_from_confpartest
+
+    class Conf:
+        swagger_files = {"api": ["url", "http://h.example/spec"]}
+        swagger_auth = {"api": ("configured-user", "configured-secret")}
+
+    with pytest.raises(OpenApiResolveError, match="requires an https:// URL") as caught:
+        resolve_from_confpartest(Conf)
+
+    assert mock["seen"] == []
+    _no_part_of(["configured-user", "configured-secret"], str(caught.value))
+
+
+def test_resolve_from_confpartest_validates_auth_names_before_the_client(mock):
+    from partest.openapi import resolve_from_confpartest
+
+    class Conf:
+        swagger_files = {"api": ["url", "https://h.example/spec"]}
+        swagger_auth = {"ap1": ("configured-user", "configured-secret")}
+
+    with pytest.raises(OpenApiResolveError, match="no matching swagger_files") as caught:
+        resolve_from_confpartest(Conf)
+
+    assert mock["seen"] == []
+    _no_part_of(["configured-user", "configured-secret"], str(caught.value))
+
+
+def test_explicit_auth_is_dropped_on_a_cross_origin_redirect(mock):
+    def handler(request):
+        if request.url.host == "h.example":
+            return httpx.Response(302, headers={"Location": "https://cdn.example/spec"})
+        return _body(SPEC.encode())
+
+    mock["handler"] = handler
+    resolve_swagger("https://h.example/spec", auth=("redirect-user", "redirect-secret"))
+
+    first, away = mock["seen"]
+    assert "Authorization" in first.headers
+    assert "Authorization" not in away.headers
+
+
+def test_explicit_auth_is_cleared_from_resolve_traceback_frames(mock):
+    def handler(request):
+        raise httpx.ConnectError("cannot send trace-user:trace-secret")
+
+    mock["handler"] = handler
+    with pytest.raises(OpenApiResolveError) as caught:
+        resolve_swagger(
+            "https://h.example/spec", auth=("trace-user", "trace-secret")
+        )
+
+    error = caught.value
+    _assert_unchained(error)
+    _no_part_of(["trace-user", "trace-secret"], str(error))
+    library_frames = []
+    tb = error.__traceback__
+    while tb is not None:
+        if tb.tb_frame.f_code.co_filename == openapi.__file__:
+            library_frames.append(tb.tb_frame)
+        tb = tb.tb_next
+    assert library_frames
+    for frame in library_frames:
+        shown_locals = repr(frame.f_locals)
+        _no_part_of(["trace-user", "trace-secret"], shown_locals)
+        if "auth" in frame.f_locals:
+            assert frame.f_locals["auth"] is None
+
+
+def _assert_clean_openapi_traceback(error, *secrets):
+    _assert_unchained(error)
+    assert error.__context__ is None
+    _no_part_of(secrets, str(error))
+    library_frames = []
+    tb = error.__traceback__
+    while tb is not None:
+        if tb.tb_frame.f_code.co_filename == openapi.__file__:
+            library_frames.append(tb.tb_frame)
+        tb = tb.tb_next
+    assert library_frames
+    for frame in library_frames:
+        _no_part_of(secrets, repr(frame.f_locals))
+        if frame.f_code.co_name == "resolve_from_confpartest":
+            assert frame.f_locals["kwargs"] is None
+            for name in (
+                "conf", "configured_auth", "swagger", "entry", "location",
+                "source_entry", "source_location", "raw", "url_auth", "auth_errors",
+            ):
+                assert frame.f_locals[name] is None, name
+        if frame.f_code.co_name == "resolve_swagger":
+            for name in ("source", "location", "raw", "url_auth", "hidden_auth"):
+                assert frame.f_locals[name] is None, name
+
+
+@pytest.mark.parametrize("failure", ["http", "validation", "network"])
+def test_resolve_from_confpartest_clears_its_own_traceback(mock, failure):
+    from partest.openapi import resolve_from_confpartest
+
+    class Conf:
+        swagger_auth = {"ap1" if failure == "validation" else "api": (
+            "wrapper-user", "wrapper-secret"
+        )}
+
+    Conf.swagger_files = {
+        "api": ["url", f"http{'s' if failure != 'http' else ''}://h.example/spec"]
+    }
+    if failure == "network":
+        def handler(request):
+            raise httpx.ConnectError("cannot send wrapper-user:wrapper-secret")
+
+        mock["handler"] = handler
+    with pytest.raises(OpenApiResolveError) as caught:
+        resolve_from_confpartest(Conf)
+
+    _assert_clean_openapi_traceback(caught.value, "wrapper-user", "wrapper-secret")
+
+
+def test_userinfo_is_cleared_from_resolve_traceback_and_parser_chain(mock):
+    mock["handler"] = lambda request: _body(b"openapi: [")
+
+    with pytest.raises(OpenApiResolveError) as caught:
+        resolve_swagger("https://userinfo-user:userinfo-secret@h.example/spec")
+
+    _assert_clean_openapi_traceback(caught.value, "userinfo-user", "userinfo-secret")

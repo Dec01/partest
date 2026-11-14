@@ -1,7 +1,7 @@
 ---
 title: Coverage methodology — two areas, three axes each
 status: current
-verified: 2026-10-26
+verified: 2026-11-14
 sources: [partest/methodology/__init__.py, partest/methodology/api/subtypes.py, partest/methodology/api/matrix.py, partest/methodology/api/steps.py, partest/methodology/api/inference.py, partest/methodology/api/classifier.py, partest/test_types.py, partest/methodology/ui/surfaces.py, partest/methodology/ui/checks.py, partest/methodology/ui/matrix.py, partest/methodology/ui/steps.py, partest/reports/analyzer.py, partest/reports/payload.py, partest/coverage.py]
 audience: agent
 ships_in_wheel: true

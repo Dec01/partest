@@ -1,6 +1,25 @@
 # Changelog
 
-## Unreleased
+## 2.9.0 — 2026-11-14
+
+### Added
+
+- **Basic Auth for protected OpenAPI URLs** — optional
+  `confpartest.swagger_auth = {"api": (username, password)}`, matched to `swagger_files` by
+  source name. Coverage validates the whole mapping before any request; `SwaggerSettings(...,
+  auth=...)` and `OpenAPIParser.load_swagger_yaml(..., auth=...)` expose the same capability
+  to direct callers. `resolve_swagger(..., auth=...)` accepts an explicit pair, and
+  `resolve_from_confpartest` selects the pair for the resolved service; explicit `auth=` wins
+  over the configured pair, and an `Authorization` header wins over both. Credentials are
+  scoped to their `(source_type, path)` source, including when `SwaggerSettings.swaggers` is
+  appended to or reordered, and local files ignore them.
+- **OpenAPI Basic Auth requires HTTPS.** Both loaders refuse credentials over `http://`
+  before constructing a request, including `user:password@` URL userinfo. Public HTTP URLs
+  without credentials behave as before. Configuration and direct-loader errors never quote
+  the username or password; authenticated direct calls also clear credentials from library
+  traceback locals and suppress the original HTTP-client frames.
+
+## 2.8.0 — 2026-10-26
 
 ### Added
 
@@ -87,7 +106,7 @@
 
 The API only gains names and keyword arguments with defaults. Behaviour that differs — each
 masks more or refuses what is unsafe or could not work — is listed in
-`docs/wiki/howto/migration.md` (Unreleased):
+`docs/wiki/howto/migration.md` (2.8.0):
 
 - a bare DSN reads `***@host` in the channels and in `redact_text` (it was removed in the
   channels, shown by `redact_text`); `mailto:` addresses are kept;

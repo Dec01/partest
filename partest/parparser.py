@@ -281,7 +281,8 @@ class OpenAPIParser:
 
     @classmethod
     def load_swagger_yaml(
-        cls, source_type, file_path=None, *, timeout: float = SWAGGER_FETCH_TIMEOUT
+        cls, source_type, file_path=None, *, timeout: float = SWAGGER_FETCH_TIMEOUT,
+        auth=None
     ):
         """Loads the Swagger YAML file from a local file or a URL.
 
@@ -290,30 +291,87 @@ class OpenAPIParser:
             file_path (str): The path to the Swagger file.
             timeout (float): Per-operation timeout for the HTTP fetch, in seconds.
                 Ignored for ``local``. See ``SWAGGER_FETCH_TIMEOUT``.
+            auth (tuple): Optional ``(username, password)`` for HTTP Basic Auth.
+                Ignored for ``local`` and omitted from the request when ``None``.
+                URLs with credentials must use HTTPS.
 
         Returns:
             An instance of the OpenAPIParser class.
         """
         if source_type == 'local':
-            base_path = os.path.dirname(file_path)
-            with open(file_path, 'r', encoding="utf8") as file:
-                swagger_dict = yaml.safe_load(file)
-            return cls(swagger_dict, base_path)
+            try:
+                base_path = os.path.dirname(file_path)
+                with open(file_path, 'r', encoding="utf8") as file:
+                    swagger_dict = yaml.safe_load(file)
+                return cls(swagger_dict, base_path)
+            except Exception as exc:
+                if auth is None:
+                    raise
+                from partest import conf as _conf
+
+                message = _conf._hide_auth_values(
+                    _conf._failure_text(exc, secrets_of=file_path), auth
+                )
+                auth = None
+                file_path = None
+                del exc
+                raise RuntimeError(f"Could not load OpenAPI specification: {message}") from None
         elif source_type == 'url':
-            # Same package-wide switch as every other client: a self-signed stand is
-            # turned off once, not per call site. `requests` verifies by default, so
-            # without this the one line that disables verification would work
-            # everywhere except loading the specification.
-            settled = resolve_verify(None)
-            # The one road out of the package that is not httpx, so the factory's request
-            # hook cannot name this host: it is named here instead. A specification
-            # usually lives on a host of its own, and that is exactly the difference the
-            # list is for.
-            note_unverified_host(file_path, settled)
-            response = requests.get(file_path, timeout=timeout, verify=settled)
-            response.raise_for_status()
-            swagger_dict = yaml.safe_load(response.text)
-            return cls(swagger_dict)
+            response = None
+            message = None
+            parts = None
+            has_userinfo = False
+            try:
+                from partest import conf as _conf
+                from urllib.parse import urlsplit
+
+                try:
+                    parts = urlsplit(file_path)
+                    has_userinfo = parts.username is not None or parts.password is not None
+                except (TypeError, ValueError):
+                    # The request/HTTPS validation below reports malformed addresses.
+                    pass
+                _conf._require_https_auth(file_path, auth)
+                pair_error = _conf._swagger_auth_pair_error(auth) if auth is not None else None
+                if pair_error is not None:
+                    raise ValueError(f"OpenAPI Basic Auth {pair_error}")
+                # Same package-wide switch as every other client: a self-signed stand is
+                # turned off once, not per call site. `requests` verifies by default, so
+                # without this the one line that disables verification would work
+                # everywhere except loading the specification.
+                settled = resolve_verify(None)
+                # The one road out of the package that is not httpx, so the factory's request
+                # hook cannot name this host: it is named here instead. A specification
+                # usually lives on a host of its own, and that is exactly the difference the
+                # list is for.
+                note_unverified_host(file_path, settled)
+                if auth is None:
+                    response = requests.get(file_path, timeout=timeout, verify=settled)
+                else:
+                    response = requests.get(
+                        file_path, timeout=timeout, verify=settled, auth=auth
+                    )
+                response.raise_for_status()
+                swagger_dict = yaml.safe_load(response.text)
+                return cls(swagger_dict)
+            except Exception as exc:
+                if auth is None and not has_userinfo:
+                    raise
+                # A new traceback starts here, without requests' frames. Clear every local
+                # that can expose explicit or URL credentials under `pytest -l` before raising.
+                message = _conf._hide_auth_values(
+                    _conf._failure_text(exc, secrets_of=file_path), auth
+                )
+                message = f"Could not load OpenAPI specification: {message}"
+                auth = None
+                file_path = None
+                response = None
+                parts = None
+                del exc
+            if message is not None:
+                # Outside ``except`` there is no suppressed original exception whose frames
+                # would still hold the URL, parsed userinfo or requests' auth argument.
+                raise RuntimeError(message) from None
         else:
             raise ValueError("Invalid source type. Use 'local' or 'url'.")
 
@@ -497,19 +555,30 @@ class SwaggerSettings:
         paths_info (list): A list of path information.
     """
 
-    def __init__(self, swagger_files, *, timeout: float = SWAGGER_FETCH_TIMEOUT):
+    def __init__(
+        self, swagger_files, *, timeout: float = SWAGGER_FETCH_TIMEOUT, auth=None
+    ):
         """Initializes the SwaggerSettings class.
 
         Args:
             swagger_files (dict): A dictionary of Swagger files.
             timeout (float): Per-operation timeout passed on to every HTTP fetch.
+            auth (dict): Optional ``name -> (username, password)`` Basic Auth credentials.
+                Names are the keys of ``swagger_files``; no credentials are shared between
+                different sources. Authenticated URLs must use HTTPS.
         """
         self.local_files = []
         self.swaggers = []
         self.paths_info = []
         self.timeout = timeout
+        self._auth = dict(auth or {})
+        self._auth_by_source = {}
         self.swagger_titles = {}  # Словарь для хранения заголовков Swagger
         self.add_swagger(swagger_files)
+
+    def __repr__(self):
+        # pytest -l repr()s this object from load_swagger's frame; never include auth or URLs.
+        return f"SwaggerSettings(swaggers={len(self.swaggers)}, timeout={self.timeout!r})"
 
     def add_swagger(self, swagger_dict):
         """Adds swagger definitions from a dictionary to the swaggers list.
@@ -518,23 +587,46 @@ class SwaggerSettings:
             swagger_dict (dict): A dictionary of Swagger definitions.
         """
         for name, (source_type, path) in swagger_dict.items():
-            self.swaggers.append((source_type, path))
+            source = (source_type, path)
+            self.swaggers.append(source)
+            if name in self._auth:
+                self._auth_by_source[source] = self._auth[name]
 
     def load_swagger(self):
         """Loads swagger definitions and returns their data.
+
+        Manually appended ``(source_type, path)`` pairs are loaded too. Auth follows the
+        source pair, not its position, so mutating or reordering ``swaggers`` is safe.
 
         Returns:
             list: A list of extracted data from Swagger definitions.
         """
         all_extracted_data = []
         for source_type, path in self.swaggers:
-            parser = OpenAPIParser.load_swagger_yaml(
-                source_type, path, timeout=self.timeout
-            )
-            swagger_title = parser.swagger_dict.get('info', {}).get('title', 'Unknown API')
-            self.swagger_titles[swagger_title] = (source_type, path)
-            extracted_data = parser.extract_paths_info()
-            all_extracted_data.extend(extracted_data)
+            credentials = self._auth_by_source.get((source_type, path))
+            parser = None
+            try:
+                parser = OpenAPIParser.load_swagger_yaml(
+                    source_type, path, timeout=self.timeout, auth=credentials
+                )
+                swagger_title = parser.swagger_dict.get('info', {}).get('title', 'Unknown API')
+                self.swagger_titles[swagger_title] = (source_type, path)
+                extracted_data = parser.extract_paths_info()
+                all_extracted_data.extend(extracted_data)
+            except Exception as exc:
+                if not self._auth:
+                    raise
+                from partest import conf as _conf
+
+                message = _conf._hide_auth_values(
+                    _conf._failure_text(exc, secrets_of=path), self._auth
+                )
+                credentials = None
+                source_type = None
+                path = None
+                parser = None
+                del exc
+                raise RuntimeError(f"Could not load OpenAPI specification: {message}") from None
         return all_extracted_data
 
     def collect_paths_info(self):

@@ -6,7 +6,7 @@
       "path": "docs/wiki/backlog-audit.md",
       "title": "Аудит внешнего бэклога и готовность к переезду",
       "status": "current",
-      "verified": "2026-10-26",
+      "verified": "2026-11-14",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -68,7 +68,7 @@
       "path": "docs/wiki/components/overview.md",
       "title": "Package map — what lives where",
       "status": "current",
-      "verified": "2026-10-26",
+      "verified": "2026-11-14",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -76,6 +76,8 @@
         "partest/__init__.py",
         "partest/client.py",
         "partest/coverage.py",
+        "partest/parparser.py",
+        "partest/openapi.py",
         "partest/reports/__init__.py",
         "partest/reporting/__init__.py",
         "partest/ui/__init__.py",
@@ -139,7 +141,7 @@
           "text": "Which hosts, not only whether"
         }
       ],
-      "chars": 22490
+      "chars": 22599
     },
     {
       "slug": "components/project-gen",
@@ -186,7 +188,7 @@
       "path": "docs/wiki/concepts/coverage-honesty.md",
       "title": "Coverage honesty — when the number lies",
       "status": "current",
-      "verified": "2026-10-26",
+      "verified": "2026-11-14",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -234,7 +236,7 @@
       "path": "docs/wiki/concepts/methodology.md",
       "title": "Coverage methodology — two areas, three axes each",
       "status": "current",
-      "verified": "2026-10-26",
+      "verified": "2026-11-14",
       "audience": "agent",
       "ships_in_wheel": true,
       "sources": [
@@ -515,7 +517,7 @@
       "path": "docs/wiki/howto/contribute.md",
       "title": "Developing partest",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-11-10",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -634,7 +636,7 @@
       "path": "docs/wiki/howto/enterprise.md",
       "title": "Enterprise notes — shared client, retries, redaction, xdist",
       "status": "current",
-      "verified": "2026-10-26",
+      "verified": "2026-11-14",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -711,7 +713,7 @@
           "text": "Soft Allure dependency"
         }
       ],
-      "chars": 21381
+      "chars": 21954
     },
     {
       "slug": "howto/layers",
@@ -793,7 +795,7 @@
       "path": "docs/wiki/howto/migration.md",
       "title": "Migration between partest versions",
       "status": "current",
-      "verified": "2026-10-26",
+      "verified": "2026-11-14",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -825,7 +827,11 @@
         },
         {
           "level": 2,
-          "text": "Unreleased — public `redact_url`, the `swagger_files` grammar, limits of a spec fetch"
+          "text": "2.9.0 — source-scoped OpenAPI Basic Auth, HTTPS required"
+        },
+        {
+          "level": 2,
+          "text": "2.8.0 — public `redact_url`, the `swagger_files` grammar, limits of a spec fetch"
         },
         {
           "level": 2,
@@ -980,7 +986,7 @@
           "text": "Checklist after bump"
         }
       ],
-      "chars": 48970
+      "chars": 50338
     },
     {
       "slug": "howto/permissions",
@@ -1031,13 +1037,14 @@
       "path": "docs/wiki/howto/quickstart.md",
       "title": "Quickstart — first green API test",
       "status": "current",
-      "verified": "2026-10-26",
+      "verified": "2026-11-14",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
         "partest/client.py",
         "partest/conf.py",
         "partest/coverage.py",
+        "partest/parparser.py",
         "partest/call_storage.py",
         "partest/env/__init__.py",
         "partest/zorro_report.py",
@@ -1106,14 +1113,14 @@
           "text": "Next"
         }
       ],
-      "chars": 8048
+      "chars": 8742
     },
     {
       "slug": "howto/recipes",
       "path": "docs/wiki/howto/recipes.md",
       "title": "Recipes — consumer-side adapters",
       "status": "current",
-      "verified": "2026-10-26",
+      "verified": "2026-11-14",
       "audience": "user",
       "ships_in_wheel": true,
       "sources": [
@@ -1228,14 +1235,14 @@
           "text": "\"errors\": [{\"field\": \"name\", \"code\": \"required\", \"message\": \"must not be blank\"}]}"
         }
       ],
-      "chars": 21320
+      "chars": 21926
     },
     {
       "slug": "howto/release",
       "path": "docs/wiki/howto/release.md",
       "title": "Release checklist",
       "status": "current",
-      "verified": "2026-10-25",
+      "verified": "2026-11-14",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -1286,7 +1293,7 @@
           "text": "Consumer bump (not library work)"
         }
       ],
-      "chars": 5800
+      "chars": 5793
     },
     {
       "slug": "howto/reporting",
@@ -1570,7 +1577,7 @@
       "path": "docs/wiki/index.md",
       "title": "Каталог документации partest",
       "status": "current",
-      "verified": "2026-09-13",
+      "verified": "2026-11-10",
       "audience": "agent",
       "ships_in_wheel": false,
       "sources": [],
@@ -1604,7 +1611,7 @@
           "text": "Вне wiki"
         }
       ],
-      "chars": 3094
+      "chars": 3118
     },
     {
       "slug": "log",
@@ -1619,6 +1626,26 @@
         {
           "level": 1,
           "text": "Журнал"
+        },
+        {
+          "level": 2,
+          "text": "2026-11-14 · update · подготовка 2.9.0 и уточнение публикации 2.8.0"
+        },
+        {
+          "level": 2,
+          "text": "2026-11-14 · update · OpenAPI Basic Auth: источники, HTTPS и безопасные ошибки"
+        },
+        {
+          "level": 2,
+          "text": "2026-11-13 · update · Basic Auth для загрузки спецификации"
+        },
+        {
+          "level": 2,
+          "text": "2026-11-10 · restructure · явные процедуры для Kimi"
+        },
+        {
+          "level": 2,
+          "text": "2026-10-26 · update · подготовка 2.8.0"
         },
         {
           "level": 2,
@@ -1797,14 +1824,14 @@
           "text": "2026-09-04 · ingest · снапшот бэклога консьюмера"
         }
       ],
-      "chars": 41692
+      "chars": 44015
     },
     {
       "slug": "proposals",
       "path": "docs/wiki/proposals.md",
       "title": "Предложения по развитию сверх бэклога",
       "status": "draft",
-      "verified": "2026-10-26",
+      "verified": "2026-11-14",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -2064,17 +2091,37 @@
         },
         {
           "level": 2,
+          "text": "I. Спорное из ревью Basic Auth для Swagger · 2026-11-14"
+        },
+        {
+          "level": 3,
+          "text": "I1. Один незагрузившийся источник: весь coverage или явно неполный результат"
+        },
+        {
+          "level": 3,
+          "text": "I2. Cross-origin redirect для защищённого Swagger"
+        },
+        {
+          "level": 3,
+          "text": "I3. Повторная загрузка конфигурации в пределах pytest-сессии"
+        },
+        {
+          "level": 3,
+          "text": "I4. Пустой пароль в конфигурации потребителя"
+        },
+        {
+          "level": 2,
           "text": "Чего делать не стоит"
         }
       ],
-      "chars": 55099
+      "chars": 57565
     },
     {
       "slug": "status",
       "path": "docs/wiki/status.md",
       "title": "Статус, версии и что дальше",
       "status": "current",
-      "verified": "2026-10-26",
+      "verified": "2026-11-14",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [
@@ -2097,6 +2144,10 @@
         {
           "level": 2,
           "text": "3. Что дальше"
+        },
+        {
+          "level": 3,
+          "text": "2.9.0 — OpenAPI Basic Auth с привязкой к источнику и обязательным HTTPS · **подготовлено, не опубликовано** 2026-11-14"
         },
         {
           "level": 3,
@@ -2147,14 +2198,14 @@
           "text": "7. Как обновлять эту страницу"
         }
       ],
-      "chars": 26710
+      "chars": 27872
     },
     {
       "slug": "WIKI",
       "path": "docs/wiki/WIKI.md",
       "title": "Схема документации",
       "status": "current",
-      "verified": "2026-09-23",
+      "verified": "2026-11-10",
       "audience": "maintainer",
       "ships_in_wheel": false,
       "sources": [],
@@ -2196,7 +2247,7 @@
           "text": "Инварианты правки"
         }
       ],
-      "chars": 5187
+      "chars": 5208
     }
   ],
   "raw": [],
@@ -2339,11 +2390,16 @@
       "concepts/methodology"
     ],
     "partest/openapi.py": [
+      "components/overview",
       "howto/enterprise",
       "howto/recipes"
     ],
     "partest/optin.py": [
       "components/overview"
+    ],
+    "partest/parparser.py": [
+      "components/overview",
+      "howto/quickstart"
     ],
     "partest/payloads.py": [
       "backlog-audit"

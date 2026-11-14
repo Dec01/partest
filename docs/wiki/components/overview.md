@@ -1,8 +1,8 @@
 ---
 title: Package map — what lives where
 status: current
-verified: 2026-10-26
-sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/http/client.py, partest/call_storage.py, partest/reports/payload.py, partest/pytest_plugin.py, partest/conf.py, partest/optin.py, partest/polling.py, partest/rounding.py, partest/known_defect.py, partest/reports/compare.py]
+verified: 2026-11-14
+sources: [partest/methodology/__init__.py, partest/__init__.py, partest/client.py, partest/coverage.py, partest/parparser.py, partest/openapi.py, partest/reports/__init__.py, partest/reporting/__init__.py, partest/ui/__init__.py, partest/security/__init__.py, partest/auth/__init__.py, partest/tls.py, partest/http/client.py, partest/call_storage.py, partest/reports/payload.py, partest/pytest_plugin.py, partest/conf.py, partest/optin.py, partest/polling.py, partest/rounding.py, partest/known_defect.py, partest/reports/compare.py]
 audience: agent
 ships_in_wheel: true
 ---
@@ -18,8 +18,9 @@ partest/
   coverage.py          track_api_calls, endpoint classification entry point; spec loaded on first use
   call_storage.py      per-process counters; dump/merge for xdist
   test_types.py        TypesTestCases, canonicalize_type, TYPE_LABELS
-  conf.py              load/validate confpartest; parse_swagger_entry — the swagger_files grammar
-  openapi.py           resolve_swagger / resolve_from_confpartest — load a spec (size, time, redirect limits)
+  conf.py              load/validate confpartest; swagger_files grammar and swagger_auth validation
+  parparser.py         OpenAPIParser / SwaggerSettings — coverage parsing and source-scoped HTTPS Basic Auth
+  openapi.py           resolve_swagger / resolve_from_confpartest — spec limits, redirects and service auth
   tracking.py          TrackingApiClient, CreatedRegistry, id extractors, resource owners
   polling.py           poll_until / poll_until_sync — wait for a terminal state, keep the path
   rounding.py          agrees_with_formula / agrees_with_sum / assert_all_agree — tolerance derived from scales

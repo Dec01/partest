@@ -13,7 +13,20 @@ pip install -U 'partest[ui]'   # UI suites
 pip install --no-cache-dir "partest==X.Y.Z"
 ```
 
-## Unreleased — public `redact_url`, the `swagger_files` grammar, limits of a spec fetch
+## 2.9.0 — source-scoped OpenAPI Basic Auth, HTTPS required
+
+`confpartest.swagger_auth` now works both for coverage and for `resolve_from_confpartest`;
+`resolve_swagger(..., auth=...)` is the direct equivalent. Explicit auth wins over the
+configured pair, and an `Authorization` header wins over Basic Auth.
+
+| What | Before | Now | Do |
+|---|---|---|---|
+| Basic Auth for a specification over `http://`, including URL userinfo | sent without a warning | refused before any request with a credential-free message | use `https://`; public HTTP without credentials is unchanged |
+| a typo or malformed value in `swagger_auth` | coverage could silently fetch without auth or fail inside the HTTP client | rejected before any request, without quoting credentials | match keys to `swagger_files`; use `(username, password)` strings |
+| a manual `SwaggerSettings.swaggers.append`, or reordering mixed public/private sources | a manual source could be skipped or receive another source's credentials | every `(source_type, path)` loads; auth follows that source, not its index | no migration; the public list keeps its shape |
+| direct authenticated parser/loader failure | credentials could appear in `pytest -l` traceback locals | sanitised exception, cleared library locals, no original HTTP-client frames | catch the loader's `RuntimeError`; no-auth behaviour is unchanged |
+
+## 2.8.0 — public `redact_url`, the `swagger_files` grammar, limits of a spec fetch
 
 New names (`partest.redact`, `partest.openapi`, `partest.conf` — each with `__all__` now) and
 keyword arguments with defaults; nothing to change in most suites. What masks more, or refuses

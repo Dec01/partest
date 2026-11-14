@@ -12,8 +12,9 @@ partest/
   coverage.py          track_api_calls, endpoint classification entry point; spec loaded on first use
   call_storage.py      per-process counters; dump/merge for xdist
   test_types.py        TypesTestCases, canonicalize_type, TYPE_LABELS
-  conf.py              load/validate confpartest; parse_swagger_entry — the swagger_files grammar
-  openapi.py           resolve_swagger / resolve_from_confpartest — load a spec (size, time, redirect limits)
+  conf.py              load/validate confpartest; swagger_files grammar and swagger_auth validation
+  parparser.py         OpenAPIParser / SwaggerSettings — coverage parsing and source-scoped HTTPS Basic Auth
+  openapi.py           resolve_swagger / resolve_from_confpartest — spec limits, redirects and service auth
   tracking.py          TrackingApiClient, CreatedRegistry, id extractors, resource owners
   polling.py           poll_until / poll_until_sync — wait for a terminal state, keep the path
   rounding.py          agrees_with_formula / agrees_with_sum / assert_all_agree — tolerance derived from scales

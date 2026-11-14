@@ -55,4 +55,4 @@ python -m partest.ui.capture_baselines --scenes scenes.json --dry-run
 
 Depth: `resources` → G2 · `default` → G3 · `p1` → G4.  
 UI is separate (`init-ui` / `--with-ui`).  
-After generation: skill `partest-scaffold` and `docs/wiki/components/project-gen.md`.
+After generation: `../partest_gen/procedures/scaffold.md` and `docs/wiki/components/project-gen.md`.

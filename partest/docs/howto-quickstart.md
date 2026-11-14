@@ -61,6 +61,23 @@ test_types_exception = ["health"]
 # tls_verify = False      # if the stand serves a self-signed certificate
 ```
 
+If the specification URL itself requires HTTP Basic Auth, add credentials under the same
+source name and read them from the environment, never from a committed literal:
+
+```python
+import os
+
+swagger_auth = {
+    "api": (os.environ["SWAGGER_LOGIN"], os.environ["SWAGGER_PASS"]),
+}
+```
+
+Credentials are used only for their matching `(source_type, path)` source. Omit
+`swagger_auth` when the specification is public; local files never make an HTTP request and
+ignore this setting. The mapping is validated before any request. Basic Auth requires an
+`https://` specification URL: `http://` with credentials is refused before the network, while
+public HTTP URLs without credentials work as before.
+
 Two switches worth knowing before the first run:
 
 - `pytest_plugin = False` turns off what the plugin adds **to Allure** and nothing else. What

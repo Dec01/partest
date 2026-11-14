@@ -1,7 +1,7 @@
 ---
 title: Статус, версии и что дальше
 status: current
-verified: 2026-10-26
+verified: 2026-11-14
 sources: [partest/__init__.py, CHANGELOG.md]
 audience: maintainer
 ships_in_wheel: false
@@ -15,10 +15,11 @@ allow_version_literals: true
 
 | | |
 |---|---|
-| **Дата актуализации** | 2026-10-26 |
-| **Версия в коде** | **2.7.0** |
-| **Последний релиз на PyPI** | **2.7.0** (выпуск 2026-10-25; 2.6.0 — 2026-10-18). Минимальный Python — 3.10, pytest `>=9.0.3,<10` |
-| **Кандидат** | `Unreleased` в `CHANGELOG.md`, не выпущен, версия не поднята (предложен минор 2.8.0): публичные `redact_url` / `REDACTED`, грамматика `swagger_files` в `partest.conf`, пределы `resolve_swagger` |
+| **Дата актуализации** | 2026-11-14 |
+| **Версия в коде** | **2.9.0** |
+| **Последний релиз на PyPI** | **2.7.0** (проверено `python -m pip index versions partest --index-url https://pypi.org/simple` 2026-11-14; 2.8.0 в индексе тоже нет). Минимальный Python — 3.10, pytest `>=9.0.3,<10` |
+| **Подготовленный релиз** | **2.9.0 — 2026-11-14, не опубликован**: source-scoped `swagger_auth`, Basic Auth только по HTTPS, поддержка auth в обоих загрузчиках OpenAPI. Подробности — `CHANGELOG.md`, раздел 2.9.0, [[howto/migration]] |
+| **2.8.0** | **задокументированная версия кода** 2026-10-26; **публикация на PyPI не подтверждена** — по проверке 2026-11-14 этой версии в индексе нет. Публичные `redact_url` / `REDACTED`, грамматика `swagger_files` в `partest.conf`, пределы `resolve_swagger`; `CHANGELOG.md`, раздел 2.8.0, [[howto/migration]] |
 | **Дистрибуция** | PyPI — пакет, GitHub — исходники и история; см. [[decisions/distribution]] |
 | **Соседний пакет** | `partest-gen` выделен из `partest.project_gen` 2026-09-07; см. §5 |
 | **Consumer proof** | переезд `1.5.0 → 1.8.0` **состоялся** 2026-09-07: `8 failed, 2122 passed`, все падения предсуществующие; пять находок по пакету разобраны, см. §6 |
@@ -67,6 +68,16 @@ allow_version_literals: true
 «проверить в partest-repo» — **закрыты**: `tests/test_ui_isolation.py`, `tests/test_harness_1_1.py`.
 
 ## 3. Что дальше
+
+### 2.9.0 — OpenAPI Basic Auth с привязкой к источнику и обязательным HTTPS · **подготовлено, не опубликовано** 2026-11-14
+
+Минор 2.9.0 выбран за новый opt-in `confpartest.swagger_auth` и необязательный `auth=` у
+прямых загрузчиков OpenAPI. Учётные данные привязаны к `(source_type, path)`, приоритет —
+у явного `Authorization`, затем у явного `auth=`; Basic Auth по HTTP отклоняется до запроса,
+ошибки не раскрывают учётные данные. Контракт записан в `CHANGELOG.md`, раздел 2.9.0, порядок
+перехода — [[howto/migration]]. Регенерация документации колеса, release check, полный gate
+и сборка wheel/sdist выполнены. Следующий отдельный шаг — публикация после явного согласия
+человека; на PyPI последняя версия — 2.7.0, 2.9.0 не опубликован.
 
 ### 2.6.0 — сверка вики сайта с колесом 2.5.0 · **выпущено** 2026-10-18
 

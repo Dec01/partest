@@ -1,13 +1,7 @@
----
-name: partest-cover-api
-description: >
-  Cover an API with partest tests: classify each operation into a method subtype, pick the
-  required P1 test cases from the methodology matrix, implement them with ApiClient, and close
-  missing_p1 from the coverage report. Use when writing or extending API autotests, raising
-  coverage, choosing test-case types, or writing transport IncorrectBody cases.
----
-
 # Covering an API with partest
+
+Read this procedure before writing or extending API autotests, raising coverage, choosing test-case
+types, or writing transport IncorrectBody cases.
 
 ## When to use this
 
@@ -16,8 +10,8 @@ description: >
 - Raising coverage against `missing_p1` from the report
 - Writing transport-level IncorrectBody (raw body / bad Content-Type)
 
-**Not this skill:** generating a new project → `partest-scaffold`. Publishing a version →
-`partest-release`. Working on the library itself → `AGENTS.md` + `docs/wiki/howto/contribute.md`.
+**Not this procedure:** generating a new project → `../partest_gen/procedures/scaffold.md`. Publishing
+a version → `release.md`. Working on the library itself → `AGENTS.md` + `docs/wiki/howto/contribute.md`.
 
 ## Hard rules
 
@@ -52,6 +46,15 @@ confpartest.py            # swagger_files: {"service": ["local"|"url", "<path or
 conftest.py               # domain, api_client; reset_storage() once, before yield of a session fixture
 src/tests/test_zorro.py   # calls zorro() last
 ```
+
+For an HTTPS specification URL protected by HTTP Basic Auth, set
+`swagger_auth = {"service": (username, password)}` in `confpartest.py`. The key must match
+`swagger_files`; read both values from the environment. Credentials are scoped to that one
+`(source_type, path)` source, and the setting is unnecessary for public URLs and ignored for
+local files. Coverage validates unknown names, non-dict settings and malformed pairs before
+any request. Basic Auth over `http://` is refused before the network; use `https://`. Public
+HTTP URLs without credentials need no change. `resolve_from_confpartest` uses the same
+setting, while `resolve_swagger(..., auth=...)` accepts an explicit pair.
 
 ```python
 from partest import ApiClient, TypesTestCases, reset_storage

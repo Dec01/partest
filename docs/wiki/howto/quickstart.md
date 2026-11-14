@@ -1,8 +1,8 @@
 ---
 title: Quickstart — first green API test
 status: current
-verified: 2026-10-26
-sources: [partest/client.py, partest/conf.py, partest/coverage.py, partest/call_storage.py, partest/env/__init__.py, partest/zorro_report.py, partest/tls.py, partest/pytest_plugin.py]
+verified: 2026-11-14
+sources: [partest/client.py, partest/conf.py, partest/coverage.py, partest/parparser.py, partest/call_storage.py, partest/env/__init__.py, partest/zorro_report.py, partest/tls.py, partest/pytest_plugin.py]
 audience: user
 ships_in_wheel: true
 ---
@@ -66,6 +66,23 @@ test_types_exception = ["health"]
 # pytest_plugin = False   # if you already own Allure hooks — Allure only, see below
 # tls_verify = False      # if the stand serves a self-signed certificate
 ```
+
+If the specification URL itself requires HTTP Basic Auth, add credentials under the same
+source name and read them from the environment, never from a committed literal:
+
+```python
+import os
+
+swagger_auth = {
+    "api": (os.environ["SWAGGER_LOGIN"], os.environ["SWAGGER_PASS"]),
+}
+```
+
+Credentials are used only for their matching `(source_type, path)` source. Omit
+`swagger_auth` when the specification is public; local files never make an HTTP request and
+ignore this setting. The mapping is validated before any request. Basic Auth requires an
+`https://` specification URL: `http://` with credentials is refused before the network, while
+public HTTP URLs without credentials work as before.
 
 Two switches worth knowing before the first run:
 

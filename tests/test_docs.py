@@ -57,13 +57,18 @@ def test_agents_file_stays_short():
     assert len(lines) <= 60, f"AGENTS.md grew to {len(lines)} lines (limit 60)"
 
 
-def test_every_skill_declares_name_and_description():
-    skills = sorted((REPO_ROOT / ".claude" / "skills").glob("*/SKILL.md"))
-    assert skills, "no skills found"
-    for skill in skills:
-        head = skill.read_text(encoding="utf-8").split("---", 2)
-        assert len(head) >= 3, f"{skill.name}: missing frontmatter"
-        assert "name:" in head[1] and "description:" in head[1], f"{skill}: incomplete frontmatter"
+def test_procedures_are_plain_markdown_and_indexed():
+    expected = {"cover-api.md", "release.md", "docs.md"}
+    directory = REPO_ROOT / "procedures"
+    procedures = sorted(directory.glob("*.md"))
+    assert {path.name for path in procedures} == expected | {"README.md"}
+    index = (directory / "README.md").read_text(encoding="utf-8")
+    for name in sorted(expected):
+        path = directory / name
+        text = path.read_text(encoding="utf-8")
+        assert text.startswith("# "), f"{path}: expected a plain Markdown heading"
+        assert not text.startswith("---"), f"{path}: loader frontmatter is not needed"
+        assert f"[{name}]({name})" in index, f"{path}: missing from procedures/README.md"
 
 
 def test_package_advertises_its_types():
@@ -240,7 +245,7 @@ def test_the_marker_default_is_present_and_overridable():
 def test_manifest_excludes_the_repository_only_material():
     """Tests and the wiki carry internal references and repo-only dependencies."""
     manifest = (REPO_ROOT / "MANIFEST.in").read_text(encoding="utf-8")
-    for pruned in ("prune tests", "prune docs", "prune tools", "prune .claude", "prune .grok"):
+    for pruned in ("prune tests", "prune docs", "prune tools", "prune procedures"):
         assert pruned in manifest, f"MANIFEST.in must {pruned!r}"
     assert "exclude README.md" in manifest, (
         "the root README is repo-facing and links to paths that do not ship"
@@ -248,7 +253,7 @@ def test_manifest_excludes_the_repository_only_material():
 
 
 def test_shipped_docs_do_not_point_at_repository_paths():
-    """A user has no docs/wiki or tools/ to follow."""
+    """A user has no docs/wiki, tools/ or maintainer procedures to follow."""
     import re
 
     shipped = sorted((REPO_ROOT / "partest" / "docs").glob("*.md"))
@@ -264,5 +269,5 @@ def test_shipped_docs_do_not_point_at_repository_paths():
 
     for path in shipped:
         text = path.read_text(encoding="utf-8")
-        stray = re.findall(r"docs/wiki/[\w/-]+|tools/[\w]+\.py|\.claude/skills", text)
+        stray = re.findall(r"docs/wiki/[\w/-]+|tools/[\w]+\.py|procedures/[\w.-]+", text)
         assert not stray, f"{path.name} points at repo-only paths: {sorted(set(stray))}"

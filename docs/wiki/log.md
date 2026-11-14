@@ -13,6 +13,44 @@ allow_version_literals: true
 Хронология: что сделано с документацией и почему. Новые записи сверху.
 Формат строки: дата · операция (ingest / update / lint / restructure) · что затронуто.
 
+## 2026-11-14 · update · подготовка 2.9.0 и уточнение публикации 2.8.0
+
+`__version__` поднят до 2.9.0; `CHANGELOG.md` «Unreleased» → «2.9.0 — 2026-11-14»;
+[[howto/migration]] называет раздел 2.9.0. [[status]] различает версию в коде 2.9.0,
+подготовленный неопубликованный релиз и последний публичный релиз 2.7.0. Проверка
+`python -m pip index versions partest --index-url https://pypi.org/simple` показала, что
+2.8.0 в публичном индексе также отсутствует: прежнее утверждение о его публикации исправлено,
+2.8.0 остаётся задокументированной версией кода. Публикация 2.9.0 не выполнялась.
+
+## 2026-11-14 · update · OpenAPI Basic Auth: источники, HTTPS и безопасные ошибки
+
+[[howto/quickstart]], [[howto/recipes]], [[howto/enterprise]], [[howto/migration]],
+[[components/overview]] и `procedures/cover-api.md` описывают привязку учётных данных к
+источнику, валидацию `swagger_auth` в coverage, обязательный HTTPS, очистку traceback locals и
+`resolve_swagger(..., auth=...)`; `CHANGELOG.md` фиксирует публичный контракт без смены версии.
+Даты сверки обновлены у изменённых страниц и у страниц, проверенных по затронутым модулям:
+[[backlog-audit]], [[proposals]], [[concepts/methodology]] и [[concepts/coverage-honesty]].
+[[status]] отражает работу в Unreleased без смены версии; в [[proposals]] добавлен раздел I
+с четырьмя спорными вопросами, выявленными при ревью.
+
+## 2026-11-13 · update · Basic Auth для загрузки спецификации
+
+[[howto/quickstart]] и `procedures/cover-api.md` описывают `swagger_auth` с привязкой учётных
+данных к именованному источнику; `CHANGELOG.md` фиксирует новый публичный контракт без смены
+версии. Обновлена дата сверки quickstart с `partest/conf.py` и `partest/coverage.py`.
+
+## 2026-11-10 · restructure · явные процедуры для Kimi
+
+Локальные процедуры перенесены в `procedures/` и перечислены в его `README.md`; обновлены
+[[index]], `docs/wiki/WIKI.md`, [[howto/contribute]], [[howto/release]], корневые `AGENTS.md`, `README.md`,
+`MANIFEST.in` и `tests/test_docs.py`. Даты `verified` обновлены у изменённых страниц.
+
+## 2026-10-26 · update · подготовка 2.8.0
+
+`CHANGELOG.md` «Unreleased» → «2.8.0 — 2026-10-26»; [[howto/migration]] — раздел
+«Unreleased» назван 2.8.0. Запись в [[status]] ошибочно объявила 2.8.0 опубликованным на
+PyPI; это исправлено 2026-11-14 после проверки публичного индекса.
+
 ## 2026-10-26 · update · ревью кандидата 2.8.0: адреса, загрузка спецификации
 
 [[howto/enterprise]] — строки таблицы про ошибки конфигурации и `resolve_swagger`, правило

@@ -23,7 +23,7 @@ pip install 'partest[ui]'
 | [docs/wiki/status.md](docs/wiki/status.md) | current version, waves, what is next |
 | [docs/wiki/howto/contribute.md](docs/wiki/howto/contribute.md) | invariants, tests, how to make a change |
 | [docs/wiki/WIKI.md](docs/wiki/WIKI.md) | how the documentation itself is organized |
-| [.claude/skills/](.claude/skills/) | procedures: cover an API, release, maintain docs |
+| [procedures/](procedures/) | procedures: cover an API, release, maintain docs |
 
 ```bash
 python -m pytest tests/ -q          # units + docs lint + the partest-gen bridge

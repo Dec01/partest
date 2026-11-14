@@ -1,7 +1,7 @@
 ---
 title: Release checklist
 status: current
-verified: 2026-10-25
+verified: 2026-11-14
 sources: [setup.py, MANIFEST.in, partest/__init__.py, tools/docs_build_wheel.py]
 audience: maintainer
 ships_in_wheel: false
@@ -67,8 +67,9 @@ python -m zipfile -l dist/partest-*.whl | grep "partest/docs"
 ```
 
 The wheel must contain exactly the pages marked `ships_in_wheel: true` — no status page and no ADRs. Check the sdist as well: it carries `partest/**`, `CHANGELOG.md`,
-`LICENSE` and the packaging files, and nothing else. `MANIFEST.in` prunes `tests/`, `docs/`, `tools/`, `.claude/` and `.grok/`; if you add a top-level directory, decide there whether it
-ships before the next release does it for you.
+`LICENSE` and the packaging files, and nothing else. `MANIFEST.in` prunes `tests/`, `docs/`,
+`tools/` and `procedures/`; if you add a top-level directory, decide there whether it ships before
+the next release does it for you.
 
 ```bash
 python -c "import tarfile,glob; t=tarfile.open(glob.glob('dist/*.tar.gz')[0]); print(*sorted(t.getnames()), sep=chr(10))"

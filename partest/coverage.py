@@ -124,6 +124,11 @@ def _load_operations(module: Any) -> Optional[str]:
     if not files:
         _decide(False, "confpartest.swagger_files is empty")
         return None
+    configured_auth = getattr(module, "swagger_auth", None)
+    auth_errors = _conf._validate_swagger_auth(files, configured_auth)
+    if auth_errors:
+        return "invalid swagger_auth: " + "; ".join(auth_errors)
+    configured_auth = configured_auth or {}
     from partest.parparser import SwaggerSettings
 
     loaded: List[Any] = []
@@ -135,7 +140,14 @@ def _load_operations(module: Any) -> Optional[str]:
             kind, where = _conf.parse_swagger_entry(entry)
             if kind == "local":
                 where = _conf._resolve_relative(where, module)
-            loaded.extend(SwaggerSettings({key: [kind, where]}).collect_paths_info())
+            if key in configured_auth:
+                settings = SwaggerSettings(
+                    {key: [kind, where]}, auth={key: configured_auth[key]}
+                )
+            else:
+                # Keep the old call shape when authentication is not configured.
+                settings = SwaggerSettings({key: [kind, where]})
+            loaded.extend(settings.collect_paths_info())
         except Exception as exc:
             # Text only: the original exception is not chained, or a traceback would print
             # its message — credentials and query strings included.

@@ -498,6 +498,67 @@ def resolve_entry_location(
     return SwaggerEntry("local", str(found if found.is_absolute() else found.resolve()))
 
 
+def _swagger_auth_pair_error(credentials: Any) -> Optional[str]:
+    if (
+        not isinstance(credentials, (list, tuple))
+        or len(credentials) != 2
+        or not all(isinstance(value, str) for value in credentials)
+    ):
+        # Never quote the value: it contains the password.
+        return "must be (username, password) strings"
+    return None
+
+
+def _validate_swagger_auth(swagger: Any, auth: Any) -> List[str]:
+    """Validate ``swagger_auth`` without ever including a credential in the result."""
+    if auth is None:
+        return []
+    if not isinstance(auth, dict):
+        return ["swagger_auth must be a dict: name -> (username, password)"]
+    known = set(swagger) if isinstance(swagger, dict) else set()
+    errors = []
+    for name, credentials in auth.items():
+        shown_name = _safe_text(repr(name))
+        if name not in known:
+            errors.append(f"swagger_auth[{shown_name}] has no matching swagger_files entry")
+        pair_error = _swagger_auth_pair_error(credentials)
+        if pair_error is not None:
+            errors.append(f"swagger_auth[{shown_name}] {pair_error}")
+    return errors
+
+
+def _require_https_auth(location: Any, auth: Any) -> None:
+    """Refuse explicit or URL-userinfo Basic Auth over cleartext HTTP."""
+    text = str(location)
+    has_auth = auth is not None
+    if not has_auth:
+        try:
+            parts = urlsplit(text)
+            has_auth = parts.username is not None or parts.password is not None
+        except ValueError:
+            # The grammar's unreadable-address check reports malformed userinfo separately.
+            pass
+    if has_auth and not text.lower().startswith("https://"):
+        raise ValueError(
+            "OpenAPI Basic Auth requires an https:// URL; http:// is refused before any request"
+        )
+
+
+def _hide_auth_values(text: str, auth: Any) -> str:
+    """Remove explicit Basic Auth values as well as credentials embedded in a URL."""
+    pairs = auth.values() if isinstance(auth, dict) else (auth,)
+    values = {
+        value
+        for pair in pairs
+        if isinstance(pair, (list, tuple))
+        for value in pair
+        if isinstance(value, str) and value
+    }
+    for value in sorted(values, key=len, reverse=True):
+        text = text.replace(value, "…")
+    return text
+
+
 def validate_confpartest(conf: Any) -> List[str]:
     """Return a list of validation problems (empty if OK)."""
     errors: List[str] = []
@@ -515,6 +576,8 @@ def validate_confpartest(conf: Any) -> List[str]:
                 parse_swagger_entry(spec)
             except ConfpartestError as exc:
                 errors.append(f"swagger_files[{_safe_text(repr(name))}] {exc}")
+
+    errors.extend(_validate_swagger_auth(swagger, getattr(conf, "swagger_auth", None)))
 
     for attr in ("test_types_coverage", "test_types_exception"):
         val = getattr(conf, attr, None)

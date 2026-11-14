@@ -7,9 +7,9 @@ include CHANGELOG.md
 
 # Deliberately NOT shipped:
 #   tests/      — reference a consumer project by name, and several of them need
-#                 repo-only files (tools/, docs/wiki/, .claude/) so they cannot pass
+#                 repo-only files (tools/, docs/wiki/, procedures/) so they cannot pass
 #                 from an sdist anyway
-#   README.md   — repo-facing; it links to docs/wiki/, AGENTS.md and .claude/skills/,
+#   README.md   — repo-facing; it links to docs/wiki/, AGENTS.md and procedures/,
 #                 none of which ship. The PyPI description comes from docs/PYPI.md
 #   docs/       — the wiki, raw consumer snapshots and the archive are internal
 prune tests
@@ -23,8 +23,7 @@ prune docs
 include docs/PYPI.md
 prune src
 prune tools
-prune .claude
-prune .grok
+prune procedures
 exclude README.md
 exclude conftest.py
 exclude confpartest.py

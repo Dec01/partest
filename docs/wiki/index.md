@@ -1,7 +1,7 @@
 ---
 title: Каталог документации partest
 status: current
-verified: 2026-09-13
+verified: 2026-11-10
 sources: []
 audience: agent
 ships_in_wheel: false
@@ -69,7 +69,7 @@ ships_in_wheel: false
 | Где | Что |
 |---|---|
 | `AGENTS.md` | границы работы агента в этом репозитории |
-| `.claude/skills/` | процедуры: покрытие API, скаффолд, релиз, поддержка доков |
+| `procedures/` | процедуры: покрытие API, релиз, поддержка доков; скаффолд — в репозитории partest-gen |
 | `CHANGELOG.md` | что менялось по версиям |
 
 

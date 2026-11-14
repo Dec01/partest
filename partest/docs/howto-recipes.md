@@ -205,25 +205,32 @@ a test that is still holding a mark.
 ## Resolve OpenAPI
 
 ```python
+import os
 from partest.openapi import OpenApiResolveError, resolve_swagger, resolve_from_confpartest
 
 spec = resolve_swagger("docs/openapi.yaml")
 spec = resolve_swagger(["url", "https://api/v3/api-docs"])  # TLS: the package policy
 spec = resolve_swagger(entry, project_root=root,          # one swagger_files entry
+                       auth=(os.environ["SWAGGER_LOGIN"], os.environ["SWAGGER_PASS"]),
                        max_bytes=8 * 1024 * 1024,         # default 64 MiB; None — no limit
                        total_timeout=30,                  # default None; see below
                        max_redirects=5)                   # default 20, as httpx
-spec = resolve_from_confpartest(service="myservice")
+spec = resolve_from_confpartest(service="myservice")      # uses its swagger_auth, if present
 ```
 
 Public names (`partest.openapi.__all__`): `resolve_swagger`, `resolve_from_confpartest`,
 `OpenApiResolveError`, `SpecSource`, `DEFAULT_MAX_SPEC_BYTES`. A string is a URL when it starts
 with `http://` or `https://` in any case, else a local path. Every failure is
-`OpenApiResolveError`, its text without URL credentials or query string and without a chained
-exception (a YAML parse error keeps the parser's exception chained). For a URL:
+`OpenApiResolveError`, its text without URL credentials, explicit Basic Auth values or query
+string and without a chained exception (a YAML parse error without explicit credentials keeps
+the parser's exception chained). For a URL:
 
-- `user:password@` goes as basic `auth=` (a caller's `Authorization` header wins); the query
-  string stays out of httpx's INFO `HTTP Request:` line;
+- keyword-only `auth=(username, password)` goes as basic `auth=`; URL `user:password@` is used
+  when explicit auth is omitted. `resolve_from_confpartest` selects `swagger_auth` by the
+  service name. Explicit `auth=` wins over that setting (including `auth=None`, which disables
+  it), and a caller's `Authorization` header wins over Basic Auth. Credentials require
+  `https://`: HTTP with either form of Basic Auth is refused before any request; public HTTP
+  without credentials is unchanged. The query string stays out of httpx's INFO `HTTP Request:` line;
 - redirects are followed by partest itself, `max_redirects` at most: one to another origin
   (scheme, host or port) goes without the caller's `headers` and without the credentials;
   one from `https` to `http` is refused;
