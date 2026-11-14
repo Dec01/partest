@@ -77,7 +77,11 @@ jobs:
               if m.isfile() and "/" in m.name
               and not m.name.split("/", 1)[1].startswith(("partest/", "partest."))
           )
-          allowed = {"", "CHANGELOG.md", "LICENSE", "MANIFEST.in", "PKG-INFO", "setup.cfg", "setup.py"}
+          # setup.py reads this for long_description when building from the sdist.
+          allowed = {
+              "", "CHANGELOG.md", "docs/PYPI.md", "LICENSE", "MANIFEST.in", "PKG-INFO",
+              "setup.cfg", "setup.py",
+          }
           unexpected = [n for n in extra if n not in allowed]
           assert not unexpected, f"unexpected files in the sdist: {unexpected}"
 

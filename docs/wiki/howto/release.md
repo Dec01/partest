@@ -66,10 +66,10 @@ python tools/check_all.py --package
 python -m zipfile -l dist/partest-*.whl | grep "partest/docs"
 ```
 
-The wheel must contain exactly the pages marked `ships_in_wheel: true` — no status page and no ADRs. Check the sdist as well: it carries `partest/**`, `CHANGELOG.md`,
-`LICENSE` and the packaging files, and nothing else. `MANIFEST.in` prunes `tests/`, `docs/`,
-`tools/` and `procedures/`; if you add a top-level directory, decide there whether it ships before
-the next release does it for you.
+The wheel must contain exactly the pages marked `ships_in_wheel: true` — no status page and no ADRs. Check the sdist as well: it carries `partest/**`, `CHANGELOG.md`, `LICENSE`,
+`docs/PYPI.md` (which `setup.py` reads for `long_description`) and the packaging files, and
+nothing else. `MANIFEST.in` prunes `tests/`, `docs/`, `tools/` and `procedures/`; if you add
+a top-level directory, decide there whether it ships before the next release does it for you.
 
 ```bash
 python -c "import tarfile,glob; t=tarfile.open(glob.glob('dist/*.tar.gz')[0]); print(*sorted(t.getnames()), sep=chr(10))"
